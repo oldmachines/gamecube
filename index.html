@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside the GameCube — an oldmachines guide</title>
+<meta name="description" content="Interactive, explorable teardowns of the Nintendo GameCube's hardware — one subsystem at a time. Part of the oldmachines collection.">
+<style>
+  :root{
+    --ground:#0c0a13; --ground-2:#100d19; --panel:#16121f; --panel-2:#1d1830;
+    --line:#2c2542; --line-2:#392f57; --ink:#ece8f6; --ink-2:#b7afce; --muted:#877f9e;
+    --violet:#a884ff; --violet-d:#7d5cf0; --cyan:#45e4d1; --magenta:#ff5f9e; --amber:#ffb14e;
+    --radius:14px; --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--ground);line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1200px 700px at 78% -8%,rgba(125,92,240,.16),transparent 60%),
+      radial-gradient(900px 600px at 0% 100%,rgba(69,228,209,.06),transparent 55%);
+    background-attachment:fixed;min-height:100vh}
+  a{color:var(--violet);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:3px}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:6px}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 28px}
+  header.top{display:flex;align-items:center;gap:12px;padding:22px 0}
+  .logo{width:34px;height:34px;border-radius:8px;
+    background:radial-gradient(circle at 30% 30%,var(--violet),var(--violet-d) 55%,#3a2a80);
+    box-shadow:0 0 22px -4px rgba(168,132,255,.55),inset 0 0 0 1px rgba(255,255,255,.12);position:relative}
+  .logo::after{content:"";position:absolute;inset:11px;border-radius:50%;border:2px solid rgba(12,10,19,.75)}
+  .brandline{font:600 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .brandline b{color:var(--ink);font-weight:700}
+  .hero{padding:52px 0 40px;border-bottom:1px solid var(--line)}
+  .eyebrow{font:600 11px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);
+    display:inline-flex;align-items:center;gap:9px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--cyan);opacity:.7}
+  h1{font:800 clamp(36px,7vw,68px)/1.02 var(--sans);letter-spacing:-.02em;margin:18px 0 0;text-wrap:balance}
+  h1 .grad{background:linear-gradient(100deg,var(--cyan),var(--violet) 55%,var(--magenta));
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:18.5px;color:var(--ink-2);max-width:60ch;margin:20px 0 0}
+  h2.sh{font:700 12px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:44px 0 0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:20px 0 0}
+  .card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:20px;transition:transform .14s,border-color .14s,background .14s}
+  a.card:hover{transform:translateY(-3px);border-color:var(--line-2);background:var(--panel-2);text-decoration:none}
+  .card .ico{width:40px;height:40px;border-radius:9px;display:grid;place-items:center;font:700 18px/1 var(--mono);
+    background:rgba(69,228,209,.1);color:var(--cyan);border:1px solid rgba(69,228,209,.2)}
+  .card h3{font:700 18px/1.2 var(--sans);margin:16px 0 6px}
+  .card p{font-size:13.5px;color:var(--muted);margin:0;flex:1}
+  .card .status{margin-top:16px;font:600 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    display:inline-flex;align-items:center;gap:7px}
+  .card .status.ready{color:var(--cyan)} .card .status.soon{color:var(--muted)}
+  .card .status .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+  .card.disabled{opacity:.58}
+  .card.disabled:hover{transform:none}
+  footer{padding:40px 0 56px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);margin-top:48px}
+  footer a{color:var(--ink-2)}
+  .spec-strip{display:flex;flex-wrap:wrap;gap:10px 26px;margin:26px 0 0;font:600 11px/1.5 var(--mono);color:var(--muted)}
+  .spec-strip b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo" aria-hidden="true"></div>
+    <div class="brandline"><b>oldmachines</b> · the collection</div>
+  </header>
+
+  <section class="hero">
+    <span class="eyebrow">Interactive teardown · Nintendo · 2001</span>
+    <h1>Inside the <span class="grad">GameCube</span></h1>
+    <p class="lede">
+      Explorable, hands-on explanations of how Nintendo's little purple box
+      actually worked — one subsystem at a time. Not a spec sheet: each guide is
+      a playable course you can hear, drag and toggle. More subsystems land over
+      time.
+    </p>
+    <div class="spec-strip">
+      <span>CPU <b>Gekko · PowerPC 750CXe</b></span>
+      <span>GPU <b>Flipper · 162 MHz</b></span>
+      <span>Audio <b>Macronix 16-bit DSP</b></span>
+      <span>Media <b>1.5 GB miniDVD</b></span>
+    </div>
+  </section>
+
+  <h2 class="sh">Subsystems</h2>
+  <div class="grid">
+
+    <a class="card" href="audio/">
+      <div class="ico">♪</div>
+      <h3>Audio &amp; the DSP</h3>
+      <p>The 16-bit DSP, its interchangeable ucodes, ADPCM, AX mixing, Dolby Pro Logic II, and LLE vs HLE — a 13-module course with a live synthesiser.</p>
+      <span class="status ready"><span class="dot"></span>Ready · 13 modules</span>
+    </a>
+
+    <div class="card disabled" aria-disabled="true">
+      <div class="ico">▦</div>
+      <h3>Graphics &amp; Flipper</h3>
+      <p>The Flipper GPU: the embedded 1T-SRAM framebuffer, the TEV pixel pipeline, and how tiles reach the screen.</p>
+      <span class="status soon"><span class="dot"></span>In the works</span>
+    </div>
+
+    <div class="card disabled" aria-disabled="true">
+      <div class="ico">⌘</div>
+      <h3>CPU &amp; Gekko</h3>
+      <p>The PowerPC 750-derived Gekko core, its paired-single math, cache locking, and how games squeezed it.</p>
+      <span class="status soon"><span class="dot"></span>In the works</span>
+    </div>
+
+    <div class="card disabled" aria-disabled="true">
+      <div class="ico">◎</div>
+      <h3>The disc drive</h3>
+      <p>The 8&nbsp;cm miniDVD format, the copy-protection scheme, and how data streamed off the disc.</p>
+      <span class="status soon"><span class="dot"></span>In the works</span>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>
+      Part of <a href="https://github.com/oldmachines">oldmachines</a> — interactive
+      teardowns of the machines we grew up with. Technical content is grounded in
+      the <a href="https://github.com/dolphin-emu/dolphin">Dolphin emulator</a>
+      source. No copyrighted game assets are shipped here; every sound is
+      synthesised in your browser.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

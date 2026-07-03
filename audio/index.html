@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameCube Audio — a course on the DSP, ucodes & Pro Logic II</title>
+<meta name="description" content="A hands-on course in three parts: digital signal processing fundamentals, how the GameCube DSP makes sound (including Dolby Pro Logic II), and how Dolphin emulates it — with a built-in synthesiser so you can hear every concept.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><div class="fill" id="progress-fill"></div></div>
+<button class="menu-btn" id="menu-btn" aria-label="Open contents">☰</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+
+  <!-- ================================================= SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>GameCube Audio</h1>
+        <span class="sub">A course · 13 modules</span>
+      </div>
+    </div>
+
+    <nav class="toc" aria-label="Course contents">
+      <div class="toc-group">Part I · Signal processing</div>
+      <a href="#signals"><span class="n">01</span><span>Sound as numbers</span></a>
+      <a href="#sampling"><span class="n">02</span><span>Sampling &amp; Nyquist</span></a>
+      <a href="#quantization"><span class="n">03</span><span>Quantisation &amp; ADPCM</span></a>
+      <a href="#mixing"><span class="n">04</span><span>Mixing, gain &amp; panning</span></a>
+      <a href="#filters"><span class="n">05</span><span>Filters &amp; resampling</span></a>
+
+      <div class="toc-group">Part II · The GameCube DSP</div>
+      <a href="#dsp"><span class="n">06</span><span>The audio DSP</span></a>
+      <a href="#ucodes"><span class="n">07</span><span>One chip, many ucodes</span></a>
+      <a href="#ax"><span class="n">08</span><span>AX: the voice pipeline</span></a>
+      <a href="#dpl2"><span class="n">09</span><span>Dolby Pro Logic II</span></a>
+
+      <div class="toc-group">Part III · Emulating in Dolphin</div>
+      <a href="#lle-hle"><span class="n">10</span><span>LLE vs HLE</span></a>
+      <a href="#pipeline"><span class="n">11</span><span>Boot, mail &amp; dispatch</span></a>
+      <a href="#output"><span class="n">12</span><span>The output path</span></a>
+      <a href="#try"><span class="n">13</span><span>Try it in Dolphin</span></a>
+
+      <div class="progress-note">Progress · <b id="pct">0%</b></div>
+    </nav>
+  </aside>
+
+  <!-- ================================================= MAIN =============== -->
+  <main class="main">
+
+    <!-- ------------------------------------------------ HERO -------------- -->
+    <header class="hero">
+      <canvas id="hero-scope" aria-hidden="true"></canvas>
+      <div class="wrap">
+        <div class="inner">
+          <span class="eyebrow">An interactive course · Dolphin emulator</span>
+          <h2>How the <span class="grad">GameCube</span> made sound.</h2>
+          <p class="lede">
+            Start from first principles — what a digital signal even <em>is</em> —
+            then follow the signal all the way through Nintendo's tiny audio DSP
+            and out through Dolphin's emulator. Thirteen short modules, each with a
+            <strong>live synthesiser</strong> so you can hear the idea, not just
+            read it. No game audio ships with this page; every sound is generated
+            in your browser.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#signals">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Begin Part I
+            </a>
+            <button class="btn" id="play-chime">Hear the startup chime</button>
+          </div>
+
+          <div class="arc-cards">
+            <a class="arc" href="#part-1">
+              <div class="an">PART I</div>
+              <h4>Signal processing</h4>
+              <p>Sampling, quantisation, ADPCM, mixing and filters — the vocabulary of digital audio.</p>
+              <div class="cnt">5 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-2">
+              <div class="an">PART II</div>
+              <h4>The GameCube DSP</h4>
+              <p>The chip, its interchangeable ucodes, the AX mixer and Dolby Pro Logic II.</p>
+              <div class="cnt">4 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-3">
+              <div class="an">PART III</div>
+              <h4>Emulating in Dolphin</h4>
+              <p>LLE vs HLE, ucode dispatch, and the mixer that reaches your speakers.</p>
+              <div class="cnt">4 modules</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ============================================ PART I ============== -->
+      <section class="part" id="part-1">
+        <div class="part-inner">
+          <div class="kicker">Part I</div>
+          <h3>Digital signal processing</h3>
+          <p>
+            Before any GameCube-specific magic, you need the fundamentals every
+            audio chip is built on. These five modules build the vocabulary —
+            samples, rates, bit depth, compression, mixing and filtering — using
+            plain synthesised tones you can play and see on a scope. Everything in
+            Parts II and III is an application of what's here.
+          </p>
+          <div class="part-meta"><span>Modules <b>01–05</b></span><span>Difficulty <b>Foundations</b></span><span>Labs <b>4 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 01 --- -->
+      <section class="doc" id="signals">
+        <div class="mod-head">
+          <span class="eye">Module 01 <span class="part-tag">· Part I</span></span>
+          <h3>Sound as numbers</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand how a continuous sound wave becomes a stream of numbers a chip can process.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Sound is a pressure wave. To store or process it, we measure that
+            pressure many thousands of times per second and write down each
+            measurement as a number — a <strong>sample</strong>. Play those numbers
+            back through a speaker at the same rate and the wave reappears. Two
+            numbers describe the whole scheme: how <em>often</em> we sample (the
+            sample rate, Module 02) and how <em>precisely</em> we record each value
+            (the bit depth, Module 03).
+          </p>
+          <p>
+            The <em>shape</em> of the wave is its timbre. A pure <strong>sine</strong>
+            is a single frequency; a <strong>square</strong> or <strong>saw</strong>
+            packs in many harmonics and sounds brighter and buzzier; and
+            <strong>noise</strong> is all frequencies at once. Every instrument the
+            DSP mixes is ultimately one of these shapes (or a recorded sample)
+            scaled and combined. Play with the scope below — switch shapes and
+            sweep the frequency, and watch the trace.
+          </p>
+
+          <div class="lab" id="lab-wave">
+            <div class="lab-head"><span class="dot"></span><span class="title">Signal lab — waveforms on a scope</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope trace of the selected waveform"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Waveform</label>
+                  <div class="seg-btns" role="group" aria-label="Waveform">
+                    <button class="on" data-shape="sine">sine</button>
+                    <button data-shape="square">square</button>
+                    <button data-shape="sawtooth">saw</button>
+                    <button data-shape="triangle">tri</button>
+                    <button data-shape="noise">noise</button>
+                  </div>
+                </div>
+                <div class="ctrl">
+                  <label>Frequency — <span class="val" data-wave-freq-val>220 Hz</span></label>
+                  <input type="range" min="55" max="1760" value="220" step="1" data-wave-freq aria-label="Frequency">
+                </div>
+                <button class="play-btn" data-wave-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A digital signal is just amplitude values sampled at regular intervals.</li>
+              <li>Waveform shape = harmonic content = timbre.</li>
+              <li>Two knobs define the format: sample rate and bit depth.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of course</span></a>
+            <a class="next" href="#sampling"><span class="dir">Next →</span><span class="ttl">02 · Sampling &amp; Nyquist</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 02 --- -->
+      <section class="doc" id="sampling">
+        <div class="mod-head">
+          <span class="eye">Module 02 <span class="part-tag">· Part I</span></span>
+          <h3>Sampling &amp; the Nyquist limit</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See why sample rate caps the highest reproducible frequency — and hear what aliasing sounds like.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The <strong>Nyquist theorem</strong> says you can only faithfully
+            reproduce frequencies up to <em>half</em> the sample rate. Sample at
+            32&nbsp;kHz and everything up to 16&nbsp;kHz is fine — plenty for
+            games. But push a frequency above that limit, or resample carelessly,
+            and it doesn't just disappear: it <strong>folds back</strong> into the
+            audible range as a false tone. That artefact is <strong>aliasing</strong>,
+            and avoiding it is a big part of what a good resampler does.
+          </p>
+          <p>
+            The lab plays the same rising sweep resampled three ways. At 32&nbsp;kHz
+            (the DSP's native rate) it glides cleanly. Crush it to 8 or 4&nbsp;kHz
+            with no filtering and you'll hear the highs turn to gravel as they alias
+            — the exact failure the GameCube's polyphase filter (Module 05) exists
+            to prevent.
+          </p>
+
+          <div class="lab" id="lab-src">
+            <div class="lab-head"><span class="dot"></span><span class="title">Sample-rate &amp; aliasing</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope of resampled sweep"></canvas>
+              <div class="controls">
+                <button class="play-btn" data-rate="4000" style="background:linear-gradient(180deg,#ff6a6a,#c23b3b);color:#200">4 kHz</button>
+                <button class="play-btn" data-rate="8000" style="background:linear-gradient(180deg,#ffb14e,#c9832b);color:#200">8 kHz</button>
+                <button class="play-btn" data-rate="32000">32 kHz (native)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Max reproducible frequency = sample rate ÷ 2 (Nyquist).</li>
+              <li>Frequencies above that fold back as false tones — aliasing.</li>
+              <li>The GameCube DSP runs audio at 32&nbsp;kHz; streaming disc audio at 48&nbsp;kHz.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#signals"><span class="dir">← Prev</span><span class="ttl">01 · Sound as numbers</span></a>
+            <a class="next" href="#quantization"><span class="dir">Next →</span><span class="ttl">03 · Quantisation &amp; ADPCM</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 03 --- -->
+      <section class="doc" id="quantization">
+        <div class="mod-head">
+          <span class="eye">Module 03 <span class="part-tag">· Part I</span></span>
+          <h3>Quantisation, PCM &amp; ADPCM</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn how bit depth trades size for fidelity, and how predictive ADPCM squeezes audio into 4 bits.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            If sample <em>rate</em> is how often you measure, <strong>bit depth</strong>
+            is how finely. Storing raw amplitudes is <strong>PCM</strong> — 16-bit
+            PCM gives 65,536 possible levels and clean sound, but it's big. Round
+            each sample to fewer levels and you save space at the cost of
+            <strong>quantisation noise</strong>: a gritty crunch as the waveform is
+            forced onto a coarse grid.
+          </p>
+          <p>
+            The GameCube's ARAM was small, so nearly all its samples are
+            <strong>4-bit ADPCM</strong> — a quarter the size of 16-bit PCM. ADPCM
+            is cleverer than plain rounding: instead of storing amplitudes it stores
+            small <em>corrections</em>. Each 4-bit nibble scales a step and adds a
+            <strong>prediction</strong> built from the two previous samples and a
+            pair of per-block coefficients. Because audio changes smoothly, the
+            prediction is usually close, so 4 bits of correction go a long way.
+          </p>
+          <p>
+            Drag the bit-depth slider to hear the crunch appear, and compare against
+            the 16-bit reference. Watch the scope trace get blocky as the grid
+            coarsens — that's quantisation, made audible.
+          </p>
+
+          <div class="lab" id="lab-adpcm">
+            <div class="lab-head"><span class="dot"></span><span class="title">Quantiser &amp; ADPCM</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope of quantised waveform"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Bit depth — <span class="val" data-bits-val>4-bit</span></label>
+                  <input type="range" min="2" max="12" value="4" step="1" data-bits aria-label="Bit depth">
+                </div>
+                <button class="play-btn" data-adpcm-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play quantised
+                </button>
+                <button class="play-btn" data-pcm-play style="background:linear-gradient(180deg,#a884ff,#7d5cf0);color:#120c22">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play 16-bit reference
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="note hw">
+            <div class="ico">▍</div>
+            <div><p><strong>On the real chip</strong> the accelerator decodes ADPCM
+            as <code>val = scale·nibble + ((0x400 + c1·yn1 + c2·yn2) &gt;&gt; 11)</code>,
+            clamped to 16 bits, refreshing the block scale every 16 bytes. You'll
+            meet it again in Module 06.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Bit depth sets the number of amplitude levels; too few = quantisation noise.</li>
+              <li>PCM stores amplitudes; ADPCM stores predicted corrections in 4 bits.</li>
+              <li>ADPCM works because audio is locally predictable from recent samples.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#sampling"><span class="dir">← Prev</span><span class="ttl">02 · Sampling &amp; Nyquist</span></a>
+            <a class="next" href="#mixing"><span class="dir">Next →</span><span class="ttl">04 · Mixing, gain &amp; panning</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 04 --- -->
+      <section class="doc" id="mixing">
+        <div class="mod-head">
+          <span class="eye">Module 04 <span class="part-tag">· Part I</span></span>
+          <h3>Mixing, gain &amp; panning</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand how many voices sum into one output, why gains must ramp, and how panning places a sound.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            A game plays dozens of sounds at once. <strong>Mixing</strong> is simply
+            adding their samples together — but with care. Each source has a
+            <strong>gain</strong> (volume), and if you change a gain
+            <em>instantly</em> you get an audible click, because the waveform jumps.
+            So audio hardware <strong>ramps</strong> gains smoothly over a few
+            milliseconds instead. <strong>Panning</strong> places a mono source in
+            the stereo field by sending more of it to one channel than the other.
+          </p>
+          <p>
+            The mini-mixer below is four synth voices. Set each one's volume (tall
+            slider) and pan (wide slider), mute a few, and play the mix — the gains
+            glide up over 250&nbsp;ms exactly the way the DSP ramps them. This is
+            the core loop the GameCube's AX ucode runs, just with four voices
+            instead of sixty-four (Module 08).
+          </p>
+
+          <div class="lab" id="lab-mixer">
+            <div class="lab-head"><span class="dot"></span><span class="title">Mini-mixer — four voices, ramped &amp; panned</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <div class="mixer">
+                <div class="strip" data-freq="130.81" data-type="triangle">
+                  <span class="name">Voice 1</span>
+                  <input type="range" class="fader" min="0" max="100" value="70" aria-label="Voice 1 volume">
+                  <input type="range" class="pan" min="-100" max="100" value="-60" aria-label="Voice 1 pan">
+                  <button class="mute">MUTE</button>
+                </div>
+                <div class="strip" data-freq="196.00" data-type="sawtooth">
+                  <span class="name">Voice 2</span>
+                  <input type="range" class="fader" min="0" max="100" value="55" aria-label="Voice 2 volume">
+                  <input type="range" class="pan" min="-100" max="100" value="-20" aria-label="Voice 2 pan">
+                  <button class="mute">MUTE</button>
+                </div>
+                <div class="strip" data-freq="261.63" data-type="square">
+                  <span class="name">Voice 3</span>
+                  <input type="range" class="fader" min="0" max="100" value="45" aria-label="Voice 3 volume">
+                  <input type="range" class="pan" min="-100" max="100" value="30" aria-label="Voice 3 pan">
+                  <button class="mute">MUTE</button>
+                </div>
+                <div class="strip" data-freq="392.00" data-type="sine">
+                  <span class="name">Voice 4</span>
+                  <input type="range" class="fader" min="0" max="100" value="60" aria-label="Voice 4 volume">
+                  <input type="range" class="pan" min="-100" max="100" value="65" aria-label="Voice 4 pan">
+                  <button class="mute">MUTE</button>
+                </div>
+              </div>
+              <div class="controls">
+                <button class="play-btn" data-mix-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play the mix
+                </button>
+                <span style="font-size:12.5px;color:var(--muted)">Tall slider = volume · wide slider = L↔R pan · gains ramp over 250&nbsp;ms.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Mixing = summing samples; each voice has an independent gain.</li>
+              <li>Gains must ramp, not jump, or you hear clicks (de-popping).</li>
+              <li>Panning distributes one source across channels to place it in space.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#quantization"><span class="dir">← Prev</span><span class="ttl">03 · Quantisation &amp; ADPCM</span></a>
+            <a class="next" href="#filters"><span class="dir">Next →</span><span class="ttl">05 · Filters &amp; resampling</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 05 --- -->
+      <section class="doc" id="filters">
+        <div class="mod-head">
+          <span class="eye">Module 05 <span class="part-tag">· Part I</span></span>
+          <h3>Filters &amp; resampling</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn the two DSP tools that shape and re-pitch sound: filters and interpolating resamplers.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The last two fundamentals are <strong>filters</strong> and
+            <strong>resamplers</strong>. A <strong>low-pass filter</strong> removes
+            high frequencies to soften a sound or tame harshness; a
+            <strong>biquad</strong> is a small, flexible filter that can be a
+            low-pass, high-pass, band-pass or peak. The GameCube gives every voice
+            an optional one-pole low-pass, and Wii voices additionally get a biquad.
+          </p>
+          <p>
+            <strong>Resampling</strong> is how one recorded sample plays at many
+            pitches: to play higher, you step through the source faster; to play
+            lower, slower. Since the read position rarely lands exactly on a stored
+            sample, you <strong>interpolate</strong> between neighbours. Quality is a
+            ladder:
+          </p>
+          <ul>
+            <li><strong>Nearest</strong> — grab the closest sample. Cheap, but noisy.</li>
+            <li><strong>Linear</strong> — draw a straight line between two samples. Better.</li>
+            <li><strong>Polyphase FIR</strong> — a multi-tap filter using precomputed coefficients that both interpolates <em>and</em> suppresses aliasing. This is what the DSP uses, with a dedicated coefficient ROM.</li>
+          </ul>
+          <div class="pipe">
+            <div class="stage"><div class="t">Read position</div><div class="d">16.16 fixed-point pointer steps through the sample</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Fractional part</div><div class="d">Selects a coefficient set from the ROM</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">4-tap FIR</div><div class="d">Weighted sum of nearby samples = clean output</div></div>
+          </div>
+          <p>
+            You already <em>heard</em> what happens without a good resampler back in
+            Module 02. Everything in Part II is these five fundamentals wired
+            together in silicon.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Low-pass and biquad filters shape a voice's tone.</li>
+              <li>Resampling changes pitch by stepping through samples at a chosen rate.</li>
+              <li>Better interpolation (polyphase FIR) means less aliasing — hence the coefficient ROM.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#mixing"><span class="dir">← Prev</span><span class="ttl">04 · Mixing, gain &amp; panning</span></a>
+            <a class="next" href="#dsp"><span class="dir">Next → Part II</span><span class="ttl">06 · The audio DSP</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART II ============= -->
+      <section class="part" id="part-2">
+        <div class="part-inner">
+          <div class="kicker">Part II</div>
+          <h3>The GameCube DSP</h3>
+          <p>
+            Now put the fundamentals into silicon. Nintendo's console routes all
+            audio through one small, programmable DSP. These four modules cover the
+            chip itself, the interchangeable <em>ucodes</em> that program it, the AX
+            mixer that most games use, and the matrix trick that squeezes surround
+            sound out of two channels — Dolby Pro Logic II.
+          </p>
+          <div class="part-meta"><span>Modules <b>06–09</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>1 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 06 --- -->
+      <section class="doc" id="dsp">
+        <div class="mod-head">
+          <span class="eye">Module 06 <span class="part-tag">· Part II</span></span>
+          <h3>The audio DSP</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet the actual chip: its memory, registers, and the accelerator that decodes samples.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            GameCube and Wii audio all flows through one custom <strong>16-bit
+            fixed-point DSP</strong> made by Macronix. The main CPU never mixes
+            sound itself — it hands work to this chip. It's a
+            <strong>Harvard-architecture</strong> processor (separate instruction
+            and data memory) with accumulators and address/index/wrap registers
+            tuned for tight signal loops. Nintendo never documented it publicly;
+            almost everything known comes from the reverse-engineering of
+            <strong>Duddie &amp; Tratax</strong>, still credited in Dolphin's source.
+          </p>
+
+          <div class="specs">
+            <div class="spec"><div class="k">Word size</div><div class="v">16<small>-bit</small></div><div class="d">Fixed-point, 40-bit accumulators</div></div>
+            <div class="spec"><div class="k">IRAM</div><div class="v">0x1000<small> words</small></div><div class="d">Instruction RAM — ucode DMA'd here</div></div>
+            <div class="spec"><div class="k">IROM</div><div class="v">0x1000<small> words</small></div><div class="d">Boot ROM</div></div>
+            <div class="spec"><div class="k">DRAM</div><div class="v">0x1000<small> words</small></div><div class="d">Data RAM</div></div>
+            <div class="spec"><div class="k">Coefficient ROM</div><div class="v">0x800<small> words</small></div><div class="d">Resampling filter taps</div></div>
+            <div class="spec"><div class="k">Opcodes</div><div class="v">230</div><div class="d">Many carry a parallel load/store</div></div>
+          </div>
+
+          <div class="memmap">
+            <div class="bar">
+              <div class="seg" style="flex:1;background:#45e4d1">IRAM<small>8&nbsp;KB</small></div>
+              <div class="seg" style="flex:1;background:#7d5cf0">IROM<small>8&nbsp;KB</small></div>
+              <div class="seg" style="flex:1;background:#a884ff">DRAM<small>8&nbsp;KB</small></div>
+              <div class="seg" style="flex:.5;background:#ffb14e">COEF<small>4&nbsp;KB</small></div>
+            </div>
+          </div>
+
+          <p>
+            The key block is the <strong>accelerator</strong>: hardware that streams
+            samples straight out of ARAM and decodes them on the fly. It's where
+            the ADPCM math from Module 03 physically happens — it understands 4-bit
+            ADPCM plus 8- and 16-bit PCM, tracks a loop start/end, and on loop
+            restores the predictor state (<code>pred_scale</code>, <code>yn1</code>,
+            <code>yn2</code>) so the waveform continues seamlessly.
+          </p>
+
+          <div class="note hw">
+            <div class="ico">▍</div>
+            <div><p><strong>Two boot ROMs.</strong> Running the DSP for real (Part
+            III's LLE) needs its IROM and coefficient ROM. Dolphin verifies them by
+            hash — the genuine Nintendo dump is <code>irom 0x66f334fe / drom
+            0xf3b93527</code> — and ships a clean-room "free" replacement for people
+            who can't dump their own.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>One 16-bit Macronix DSP handles all console audio; the CPU just feeds it.</li>
+              <li>Four small memories: IRAM, IROM, DRAM and a coefficient ROM.</li>
+              <li>The accelerator is dedicated hardware for streaming and decoding ADPCM/PCM.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#filters"><span class="dir">← Prev · Part I</span><span class="ttl">05 · Filters &amp; resampling</span></a>
+            <a class="next" href="#ucodes"><span class="dir">Next →</span><span class="ttl">07 · One chip, many ucodes</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 07 --- -->
+      <section class="doc" id="ucodes">
+        <div class="mod-head">
+          <span class="eye">Module 07 <span class="part-tag">· Part II</span></span>
+          <h3>One chip, many ucodes</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how the same DSP is re-tasked by uploadable microcode — for audio, memory cards, even GBA crypto.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The DSP ships blank. At boot it runs a tiny <strong>ROM ucode</strong>
+            that waits for the CPU to hand it a program — a <strong>ucode</strong>
+            (microcode) — which it DMAs into IRAM and jumps to. There was never one
+            "GameCube sound engine": each game uploaded its own audio ucode, and the
+            same chip could be re-tasked mid-game to drive the memory card or the
+            GC↔GBA link cable. Coordination happens through two 32-bit
+            <strong>mailboxes</strong> using a small message protocol (you'll see the
+            handshake in Module 11).
+          </p>
+          <p>
+            Dolphin's HLE (Module 10) recognises each ucode by a CRC hash of its
+            code. Here are the families, with real hashes and the games behind them,
+            straight from Dolphin's dispatch table.
+          </p>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>Ucode</th><th>Example CRC</th><th>What it does</th><th>Seen in</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="pill ax">AX</span></td>
+                  <td><span class="crc">0x4e8a8b21</span><br><span class="crc">0x3ad3b7ac</span></td>
+                  <td>The workhorse GameCube audio mixer — linked-list voices, ADPCM, resampling, aux buses, compressor.</td>
+                  <td>Melee, Monkey Ball, Paper Mario TTYD, F-Zero GX, Zelda: OoT (GC)</td>
+                </tr>
+                <tr>
+                  <td><span class="pill axwii">AXWii</span></td>
+                  <td><span class="crc">0x347112ba</span><br><span class="crc">0xfa450138</span></td>
+                  <td>AX extended for Wii: an extra aux bus, Wiimote-speaker channels, a biquad, explicit DPL2 output.</td>
+                  <td>Wii Sports, Raving Rabbids, Elebits, Wii System Menu</td>
+                </tr>
+                <tr>
+                  <td><span class="pill zelda">Zelda</span></td>
+                  <td><span class="crc">0x86840740</span><br><span class="crc">0xd643001f</span></td>
+                  <td>The "synth"/IPL ucode with real positional Dolby matrix mixing driven by a quarter-wave sine table.</td>
+                  <td>Wind Waker, Twilight Princess, Mario Sunshine &amp; Galaxy, Pikmin, GC BIOS</td>
+                </tr>
+                <tr>
+                  <td><span class="pill util">CARD</span></td>
+                  <td><span class="crc">0x65d6cc6f</span></td>
+                  <td>Not audio — drives memory-card access, then returns the DSP to the ROM ucode.</td>
+                  <td>Any save/load</td>
+                </tr>
+                <tr>
+                  <td><span class="pill util">GBA</span></td>
+                  <td><span class="crc">0xdd7e72d5</span></td>
+                  <td>GBA JoyBoot cipher for the link cable — pure crypto, no sound.</td>
+                  <td>Four Swords, Crystal Chronicles</td>
+                </tr>
+                <tr>
+                  <td><span class="pill util">ROM / INIT</span></td>
+                  <td><span class="crc">0x00000000</span><br><span class="crc">0x00000001</span></td>
+                  <td>The boot-ROM stub and audio-system initialiser — internal handshakes.</td>
+                  <td>Every boot</td>
+                </tr>
+                <tr>
+                  <td><span class="pill hb">ASnd / AESnd</span></td>
+                  <td><span class="crc">HASH_2008…</span></td>
+                  <td>Homebrew sound libraries (libogc / libaesnd), matched by named hash constants.</td>
+                  <td>Homebrew &amp; demos</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:13px;color:var(--muted)">
+            Dolphin's table lists dozens more CRCs — one per known regional build.
+            An unlisted hash triggers a "try LLE" warning and a best-effort fallback.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The DSP is a blank worker; uploaded ucodes give it a job.</li>
+              <li>Audio ucodes come in families: AX (GC), AXWii (Wii), Zelda/IPL synth.</li>
+              <li>Non-audio ucodes (CARD, GBA) share the very same chip.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#dsp"><span class="dir">← Prev</span><span class="ttl">06 · The audio DSP</span></a>
+            <a class="next" href="#ax"><span class="dir">Next →</span><span class="ttl">08 · AX: the voice pipeline</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 08 --- -->
+      <section class="doc" id="ax">
+        <div class="mod-head">
+          <span class="eye">Module 08 <span class="part-tag">· Part II</span></span>
+          <h3>AX: the voice pipeline</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Trace one voice through the AX ucode — the exact chain of fundamentals from Part I, in order.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            AX is where most GameCube sound lives. There's no fixed voice count in
+            hardware — AX walks a <strong>linked list of Parameter Blocks</strong>
+            (each PB is a voice) until the chain ends, so the practical ceiling
+            (~64 voices) is a CPU budget, not a silicon limit. AX always runs its
+            math at <strong>32&nbsp;kHz</strong>, in frames of 5&nbsp;ms × 32 samples
+            on GameCube (3&nbsp;ms × 96 on Wii).
+          </p>
+          <p>Every voice runs the same pipeline — and you now know each step:</p>
+          <ol>
+            <li><strong>Fetch &amp; decode</strong> — the accelerator streams ADPCM/PCM from ARAM <span style="color:var(--muted)">(Modules 03, 06)</span>.</li>
+            <li><strong>Resample</strong> — 16.16 fixed-point rate; nearest, linear, or 4-tap polyphase FIR <span style="color:var(--muted)">(Module 05)</span>.</li>
+            <li><strong>Envelope</strong> — a per-sample volume ramp so gains glide, not click <span style="color:var(--muted)">(Module 04)</span>.</li>
+            <li><strong>Filter</strong> — optional one-pole low-pass (plus a biquad on Wii) <span style="color:var(--muted)">(Module 05)</span>.</li>
+            <li><strong>Mix</strong> — summed into MAIN L/R/S and the AUXA/AUXB (and AUXC/Wiimote) buses, each gated by a mix-control bitfield <span style="color:var(--muted)">(Module 04)</span>.</li>
+          </ol>
+          <p>
+            Output is clamped to 16-bit and written as interleaved big-endian
+            <strong>R, L</strong> pairs, plus a separate <strong>surround</strong>
+            buffer carrying the matrix-encoded S channel — which is exactly what the
+            next module is about. Re-open the <a href="#mixing">Module 04 mixer</a>
+            with this list in mind: that's AX in miniature.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>AX processes a linked list of voices at a fixed 32&nbsp;kHz, in millisecond frames.</li>
+              <li>Each voice = decode → resample → ramp → filter → mix, the Part I chain.</li>
+              <li>It writes stereo plus a separate matrix-encoded surround buffer.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#ucodes"><span class="dir">← Prev</span><span class="ttl">07 · One chip, many ucodes</span></a>
+            <a class="next" href="#dpl2"><span class="dir">Next →</span><span class="ttl">09 · Dolby Pro Logic II</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 09 --- -->
+      <section class="doc" id="dpl2">
+        <div class="mod-head">
+          <span class="eye">Module 09 <span class="part-tag">· Part II</span></span>
+          <h3>Dolby Pro Logic II — surround from two channels</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand matrix encoding: how four channels fold into a stereo pair, and how a decoder pulls them back out.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The GameCube's audio interface carries only <strong>two</strong>
+            channels. So how did games do surround? By <strong>matrix
+            encoding</strong>: fold four channels — left, right, centre and a rear
+            surround — into one stereo pair such that a Dolby Pro Logic II decoder
+            can separate them again. The <strong>centre</strong> is mixed equally
+            into both channels; the <strong>surround</strong> is mixed in
+            <strong>out of phase</strong> and slightly delayed. A decoder recovers
+            the centre from what L and R share, and the surround from what's
+            <em>anti-correlated</em> between them.
+          </p>
+          <p>
+            On hardware the encoding happens <em>inside the ucode</em>. The
+            <strong>Zelda</strong> ucode does the most literal version: every voice
+            carries a Dolby position, and a quarter-wave sine table turns that X/Y
+            position into left/right/front/back quadrant volumes (some ucodes even
+            set a "make Dolby louder" flag). AX carries a matrix-encoded surround
+            bus alongside the main stereo. Drag the source around the room below and
+            watch the four channel energies respond; press play to hear the
+            phase-inverted surround cue.
+          </p>
+
+          <div class="lab" id="lab-panner">
+            <div class="lab-head"><span class="dot"></span><span class="title">Pro Logic II panner — steer a source around the room</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center" class="pan-grid">
+                <div class="panner-pad" role="application" aria-label="Drag to position the source. Left-right pans; top is front, bottom is rear surround.">
+                  <span class="spk" style="left:12%;top:12%">L</span>
+                  <span class="spk" style="left:88%;top:12%">R</span>
+                  <span class="spk" style="left:50%;top:6%">C</span>
+                  <span class="spk" style="left:50%;top:94%">S</span>
+                  <div class="puck"></div>
+                </div>
+                <div>
+                  <div class="chan-meters">
+                    <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">L</div></div>
+                    <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">R</div></div>
+                    <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">C</div></div>
+                    <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">S</div></div>
+                  </div>
+                  <button class="play-btn" data-pan-play style="margin-top:18px">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    Play &amp; drag
+                  </button>
+                  <p style="font-size:12.5px;color:var(--muted);margin:12px 0 0">
+                    Top-centre feeds a phantom centre; drag to the bottom and the
+                    source is sent phase-inverted to both channels — the cue a Pro
+                    Logic II decoder steers to the rears. Headphones recommended.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="note warn">
+            <div class="ico">▲</div>
+            <div><p>On playback, <strong>Dolphin</strong> re-expands that stereo into
+            real 5.1 with the bundled <strong>FreeSurround</strong> decoder — but
+            only under LLE, and only on supported backends. Why LLE? That's the
+            first module of Part III.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Surround is matrix-encoded into two channels: centre in-phase, surround out-of-phase.</li>
+              <li>The Zelda ucode positions voices with a sine-table quadrant panner.</li>
+              <li>A Pro Logic II decoder reconstructs the channels from phase relationships.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#ax"><span class="dir">← Prev</span><span class="ttl">08 · AX: the voice pipeline</span></a>
+            <a class="next" href="#lle-hle"><span class="dir">Next → Part III</span><span class="ttl">10 · LLE vs HLE</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART III ============ -->
+      <section class="part" id="part-3">
+        <div class="part-inner">
+          <div class="kicker">Part III</div>
+          <h3>Emulating it in Dolphin</h3>
+          <p>
+            Finally, how does software stand in for that chip? Dolphin offers two
+            fundamentally different answers, dispatches the right ucode by hash,
+            and funnels everything through one resampling mixer to your speakers.
+            These four modules connect the whole course to the settings you'll
+            actually toggle.
+          </p>
+          <div class="part-meta"><span>Modules <b>10–13</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>1 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 10 --- -->
+      <section class="doc" id="lle-hle">
+        <div class="mod-head">
+          <span class="eye">Module 10 <span class="part-tag">· Part III</span></span>
+          <h3>LLE vs HLE — two philosophies</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Grasp the single most important choice in audio emulation: run the chip, or fake it.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Both approaches make sound; they disagree about <em>where</em> the work
+            happens. This is the choice in Dolphin's audio settings.
+          </p>
+
+          <div class="vs">
+            <div class="card lle">
+              <h4><span class="tag">LLE</span> Low-Level Emulation</h4>
+              <p style="color:var(--ink-2);font-size:13.5px;margin:12px 0 0">
+                Emulate the actual DSP. Load the real ucode into virtual IRAM and
+                execute its instructions one by one.
+              </p>
+              <ul>
+                <li>Bit-exact: whatever the game's ucode did, you get.</li>
+                <li>Runs homebrew &amp; obscure ucodes with no special-casing.</li>
+                <li>Enables true <strong>Dolby Pro Logic II</strong> output.</li>
+                <li>Needs a DSP ROM dump; costs more CPU.</li>
+                <li>Two engines: an <em>interpreter</em> (slow, for debugging) and an <em>x64 recompiler / JIT</em> (the practical choice).</li>
+              </ul>
+              <div class="verdict">Slower, but the reference for accuracy.</div>
+            </div>
+            <div class="card hle">
+              <h4><span class="tag">HLE</span> High-Level Emulation</h4>
+              <p style="color:var(--ink-2);font-size:13.5px;margin:12px 0 0">
+                Skip the DSP. Recognise the ucode by a hash of its code and run a
+                hand-written C++ reimplementation of what it <em>does</em>.
+              </p>
+              <ul>
+                <li>Fast — no instruction-level emulation at all.</li>
+                <li>No DSP ROM required.</li>
+                <li>Only works for ucodes Dolphin has been taught (AX, AXWii, Zelda…).</li>
+                <li>An unknown ucode falls back to "force AX/AXWii" and may misbehave.</li>
+                <li>Historically lacks full Pro Logic II decoding.</li>
+              </ul>
+              <div class="verdict">Dolphin's default — "if unsure, select HLE."</div>
+            </div>
+          </div>
+
+          <div class="lab" id="lle-hle-toggle-lab">
+            <div class="lab-head"><span class="dot"></span><span class="title">Where does the work happen?</span><span class="badge">toggle</span></div>
+            <div class="lab-body">
+              <div class="seg-btns" id="lle-hle-toggle" role="group" aria-label="Emulation mode">
+                <button class="on" data-note="LLE: the game ucode is loaded into virtual IRAM. Dolphin's DSP core fetches, decodes and executes each of the ~230 opcodes — arithmetic, the accelerator, the mailbox handshake — exactly as silicon would. The C++ never 'knows' it's mixing audio; it just runs a DSP.">LLE — run the chip</button>
+                <button data-note="HLE: Dolphin hashes the ucode's IRAM image (an 'Ector' CRC). If it recognises the hash, it instantiates the matching C++ class — AXUCode, ZeldaUCode… — that reproduces the ucode's command list, voice mixing and output, without ever executing a DSP instruction.">HLE — fake the chip</button>
+              </div>
+              <p id="lle-hle-note" style="margin:0;color:var(--ink-2);font-size:14px">LLE: the game ucode is loaded into virtual IRAM. Dolphin's DSP core fetches, decodes and executes each of the ~230 opcodes — arithmetic, the accelerator, the mailbox handshake — exactly as silicon would. The C++ never 'knows' it's mixing audio; it just runs a DSP.</p>
+            </div>
+          </div>
+
+          <div class="note">
+            <div class="ico">◆</div>
+            <div><p>In Dolphin the combo box maps to two flags — <code>DSP&nbsp;HLE</code>
+            and <code>DSP&nbsp;JIT</code>. <strong>HLE</strong> = HLE on. <strong>LLE
+            Recompiler</strong> = HLE off, JIT on. <strong>LLE Interpreter</strong> =
+            both off. Pro Logic II is only offered when HLE is off.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>LLE runs the DSP's real instructions; HLE reimplements each ucode in C++.</li>
+              <li>HLE is faster and needs no ROM; LLE is more accurate and enables DPL2.</li>
+              <li>Unknown ucodes are LLE's strength and HLE's weakness.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#dpl2"><span class="dir">← Prev · Part II</span><span class="ttl">09 · Dolby Pro Logic II</span></a>
+            <a class="next" href="#pipeline"><span class="dir">Next →</span><span class="ttl">11 · Boot, mail &amp; dispatch</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 11 --- -->
+      <section class="doc" id="pipeline">
+        <div class="mod-head">
+          <span class="eye">Module 11 <span class="part-tag">· Part III</span></span>
+          <h3>Boot, mail &amp; ucode dispatch</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow the handshake that loads a ucode, and how HLE decides which C++ implementation to run.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            At power-on the DSP runs its <strong>boot ROM ucode</strong>. The CPU
+            sends an init mail (<code>0x8071FEED</code>) followed by a descriptor —
+            the MRAM address, length and target IRAM address of the <em>real</em>
+            ucode. The ROM ucode DMAs that program into IRAM and jumps to it. This
+            is the mechanism behind Module 07: a single game swaps between audio,
+            memory-card and GBA ucodes just by uploading different code.
+          </p>
+          <p>
+            All coordination rides two 32-bit mailboxes using a small protocol of
+            tagged messages — <code>DSP_INIT</code>, <code>DSP_RESUME</code>,
+            <code>DSP_YIELD</code>, <code>DSP_DONE</code>, <code>DSP_SYNC</code>,
+            <code>DSP_FRAME_END</code>, <code>MAIL_NEW_UCODE</code>. Nintendo's SDK
+            and the homebrew <code>libogc</code> handler share this AX-derived
+            protocol.
+          </p>
+          <div class="pipe">
+            <div class="stage"><div class="t">Init mail</div><div class="d">CPU → DSP: 0x8071FEED + descriptor</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">DMA to IRAM</div><div class="d">ROM ucode copies the program in</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Hash (HLE)</div><div class="d">Ector CRC of IRAM image</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Dispatch</div><div class="d">Match → AXUCode / ZeldaUCode / …</div></div>
+          </div>
+          <div class="note warn">
+            <div class="ico">▲</div>
+            <div><p>Under HLE, an <strong>unrecognised</strong> hash triggers a panic
+            ("might be incompatible with DSP HLE… try LLE if this is homebrew") and a
+            best-effort fallback to AX. Under LLE there's no lookup at all — it just
+            runs whatever code arrived.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The boot ROM ucode loads the real ucode via a mail handshake + DMA.</li>
+              <li>Two mailboxes carry a tagged message protocol shared with the SDK and libogc.</li>
+              <li>HLE dispatches by hashing the loaded IRAM; LLE just executes it.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#lle-hle"><span class="dir">← Prev</span><span class="ttl">10 · LLE vs HLE</span></a>
+            <a class="next" href="#output"><span class="dir">Next →</span><span class="ttl">12 · The output path</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 12 --- -->
+      <section class="doc" id="output">
+        <div class="mod-head">
+          <span class="eye">Module 12 <span class="part-tag">· Part III</span></span>
+          <h3>The output path</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow the samples from the DSP through Dolphin's mixer and out to a real audio backend.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Whatever produced the samples — LLE or HLE — the output lands in
+            Dolphin's <strong>Mixer</strong>. Two streams merge: DSP/DMA audio at
+            <strong>32&nbsp;kHz</strong> and streaming disc audio (DTK) at
+            <strong>48&nbsp;kHz</strong>. The mixer resamples both to whatever your
+            sound card wants using a windowed, granule-based <strong>6-point Hermite
+            interpolator</strong> (the practical cousin of Module 05's polyphase
+            filter), applies volume, dithers back to 16-bit, and hands stereo — or
+            6-channel float for surround — to the backend.
+          </p>
+          <div class="specs">
+            <div class="spec"><div class="k">DSP / DMA audio</div><div class="v">32<small>&nbsp;kHz</small></div><div class="d">AX &amp; Zelda output</div></div>
+            <div class="spec"><div class="k">Streaming (DTK)</div><div class="v">48<small>&nbsp;kHz</small></div><div class="d">Disc / ADPCM tracks</div></div>
+            <div class="spec"><div class="k">Resampler</div><div class="v">6-pt<small> Hermite</small></div><div class="d">256-sample granules, 50% overlap</div></div>
+            <div class="spec"><div class="k">DPL2 block</div><div class="v">512–4096</div><div class="d">FreeSurround quality setting</div></div>
+          </div>
+          <div class="pipe">
+            <div class="stage"><div class="t">DSP output</div><div class="d">32 kHz stereo, big-endian R/L</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Mixer FIFO</div><div class="d">Granules + Hermite resample</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">FreeSurround</div><div class="d">Optional DPL2 → 5.1 float</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Backend</div><div class="d">Cubeb / OpenAL / WASAPI…</div></div>
+          </div>
+          <p>
+            The backend is whatever your platform provides — <strong>Cubeb</strong>
+            by default, or OpenAL, ALSA, PulseAudio, WASAPI, OpenSL ES — each simply
+            asking the mixer for the next block of samples. Dolphin can also dump
+            either stream to a WAV file for analysis.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>DSP audio (32&nbsp;kHz) and streaming audio (48&nbsp;kHz) merge in one mixer.</li>
+              <li>A 6-point Hermite resampler converts to the backend's rate.</li>
+              <li>Optional FreeSurround expands stereo to 5.1; the backend just pulls blocks.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#pipeline"><span class="dir">← Prev</span><span class="ttl">11 · Boot, mail &amp; dispatch</span></a>
+            <a class="next" href="#try"><span class="dir">Next →</span><span class="ttl">13 · Try it in Dolphin</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 13 --- -->
+      <section class="doc" id="try">
+        <div class="mod-head">
+          <span class="eye">Module 13 <span class="part-tag">· Part III</span></span>
+          <h3>Try it in Dolphin</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Turn the whole course into settings you can toggle and A/B for yourself.</span></div>
+        </div>
+        <div class="prose">
+          <p>Open <strong>Config → Audio</strong> and experiment:</p>
+          <ul>
+            <li><strong>DSP Emulation Engine → HLE</strong> — the fast default. Good for almost everything.</li>
+            <li><strong>→ LLE Recompiler</strong> — switch here if a game sounds wrong under HLE, if you're running homebrew with an unknown ucode, or if you want <strong>Dolby Pro Logic II</strong>. Requires a DSP ROM.</li>
+            <li><strong>→ LLE Interpreter</strong> — for DSP debugging only; very slow.</li>
+            <li><strong>Dolby Pro Logic II decoder</strong> — appears only with LLE on a supported backend; pick a quality level to trade CPU for a bigger FreeSurround block.</li>
+          </ul>
+          <p>
+            A good final exercise: boot a Zelda-ucode title (Wind Waker, Twilight
+            Princess) under HLE, then under LLE with DPL2 on, and compare the
+            surround field. The difference is the matrix from Module 09 — the whole
+            course, audible in one A/B.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Course complete ✦</div>
+            <ul>
+              <li>You can read the signal path from a pressure wave to your speakers.</li>
+              <li>You know why the same DSP plays audio, saves games and boots a GBA.</li>
+              <li>You can choose LLE vs HLE — and DPL2 — and predict what each will do.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#output"><span class="dir">← Prev</span><span class="ttl">12 · The output path</span></a>
+            <a class="next" href="#signals"><span class="dir">↺ Restart</span><span class="ttl">01 · Sound as numbers</span></a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          An interactive course built for the Dolphin project. Every sound here is
+          generated on the fly with the Web&nbsp;Audio API to illustrate a concept —
+          this page contains <strong>no game audio</strong>. Technical details are
+          grounded in Dolphin's own source.
+        </p>
+        <p class="src">
+          Source of truth · <code>Source/Core/Core/DSP/</code> ·
+          <code>Source/Core/Core/HW/DSPHLE/UCodes/</code> ·
+          <code>Source/Core/AudioCommon/</code>
+        </p>
+      </footer>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /app -->
+
+<!-- ================================================= PLAYER ============== -->
+<div class="player" role="region" aria-label="Sound player">
+  <div class="transport">
+    <button class="pp" id="pp" aria-label="Play">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <div class="meta">
+      <div class="now">Now playing</div>
+      <div class="track" id="now-track">Nothing playing</div>
+    </div>
+  </div>
+  <canvas class="viz" id="player-viz" aria-hidden="true"></canvas>
+  <div class="right">
+    <div class="stat" id="stat-voices">Web&nbsp;Audio · <b>synth</b><br>no game audio</div>
+    <input type="range" class="vol" id="vol" min="0" max="100" value="70" aria-label="Master volume">
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
