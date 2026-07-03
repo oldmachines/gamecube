@@ -503,6 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
+  /* glossary tooltips */
+  initTooltips();
+
   /* scroll-spy nav + reading progress */
   scrollSpy();
   readingProgress();
@@ -516,6 +519,54 @@ document.addEventListener('DOMContentLoaded', () => {
   scrim.addEventListener('click', closeMenu);
   sb.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
 });
+
+/* ------------------------------------------------------- glossary tooltips */
+/* Every jargon word is wrapped in <span class="term" data-tip="…">. We show
+   the definition in a single shared floating bubble on hover, keyboard focus,
+   or tap — positioned above the word and clamped so it never leaves the
+   viewport. One bubble (rather than a CSS ::after per term) keeps it from
+   being clipped by scroll containers and works on touch screens.            */
+function initTooltips() {
+  const terms = [...document.querySelectorAll('.term[data-tip]')];
+  if (!terms.length) return;
+  const tip = document.createElement('div');
+  tip.className = 'tip-bubble';
+  tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  let current = null;
+
+  function place(el) {
+    current = el;
+    const label = el.textContent.trim().replace(/\s+/g, ' ');
+    tip.innerHTML = '<span class="tt">' + label.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</span> — ' +
+      el.getAttribute('data-tip').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    tip.classList.add('show');
+    const r = el.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight, pad = 10;
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(pad, Math.min(left, window.innerWidth - tw - pad));
+    let top = r.top - th - 10, below = false;
+    if (top < 8) { top = r.bottom + 10; below = true; }
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.classList.toggle('below', below);
+    tip.style.setProperty('--arrow-x', (r.left + r.width / 2 - left) + 'px');
+  }
+  function hide(el) { if (!el || current === el) { tip.classList.remove('show'); current = null; } }
+
+  terms.forEach(el => {
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    el.addEventListener('mouseenter', () => place(el));
+    el.addEventListener('mouseleave', () => hide(el));
+    el.addEventListener('focus', () => place(el));
+    el.addEventListener('blur', () => hide(el));
+    el.addEventListener('click', e => { e.stopPropagation(); current === el ? hide(el) : place(el); });
+  });
+  window.addEventListener('scroll', () => hide(current), true);
+  window.addEventListener('resize', () => hide(current));
+  document.addEventListener('click', () => hide(current));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(current); });
+}
 
 /* ------------------------------------------------------- scroll-spy nav    */
 function scrollSpy() {
