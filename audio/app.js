@@ -362,35 +362,59 @@ function PanLab(root) {
 /* -------------------------------------------------------- AX mixer lab     */
 function MixerLab(root) {
   const strips = [...root.querySelectorAll('.strip')];
+  let audioCtx = null, voices = null, playing = false;
+
+  // read a strip's controls -> target gains (matches the DSP's per-frame mix)
+  const gainOf = s => {
+    const vol = parseFloat(s.querySelector('.fader').value) / 100;
+    const muted = s.querySelector('.mute').classList.contains('on');
+    return muted ? 0.0001 : Math.max(0.0001, vol * 0.3);
+  };
+  const panOf = s => {
+    const pan = parseFloat(s.querySelector('.pan').value) / 100;   // -1..1
+    return { l: Math.cos((pan + 1) * Math.PI / 4), r: Math.sin((pan + 1) * Math.PI / 4) };
+  };
+  // apply a strip's current controls to its live nodes — ramp to avoid clicks
+  const applyStrip = v => {
+    const t = audioCtx.currentTime, p = panOf(v.strip);
+    v.g.gain.setTargetAtTime(gainOf(v.strip), t, 0.02);
+    v.lg.gain.setTargetAtTime(p.l, t, 0.02);
+    v.rg.gain.setTargetAtTime(p.r, t, 0.02);
+  };
+
   root.querySelector('[data-mix-play]').addEventListener('click', () => {
     Engine.play('AX · 4-voice mix', (ctx, dest) => {
+      audioCtx = ctx;
       const t0 = ctx.currentTime + 0.02;
       const merger = ctx.createChannelMerger(2);
       merger.connect(dest);
-      const voices = strips.map((s, i) => {
-        const freq = parseFloat(s.dataset.freq);
-        const type = s.dataset.type;
-        const vol = parseFloat(s.querySelector('.fader').value) / 100;
-        const pan = parseFloat(s.querySelector('.pan').value) / 100;   // -1..1
-        const muted = s.querySelector('.mute').classList.contains('on');
-        const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+      voices = strips.map(s => {
+        const o = ctx.createOscillator(); o.type = s.dataset.type; o.frequency.value = parseFloat(s.dataset.freq);
         const g = ctx.createGain();
+        const p = panOf(s);
         // volume ramp — the DSP ramps gains per frame to avoid clicks
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(muted ? 0.0001 : Math.max(0.0001, vol * 0.3), t0 + 0.25);
+        g.gain.exponentialRampToValueAtTime(gainOf(s), t0 + 0.25);
         const lg = ctx.createGain(), rg = ctx.createGain();
-        lg.gain.value = Math.cos((pan + 1) * Math.PI / 4);
-        rg.gain.value = Math.sin((pan + 1) * Math.PI / 4);
+        lg.gain.value = p.l;
+        rg.gain.value = p.r;
         o.connect(g); g.connect(lg); g.connect(rg);
         lg.connect(merger, 0, 0); rg.connect(merger, 0, 1);
         o.start(t0);
-        return o;
+        return { osc: o, g, lg, rg, strip: s };
       });
-      return { stop() { voices.forEach(o => { try { o.stop(); } catch (e) {} }); } };
+      playing = true;
+      return { stop() { voices.forEach(v => { try { v.osc.stop(); } catch (e) {} }); playing = false; voices = null; } };
     });
   });
-  // live mute toggles
-  strips.forEach(s => s.querySelector('.mute').addEventListener('click', e => e.currentTarget.classList.toggle('on')));
+
+  // live controls — reflect fader / pan / mute changes immediately while playing
+  strips.forEach((s, i) => {
+    const update = () => { if (playing && voices) applyStrip(voices[i]); };
+    s.querySelector('.fader').addEventListener('input', update);
+    s.querySelector('.pan').addEventListener('input', update);
+    s.querySelector('.mute').addEventListener('click', e => { e.currentTarget.classList.toggle('on'); update(); });
+  });
 }
 
 /* ==========================================================================
