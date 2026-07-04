@@ -465,46 +465,102 @@ function PanLab(root) {
   pad.addEventListener('pointerup', () => { pad.__drag = false; });
   updatePuck(); compute();
 
-  root.querySelector('[data-pan-play]').addEventListener('click', () => {
-    const g = Engine.play('Pro Logic II · matrix steering', (ctx, dest) => {
-      pctx = ctx;
-      const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 174.6;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
-      osc.connect(lp);
+  /* source selector: a synth tone, or a short synthesised voice clip
+     ("Can you hear me?") — speech is what human hearing localises best, so
+     it makes the steering much easier to judge than a steady tone.        */
+  let srcMode = 'tone';
+  let voiceBuf = null, voiceLoading = null;
+  function loadVoice(ctx) {
+    if (voiceBuf) return Promise.resolve(voiceBuf);
+    if (!voiceLoading) {
+      voiceLoading = fetch('canyouhearme.wav')
+        .then(r => r.arrayBuffer())
+        .then(ab => ctx.decodeAudioData(ab))
+        .then(buf => {
+          // pad with 0.8 s of silence so the looped phrase has a natural gap
+          const pad = Math.floor(buf.sampleRate * 0.8);
+          const out = ctx.createBuffer(1, buf.length + pad, buf.sampleRate);
+          out.getChannelData(0).set(buf.getChannelData(0));
+          voiceBuf = out;
+          return out;
+        });
+    }
+    return voiceLoading;
+  }
+  root.querySelectorAll('[data-pan-src]').forEach(b => b.addEventListener('click', () => {
+    root.querySelectorAll('[data-pan-src]').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    srcMode = b.dataset.panSrc;
+    if (playing) startPanner();               // switch source live
+  }));
 
-      // --- a real Pro Logic II ENCODE: five virtual channels -> Lt/Rt --------
-      //   Lt = L + 0.7071·C − (0.8718·Ls + 0.4899·Rs)
-      //   Rt = R + 0.7071·C + (0.4899·Ls + 0.8718·Rs)
-      // The ASYMMETRIC surround coefficients (0.87 vs 0.49) are what encode
-      // rear-left vs rear-right into just two channels; the decoder's active
-      // steering separates them again. (True PLII applies a 90° phase shift to
-      // the surrounds; we approximate it with polarity, as the course notes.)
-      const merger = ctx.createChannelMerger(2);
-      // The surround branch is delayed ~9 ms as a stand-in for PLII's 90°
-      // quadrature: it decorrelates surround from front content so the two
-      // can't coherently cancel in one channel and add in the other (which
-      // would skew the decoder's level detectors toward one side).
-      const sdel = ctx.createDelay(); sdel.delayTime.value = 0.009; lp.connect(sdel);
-      const mk = (src) => { const gn = ctx.createGain(); gn.gain.value = 0; src.connect(gn); return gn; };
-      const gL = mk(lp), gR = mk(lp), gC = mk(lp), gLs = mk(sdel), gRs = mk(sdel);
-      gL.connect(merger, 0, 0);
-      gR.connect(merger, 0, 1);
-      gC.connect(merger, 0, 0); gC.connect(merger, 0, 1);      // centre equally into both
-      const tap = (src, k, chan) => {
-        const w = ctx.createGain(); w.gain.value = k;
-        src.connect(w); w.connect(merger, 0, chan);
-      };
-      tap(gLs, -0.8718, 0); tap(gLs, 0.4899, 1);               // Ls
-      tap(gRs, -0.4899, 0); tap(gRs, 0.8718, 1);               // Rs
-      merger.connect(dest);
+  function startPanner() {
+    const mode = srcMode;
+    const go = (makeSource) => Engine.play(
+      mode === 'voice' ? 'Pro Logic II · “can you hear me?”' : 'Pro Logic II · matrix steering',
+      (ctx, dest) => {
+        pctx = ctx;
+        const { node: src, out: srcOut } = makeSource(ctx);
 
-      osc.start();
-      gains = { gL, gR, gC, gLs, gRs };
-      applyPan(compute());
-      playing = true;
-      return { stop() { try { osc.stop(); } catch (e) {} playing = false; gains = null; } };
-    });
-  });
+        // --- a real Pro Logic II ENCODE: five virtual channels -> Lt/Rt ------
+        //   Lt = L + 0.7071·C − (0.8718·Ls + 0.4899·Rs)
+        //   Rt = R + 0.7071·C + (0.4899·Ls + 0.8718·Rs)
+        // The ASYMMETRIC surround coefficients (0.87 vs 0.49) are what encode
+        // rear-left vs rear-right into just two channels; the decoder's active
+        // steering separates them again. (True PLII applies a 90° phase shift
+        // to the surrounds; we approximate it with polarity, as the course
+        // notes.)
+        const merger = ctx.createChannelMerger(2);
+        // The surround branch is delayed ~9 ms as a stand-in for PLII's 90°
+        // quadrature: it decorrelates surround from front content so the two
+        // can't coherently cancel in one channel and add in the other (which
+        // would skew the decoder's level detectors toward one side).
+        const sdel = ctx.createDelay(); sdel.delayTime.value = 0.009; srcOut.connect(sdel);
+        const mk = (from) => { const gn = ctx.createGain(); gn.gain.value = 0; from.connect(gn); return gn; };
+        const gL = mk(srcOut), gR = mk(srcOut), gC = mk(srcOut), gLs = mk(sdel), gRs = mk(sdel);
+        gL.connect(merger, 0, 0);
+        gR.connect(merger, 0, 1);
+        gC.connect(merger, 0, 0); gC.connect(merger, 0, 1);    // centre equally into both
+        const tap = (from, k, chan) => {
+          const w = ctx.createGain(); w.gain.value = k;
+          from.connect(w); w.connect(merger, 0, chan);
+        };
+        tap(gLs, -0.8718, 0); tap(gLs, 0.4899, 1);             // Ls
+        tap(gRs, -0.4899, 0); tap(gRs, 0.8718, 1);             // Rs
+        merger.connect(dest);
+
+        src.start();
+        gains = { gL, gR, gC, gLs, gRs };
+        applyPan(compute());
+        playing = true;
+        return { stop() { try { src.stop(); } catch (e) {} playing = false; gains = null; } };
+      });
+
+    if (mode === 'voice') {
+      // ensure the context exists so decodeAudioData has one to decode with
+      const ctx0 = Engine.ctx();
+      loadVoice(ctx0).then(() => go(ctx => {
+        const node = ctx.createBufferSource();
+        node.buffer = voiceBuf; node.loop = true;
+        const out = ctx.createGain(); out.gain.value = 1.6;    // speech sits quieter than the saw
+        node.connect(out);
+        return { node, out };
+      })).catch(() => { /* fetch failed (offline?) — fall back to the tone */
+        srcMode = 'tone'; go(toneSource);
+      });
+    } else {
+      go(toneSource);
+    }
+
+    function toneSource(ctx) {
+      const node = ctx.createOscillator(); node.type = 'sawtooth'; node.frequency.value = 174.6;
+      const out = ctx.createBiquadFilter(); out.type = 'lowpass'; out.frequency.value = 2400;
+      node.connect(out);
+      return { node, out };
+    }
+  }
+
+  root.querySelector('[data-pan-play]').addEventListener('click', startPanner);
 }
 
 /* -------------------------------------------------------- AX mixer lab     */

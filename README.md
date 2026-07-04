@@ -21,7 +21,10 @@ A course in three parts — digital signal processing fundamentals, the GameCube
 DSP (ucodes, AX mixing, Dolby Pro Logic II), and how emulators reproduce it
 (LLE vs HLE, ucode dispatch, the output path). Every module has an **integrated
 sound player**: all audio is *synthesised live in the browser* with the Web
-Audio API to demonstrate a concept. **No copyrighted game audio is shipped.**
+Audio API to demonstrate a concept — plus one short synthetic speech clip
+("can you hear me?", `audio/canyouhearme.wav`) generated with the open-source
+[Piper](https://github.com/rhasspy/piper) TTS (voice `jenny_dioco`) for the
+surround-panning lab. **No copyrighted game audio is shipped.**
 
 ## Running locally
 

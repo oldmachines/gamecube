@@ -1874,7 +1874,14 @@
                     <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">C</div></div>
                     <div class="m"><div class="track"><div class="fill"></div></div><div class="lbl">S</div></div>
                   </div>
-                  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px">
+                  <div class="ctrl" style="margin-top:18px">
+                    <label>Source</label>
+                    <div class="seg-btns" role="group" aria-label="Panner source">
+                      <button class="on" data-pan-src="tone">tone</button>
+                      <button data-pan-src="voice">🗣 “can you hear me?”</button>
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px">
                     <button class="play-btn" data-pan-play>
                       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                       Play &amp; drag
@@ -1907,6 +1914,10 @@
                     coefficient tables.) With decode <strong>off</strong> you hear the
                     raw encoded stereo — at the very bottom it largely cancels on a
                     mono/phone speaker; that cancellation <em>is</em> the cue.
+                    Tip: switch the source to <strong>🗣 “can you hear me?”</strong> —
+                    human hearing localises speech far better than a steady tone, so
+                    the steering is much easier to judge as you drag her around the
+                    room.
                   </p>
                 </div>
               </div>
@@ -2308,8 +2319,10 @@
         <p>
           An interactive course built for the Dolphin project. Every sound here is
           generated on the fly with the Web&nbsp;Audio API to illustrate a concept —
-          this page contains <strong>no game audio</strong>. Technical details are
-          grounded in Dolphin's own source.
+          plus one short synthetic speech clip (&ldquo;can you hear me?&rdquo;) we
+          generated with the open-source <a href="https://github.com/rhasspy/piper">Piper</a>
+          TTS (voice: jenny_dioco). This page contains <strong>no game audio</strong>.
+          Technical details are grounded in Dolphin's own source.
         </p>
         <p class="src">
           Source of truth · <code>Source/Core/Core/DSP/</code> ·
