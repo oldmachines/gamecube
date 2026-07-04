@@ -666,6 +666,7 @@ function FlowAnim(opts) {
     seqs[name] = { T: s.T, onLoop: s.onLoop, legs: s.legs.map(mk) };
   }
   let raf = null, startT = 0, cur = null, looping = false, chain = [], paused = false;
+  let win = null;   // step mode: {t0, t1, set, suffix} — loop one phase window
 
   function setGlow(sel, on) {
     const el = sel && svg.querySelector(sel);
@@ -679,8 +680,12 @@ function FlowAnim(opts) {
   }
   function tick(now) {
     const s = seqs[cur];
-    const t = (now - startT) / 1000;
-    if (t >= s.T) {
+    let t = (now - startT) / 1000;
+    if (win) {
+      // step mode: replay just this phase's window, holding briefly at its end
+      const period = (win.t1 - win.t0) + 0.7;
+      t = Math.min(win.t0 + (t % period), win.t1);
+    } else if (t >= s.T) {
       clearAll();
       if (chain.length) { cur = chain.shift(); startT = now; raf = requestAnimationFrame(tick); return; }
       if (looping) { if (s.onLoop) s.onLoop(); startT = now; raf = requestAnimationFrame(tick); return; }
@@ -692,6 +697,7 @@ function FlowAnim(opts) {
     let text = '';
     const glows = new Set();
     for (const l of s.legs) {
+      if (win && !win.set.has(l)) { l.dot.setAttribute('opacity', '0'); continue; }
       if (t >= l.t0 && t <= l.t1) {
         const u = (t - l.t0) / (l.t1 - l.t0);
         const pt = l.el.getPointAtLength(u * l.len);
@@ -706,7 +712,7 @@ function FlowAnim(opts) {
     // apply glow states after the sweep, so an inactive leg can't switch off
     // a target another (active) leg is glowing
     for (const l of s.legs) if (l.glow) setGlow(l.glow, glows.has(l.glow));
-    if (text) cap.textContent = text;
+    if (text) cap.textContent = text + (win && win.suffix ? win.suffix : '');
     raf = requestAnimationFrame(tick);
   }
   const api = {
@@ -717,7 +723,32 @@ function FlowAnim(opts) {
       startT = performance.now();
       raf = requestAnimationFrame(tick);
     },
-    stopQuiet() { if (raf) cancelAnimationFrame(raf); raf = null; paused = false; chain = []; looping = false; clearAll(); },
+    // step mode: loop a single phase of a sequence — `k` indexes the groups
+    // formed by captioned legs (un-captioned legs join the phase before them)
+    startPhase(name, k, suffix) {
+      api.stopQuiet();
+      const legs = seqs[name].legs;
+      const phases = [];
+      for (const l of legs) {
+        if (l.cap || !phases.length) phases.push([]);
+        phases[phases.length - 1].push(l);
+      }
+      const ph = phases[Math.max(0, Math.min(k, phases.length - 1))];
+      win = {
+        t0: Math.min.apply(null, ph.map(l => l.t0)),
+        t1: Math.max.apply(null, ph.map(l => l.t1)),
+        set: new Set(ph),
+        suffix: suffix || '',
+      };
+      cur = name; looping = false; paused = false;
+      startT = performance.now();
+      raf = requestAnimationFrame(tick);
+      return phases.length;
+    },
+    phaseCount(name) {
+      return seqs[name].legs.reduce((n, l, i) => n + ((l.cap || i === 0) ? 1 : 0), 0);
+    },
+    stopQuiet() { if (raf) cancelAnimationFrame(raf); raf = null; paused = false; chain = []; looping = false; win = null; clearAll(); },
     stop() { api.stopQuiet(); if (opts.idleCap) cap.textContent = opts.idleCap; if (opts.onStop) opts.onStop(); },
   };
   // pause the animation while it's scrolled out of view
@@ -765,15 +796,21 @@ function DspFlow() {
       ]},
     },
   });
+  let stepIdx = -1;
   loopBtn.addEventListener('click', () => {
+    stepIdx = -1;
     if (anim.playing()) { anim.stop(); return; }
     loopBtn.textContent = '⏸ Stop';
     anim.start(booted ? ['frame'] : ['boot', 'frame'], true);
     booted = true;
   });
+  // one operation per press: each click advances to the next phase and loops
+  // just that phase (dot replaying slowly) until the next click
   stepBtn.addEventListener('click', () => {
     loopBtn.textContent = '▶ Boot & loop';
-    anim.start(['frame'], false);
+    const total = anim.phaseCount('frame');
+    stepIdx = (stepIdx + 1) % total;
+    anim.startPhase('frame', stepIdx, '  ·  step ' + (stepIdx + 1) + ' of ' + total + ' — press again for the next');
     booted = true;
   });
 }
