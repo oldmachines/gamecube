@@ -27,9 +27,10 @@ const Engine = (() => {
       analyser.smoothingTimeConstant = 0.72;
       master.connect(analyser);
       // analyser -> dry (straight stereo) -> speakers. A parallel "wet" path
-      // (the matrix decoder) is built on demand and cross-faded against dry.
+      // (the steering decoder) is built on demand and cross-faded against dry
+      // by applyRoute() once it has finished attaching.
       dry = ctx.createGain();
-      dry.gain.value = decodeOn ? 0 : 1;
+      dry.gain.value = 1;
       analyser.connect(dry);
       dry.connect(ctx.destination);
       if (decodeOn) buildDecoder();
@@ -38,53 +39,112 @@ const Engine = (() => {
     return ctx;
   }
 
-  /* ------ optional Dolby Pro Logic II matrix decode -> headphone surround ---
-     For listeners without a DPL2-capable receiver. A passive mid/side matrix:
-       front  = MID  = 0.5(L+R)   — the in-phase content (dialogue/centre)
-       rear   = SIDE = 0.5(L-R)   — the anti-phase surround
-     Each is placed on virtual speakers with HRTF panners, so it externalises
-     on plain headphones. Two deliberate choices make "behind" actually audible:
-       * NO front/rear delay — a Haas delay would make the precedence effect
-         pull everything to the front (the old bug); HRTF alone localises here.
-       * the rear is boosted, because back-of-head HRTFs are naturally quieter.
-     At the extreme rear position MID collapses to 0, so nothing plays up front
-     and the sound is unambiguously behind you.                                */
+  /* ------ optional Dolby Pro Logic II decode -> headphone surround -----------
+     For listeners without a DPL2-capable receiver. The real decode runs in an
+     AudioWorklet (plii.js): a PLII-style ACTIVE-STEERING decoder — envelope
+     followers on the two steering axes (left/right and centre/surround) find
+     the dominant direction moment-to-moment and adapt the matrix to cancel
+     crosstalk, relaxing to the passive matrix for diffuse sound. Its five
+     outputs (L, R, C, Ls, Rs) land on virtual speakers via HRTF panners so
+     they externalise on plain headphones. No front/rear delay — a Haas delay
+     would let the precedence effect pull everything to the front.
+     If AudioWorklet is unavailable, a passive mid/side decode is the fallback. */
+  let workletLoad = null;
+
+  function makePanner(x, y, z) {
+    const p = ctx.createPanner();
+    p.panningModel = 'HRTF';
+    p.distanceModel = 'linear';
+    if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; }
+    else p.setPosition(x, y, z);
+    return p;
+  }
+
   function buildDecoder() {
     if (decoder || !ctx) return;
-    const pan = (x, y, z) => {
-      const p = ctx.createPanner();
-      p.panningModel = 'HRTF';
-      p.distanceModel = 'linear';
-      if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; }
-      else p.setPosition(x, y, z);
-      return p;
-    };
-    const split = ctx.createChannelSplitter(2);
-    analyser.connect(split);
-
-    // MID = 0.5(L+R) -> virtual FRONT (centre + a little width)
-    const mid = ctx.createGain();
-    const mL = ctx.createGain(); mL.gain.value = 0.5; split.connect(mL, 0); mL.connect(mid);
-    const mR = ctx.createGain(); mR.gain.value = 0.5; split.connect(mR, 1); mR.connect(mid);
-    const fC = pan(0, 0, -0.9), fL = pan(-0.35, 0, -0.7), fR = pan(0.35, 0, -0.7);
-    const fCg = ctx.createGain(); fCg.gain.value = 0.9; mid.connect(fCg); fCg.connect(fC);
-    const fLg = ctx.createGain(); fLg.gain.value = 0.5; mid.connect(fLg); fLg.connect(fL);
-    const fRg = ctx.createGain(); fRg.gain.value = 0.5; mid.connect(fRg); fRg.connect(fR);
-
-    // SIDE = 0.5(L-R) -> virtual REAR, band-limited + boosted (no precedence delay)
-    const side = ctx.createGain();
-    const sL = ctx.createGain(); sL.gain.value = 0.5; split.connect(sL, 0); sL.connect(side);
-    const sR = ctx.createGain(); sR.gain.value = -0.5; split.connect(sR, 1); sR.connect(side);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
-    const boost = ctx.createGain(); boost.gain.value = 1.7;
-    side.connect(lp); lp.connect(boost);
-    const rL = pan(-0.5, 0, 1.0), rR = pan(0.5, 0, 1.0);
-    boost.connect(rL); boost.connect(rR);
-
-    const wet = ctx.createGain(); wet.gain.value = decodeOn ? 1 : 0;
-    [fC, fL, fR, rL, rR].forEach(p => p.connect(wet));
+    const wet = ctx.createGain();
+    wet.gain.value = 0;
     wet.connect(ctx.destination);
-    decoder = { wet };
+    decoder = { wet, ready: false };
+
+    const attachSteered = () => {
+      const node = new AudioWorkletNode(ctx, 'plii-active', {
+        numberOfInputs: 1,
+        numberOfOutputs: 5,
+        outputChannelCount: [1, 1, 1, 1, 1],
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers',
+      });
+      analyser.connect(node);
+      // Virtual speaker layout: front L/R/C, rear Ls/Rs. Each HRTF panner is
+      // followed by a StereoPanner bias: browser HRTF datasets cap the
+      // interaural level difference around 1.4x, which dilutes even a well-
+      // steered rear pair to near-mono at the ears. The bias restores a clear
+      // left/right level cue while the HRTF keeps the front/back (spectral +
+      // timing) cues.
+      const SPEAKERS = [
+        { pos: [-1.0, 0, -0.6], bias: -0.4 },   // L
+        { pos: [ 1.0, 0, -0.6], bias:  0.4 },   // R
+        { pos: [ 0,   0, -0.9], bias:  0   },   // C
+        { pos: [-1.2, 0,  0.5], bias: -0.5 },   // Ls
+        { pos: [ 1.2, 0,  0.5], bias:  0.5 },   // Rs
+      ];
+      SPEAKERS.forEach((spk, k) => {
+        const p = makePanner(...spk.pos);
+        node.connect(p, k);
+        if (spk.bias && ctx.createStereoPanner) {
+          const sp = ctx.createStereoPanner();
+          sp.pan.value = spk.bias;
+          p.connect(sp); sp.connect(wet);
+        } else {
+          p.connect(wet);
+        }
+      });
+      decoder.node = node;
+      decoder.ready = true;
+      applyRoute();
+    };
+
+    const attachPassive = () => {
+      // fallback: passive mid/side (front = 0.5(L+R), rear = 0.5(L-R) boosted)
+      const split = ctx.createChannelSplitter(2);
+      analyser.connect(split);
+      const mid = ctx.createGain();
+      const mL = ctx.createGain(); mL.gain.value = 0.5; split.connect(mL, 0); mL.connect(mid);
+      const mR = ctx.createGain(); mR.gain.value = 0.5; split.connect(mR, 1); mR.connect(mid);
+      const fC = makePanner(0, 0, -0.9);
+      const fCg = ctx.createGain(); fCg.gain.value = 1.2; mid.connect(fCg); fCg.connect(fC);
+      const side = ctx.createGain();
+      const sL = ctx.createGain(); sL.gain.value = 0.5; split.connect(sL, 0); sL.connect(side);
+      const sR = ctx.createGain(); sR.gain.value = -0.5; split.connect(sR, 1); sR.connect(side);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
+      const boost = ctx.createGain(); boost.gain.value = 1.7;
+      side.connect(lp); lp.connect(boost);
+      const rL = makePanner(-0.5, 0, 1.0), rR = makePanner(0.5, 0, 1.0);
+      boost.connect(rL); boost.connect(rR);
+      [fC, rL, rR].forEach(p => p.connect(wet));
+      decoder.ready = true;
+      applyRoute();
+    };
+
+    if (ctx.audioWorklet && window.AudioWorkletNode) {
+      (workletLoad || (workletLoad = ctx.audioWorklet.addModule('plii.js')))
+        .then(attachSteered)
+        .catch(attachPassive);
+    } else {
+      attachPassive();
+    }
+  }
+
+  // Cross-fade dry (raw stereo) against wet (decoded). The wet path only takes
+  // over once the decoder is actually attached, so toggling never drops audio.
+  function applyRoute() {
+    if (!ctx) return;
+    const on = decodeOn && decoder && decoder.ready;
+    const t = ctx.currentTime;
+    if (dry) dry.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
+    if (decoder) decoder.wet.gain.setTargetAtTime(on ? 1 : 0, t, 0.02);
   }
 
   function setDecode(on) {
@@ -92,9 +152,7 @@ const Engine = (() => {
     try { localStorage.setItem('gc_decode', decodeOn ? '1' : '0'); } catch (e) {}
     if (!ctx) return;                 // applied when the context is first built
     if (decodeOn) buildDecoder();
-    const t = ctx.currentTime;
-    if (dry) dry.gain.setTargetAtTime(decodeOn ? 0 : 1, t, 0.02);
-    if (decoder) decoder.wet.gain.setTargetAtTime(decodeOn ? 1 : 0, t, 0.02);
+    applyRoute();
   }
 
   function stop() {
@@ -389,41 +447,23 @@ function PanLab(root) {
   }
 
   function applyPan(s) {
-    // map to actual stereo + a surround "phase" bleed to sell the effect
-    gains.l.gain.value = 0.5 * s.L + 0.25 * s.C;
-    gains.r.gain.value = 0.5 * s.R + 0.25 * s.C;
-    // surround: send phase-inverted, delayed signal to both -> the DPLII cue
-    gains.surr.gain.value = 0.6 * s.rear;
-    // full-3D positional path (used when Decode Surround is on): follow the puck
-    // left<->right AND front<->back so rear-left / rear-right work — something a
-    // real mono-surround matrix can't carry, so this is a headphone-only preview.
-    if (gains.pos) {
-      const x = s.x, z = (py * 2 - 1) * 1.2;   // top=front(-z), bottom=behind(+z)
-      if (gains.pos.positionX) { gains.pos.positionX.value = x; gains.pos.positionY.value = 0; gains.pos.positionZ.value = z; }
-      else gains.pos.setPosition(x, 0, z);
-    }
-    applyDecodeRoute();
-  }
-
-  // Cross-fade between the matrix-encoded stereo (decode off) and the binaural
-  // positional render (decode on). Runs whenever the puck moves or decode toggles.
-  function applyDecodeRoute() {
-    if (!gains || !pctx) return;
-    const on = Engine.decode, t = pctx.currentTime;
-    const mv = (Engine.master && Engine.master.gain) ? Engine.master.gain.value : 0.7;
-    if (gains.matrixGain) gains.matrixGain.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
-    if (gains.posGain) gains.posGain.gain.setTargetAtTime(on ? 0.95 * mv : 0, t, 0.02);
+    // Drive the five virtual-channel gains from the puck. The rear is split
+    // equal-power into Ls/Rs by the puck's x — PLII's encoder carries a STEREO
+    // surround pair, which is what lets the decoder pan across the rears.
+    const t = pctx ? pctx.currentTime : 0;
+    const set = (g, v) => g.gain.setTargetAtTime(v, t, 0.02);
+    const th = (s.x + 1) * Math.PI / 4;              // -1 → all Ls, +1 → all Rs
+    set(gains.gL, 0.5 * s.L);
+    set(gains.gR, 0.5 * s.R);
+    set(gains.gC, 0.354 * s.C);                      // 0.5 · 0.7071 centre law
+    set(gains.gLs, 0.6 * s.S * Math.cos(th));
+    set(gains.gRs, 0.6 * s.S * Math.sin(th));
   }
 
   pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); setFromEvent(e); pad.__drag = true; });
   pad.addEventListener('pointermove', e => { if (pad.__drag) setFromEvent(e); });
   pad.addEventListener('pointerup', () => { pad.__drag = false; });
   updatePuck(); compute();
-
-  // re-apply the matrix/positional cross-fade after Decode Surround is toggled
-  // (setTimeout lets the global toggle handler flip Engine.decode first)
-  document.querySelectorAll('.surr-btn').forEach(btn =>
-    btn.addEventListener('click', () => setTimeout(applyDecodeRoute, 0)));
 
   root.querySelector('[data-pan-play]').addEventListener('click', () => {
     const g = Engine.play('Pro Logic II · matrix steering', (ctx, dest) => {
@@ -432,31 +472,34 @@ function PanLab(root) {
       const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
       osc.connect(lp);
 
-      // --- matrix-encoded stereo path (what you'd send to a real decoder) ---
+      // --- a real Pro Logic II ENCODE: five virtual channels -> Lt/Rt --------
+      //   Lt = L + 0.7071·C − (0.8718·Ls + 0.4899·Rs)
+      //   Rt = R + 0.7071·C + (0.4899·Ls + 0.8718·Rs)
+      // The ASYMMETRIC surround coefficients (0.87 vs 0.49) are what encode
+      // rear-left vs rear-right into just two channels; the decoder's active
+      // steering separates them again. (True PLII applies a 90° phase shift to
+      // the surrounds; we approximate it with polarity, as the course notes.)
       const merger = ctx.createChannelMerger(2);
-      const l = ctx.createGain(), r = ctx.createGain(), surr = ctx.createGain();
-      const delay = ctx.createDelay(); delay.delayTime.value = 0.012;
-      const inv = ctx.createGain(); inv.gain.value = -1;   // phase inversion = surround cue
-      lp.connect(l); lp.connect(r);
-      lp.connect(delay); delay.connect(inv);
-      inv.connect(surr);
-      // Surround summed into the channels out of phase INDEPENDENTLY of the front
-      // gains (routing it through l/r — the front level — zeroed it at the rear).
-      const surrR = ctx.createGain(); surrR.gain.value = -1;
-      surr.connect(surrR);
-      l.connect(merger, 0, 0); r.connect(merger, 0, 1);
-      surr.connect(merger, 0, 0); surrR.connect(merger, 0, 1);
-      const matrixGain = ctx.createGain();
-      merger.connect(matrixGain); matrixGain.connect(dest);
-
-      // --- binaural positional path (Decode Surround on) — full 3D from the puck,
-      //     straight to the output so the global matrix decoder doesn't re-process it
-      const pos = ctx.createPanner(); pos.panningModel = 'HRTF'; pos.distanceModel = 'linear';
-      const posGain = ctx.createGain(); posGain.gain.value = 0;
-      lp.connect(pos); pos.connect(posGain); posGain.connect(ctx.destination);
+      // The surround branch is delayed ~9 ms as a stand-in for PLII's 90°
+      // quadrature: it decorrelates surround from front content so the two
+      // can't coherently cancel in one channel and add in the other (which
+      // would skew the decoder's level detectors toward one side).
+      const sdel = ctx.createDelay(); sdel.delayTime.value = 0.009; lp.connect(sdel);
+      const mk = (src) => { const gn = ctx.createGain(); gn.gain.value = 0; src.connect(gn); return gn; };
+      const gL = mk(lp), gR = mk(lp), gC = mk(lp), gLs = mk(sdel), gRs = mk(sdel);
+      gL.connect(merger, 0, 0);
+      gR.connect(merger, 0, 1);
+      gC.connect(merger, 0, 0); gC.connect(merger, 0, 1);      // centre equally into both
+      const tap = (src, k, chan) => {
+        const w = ctx.createGain(); w.gain.value = k;
+        src.connect(w); w.connect(merger, 0, chan);
+      };
+      tap(gLs, -0.8718, 0); tap(gLs, 0.4899, 1);               // Ls
+      tap(gRs, -0.4899, 0); tap(gRs, 0.8718, 1);               // Rs
+      merger.connect(dest);
 
       osc.start();
-      gains = { l, r, surr, pos, matrixGain, posGain };
+      gains = { gL, gR, gC, gLs, gRs };
       applyPan(compute());
       playing = true;
       return { stop() { try { osc.stop(); } catch (e) {} playing = false; gains = null; } };
