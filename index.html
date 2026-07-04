@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inside the GameCube — an oldmachines guide</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237d5cf0%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27none%27 stroke=%27%230c0a13%27 stroke-width=%273%27/%3E%3C/svg%3E">
 <meta name="description" content="Interactive, explorable teardowns of the Nintendo GameCube's hardware — one subsystem at a time. Part of the oldmachines collection.">
 <style>
   :root{
@@ -91,30 +92,30 @@
     <a class="card" href="audio/">
       <div class="ico">♪</div>
       <h3>Audio &amp; the DSP</h3>
-      <p>The 16-bit DSP, its interchangeable ucodes, ADPCM, AX mixing, Dolby Pro Logic II, and LLE vs HLE — a 13-module course with a live synthesiser.</p>
-      <span class="status ready"><span class="dot"></span>Ready · 13 modules</span>
+      <p>The 16-bit DSP, its interchangeable ucodes, ADPCM, AX mixing, Dolby Pro Logic II, and LLE vs HLE — a 16-module course with a live synthesiser.</p>
+      <span class="status ready"><span class="dot"></span>Ready · 16 modules</span>
     </a>
 
-    <div class="card disabled" aria-disabled="true">
+    <a class="card" href="graphics/">
       <div class="ico">▦</div>
       <h3>Graphics &amp; Flipper</h3>
-      <p>The Flipper GPU: the embedded 1T-SRAM framebuffer, the TEV pixel pipeline, and how tiles reach the screen.</p>
-      <span class="status soon"><span class="dot"></span>In the works</span>
-    </div>
+      <p>3D rendering from zero, then the Flipper GPU: the embedded 1T-SRAM framebuffer, hardware T&amp;L, the TEV pixel pipeline, and how Dolphin turns it all into shaders.</p>
+      <span class="status ready"><span class="dot"></span>Ready · 16 modules</span>
+    </a>
 
-    <div class="card disabled" aria-disabled="true">
+    <a class="card" href="cpu/">
       <div class="ico">⌘</div>
       <h3>CPU &amp; Gekko</h3>
-      <p>The PowerPC 750-derived Gekko core, its paired-single math, cache locking, and how games squeezed it.</p>
-      <span class="status soon"><span class="dot"></span>In the works</span>
-    </div>
+      <p>How CPUs work from zero, then the PowerPC 750-derived Gekko: paired singles, quantised loads, the locked cache — and how Dolphin JIT-compiles it.</p>
+      <span class="status ready"><span class="dot"></span>Ready · 15 modules</span>
+    </a>
 
-    <div class="card disabled" aria-disabled="true">
+    <a class="card" href="disc/">
       <div class="ico">◎</div>
       <h3>The disc drive</h3>
-      <p>The 8&nbsp;cm miniDVD format, the copy-protection scheme, and how data streamed off the disc.</p>
-      <span class="status soon"><span class="dot"></span>In the works</span>
-    </div>
+      <p>Optical storage from zero, then the 8&nbsp;cm miniDVD: the disc layout, the DI interface, the copy protection, streaming — and disc images in Dolphin.</p>
+      <span class="status ready"><span class="dot"></span>Ready · 13 modules</span>
+    </a>
 
   </div>
 
@@ -123,8 +124,8 @@
       Part of <a href="https://github.com/oldmachines">oldmachines</a> — interactive
       teardowns of the machines we grew up with. Technical content is grounded in
       the <a href="https://github.com/dolphin-emu/dolphin">Dolphin emulator</a>
-      source. No copyrighted game assets are shipped here; every sound is
-      synthesised in your browser.
+      source. No copyrighted game assets are shipped here; every sound and
+      picture is synthesised in your browser.
     </p>
   </footer>
 
