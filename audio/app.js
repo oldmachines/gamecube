@@ -14,7 +14,7 @@ const Engine = (() => {
   let current = null;          // active source node group we can stop
   let currentName = '—';
   let onState = () => {};
-  let dry = null, decoder = null;
+  let dry = null, decoder = null, out = null, mediaEl = null, mediaActive = false;
   let decodeOn = (() => { try { return localStorage.getItem('gc_decode') === '1'; } catch (e) { return false; } })();
 
   function ac() {
@@ -26,17 +26,52 @@ const Engine = (() => {
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.72;
       master.connect(analyser);
-      // analyser -> dry (straight stereo) -> speakers. A parallel "wet" path
-      // (the steering decoder) is built on demand and cross-faded against dry
-      // by applyRoute() once it has finished attaching.
+      // analyser -> dry (straight stereo) -> out. A parallel "wet" path (the
+      // steering decoder) is built on demand and cross-faded against dry by
+      // applyRoute() once it has finished attaching. `out` is the single sink
+      // that reaches the device — see routeOutput().
       dry = ctx.createGain();
       dry.gain.value = 1;
       analyser.connect(dry);
-      dry.connect(ctx.destination);
+      out = ctx.createGain();
+      dry.connect(out);
+      routeOutput();
       if (decodeOn) buildDecoder();
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+
+  /* Route the final mix through a hidden <audio> element via a MediaStream
+     instead of straight to the device. Browsers treat media-element playback
+     as a real "media session" — on iOS that is what makes Control Center
+     attach its per-stream audio features to the page (AirPlay, lock-screen
+     controls, and on supported devices the "Convert to Spatial Audio"
+     toggle), none of which apply to raw Web Audio output. It also lets iOS
+     play the page with the ringer switch on silent, like any media app.
+     If element playback is refused, fall back to the direct connection. */
+  function routeOutput() {
+    let direct = false;
+    const fallback = () => {
+      if (!direct && !mediaActive) { direct = true; out.connect(ctx.destination); }
+    };
+    try {
+      const msDest = ctx.createMediaStreamDestination();
+      out.connect(msDest);
+      mediaEl = document.createElement('audio');
+      mediaEl.srcObject = msDest.stream;
+      mediaEl.setAttribute('playsinline', '');
+      mediaEl.style.display = 'none';
+      document.body.appendChild(mediaEl);
+      const t = setTimeout(fallback, 300);   // don't leave the page silent
+      mediaEl.play().then(() => {
+        clearTimeout(t);
+        if (direct) { try { out.disconnect(ctx.destination); } catch (e) {} direct = false; }
+        mediaActive = true;
+      }).catch(() => { clearTimeout(t); fallback(); });
+    } catch (e) {
+      fallback();
+    }
   }
 
   /* ------ optional Dolby Pro Logic II decode -> headphone surround -----------
@@ -64,7 +99,7 @@ const Engine = (() => {
     if (decoder || !ctx) return;
     const wet = ctx.createGain();
     wet.gain.value = 0;
-    wet.connect(ctx.destination);
+    wet.connect(out);
     decoder = { wet, ready: false };
 
     const attachSteered = () => {
@@ -180,6 +215,15 @@ const Engine = (() => {
       }, group.duration * 1000 + 60);
       const prevStop = current.stop;
       current.stop = () => { clearTimeout(t); prevStop(); };
+    }
+    // lock-screen / Control Center metadata for the media session
+    if (navigator.mediaSession && window.MediaMetadata) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: name,
+          artist: 'Inside the GameCube — audio course',
+        });
+      } catch (e) {}
     }
     onState({ playing: true, name });
     return group;
