@@ -642,6 +642,173 @@ function PanLab(root) {
   root.querySelector('[data-pan-play]').addEventListener('click', startPanner);
 }
 
+/* ------------------------------------------------- animated flow diagrams  */
+/* A tiny timeline engine: moves dots along named SVG paths, glows blocks and
+   narrates each phase in a live caption. Sequences are declarative; playback
+   starts only on a button press, pauses when scrolled off-screen, and the
+   dots are appended at runtime so the static diagram is untouched.          */
+function FlowAnim(opts) {
+  const svg = opts.svg, cap = opts.cap;
+  const NS = 'http://www.w3.org/2000/svg';
+  const mk = (l) => {
+    const p = svg.querySelector('#' + l.path);
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('r', l.r === undefined ? 5 : l.r);
+    dot.setAttribute('fill', l.color || 'transparent');
+    dot.setAttribute('opacity', '0');
+    dot.style.pointerEvents = 'none';
+    svg.appendChild(dot);
+    return Object.assign({}, l, { el: p, len: p.getTotalLength(), dot });
+  };
+  const seqs = {};
+  for (const name in opts.seqs) {
+    const s = opts.seqs[name];
+    seqs[name] = { T: s.T, onLoop: s.onLoop, legs: s.legs.map(mk) };
+  }
+  let raf = null, startT = 0, cur = null, looping = false, chain = [], paused = false;
+
+  function setGlow(sel, on) {
+    const el = sel && svg.querySelector(sel);
+    if (el) el.classList.toggle('fx-glow', on);
+  }
+  function clearAll() {
+    for (const n in seqs) for (const l of seqs[n].legs) {
+      l.dot.setAttribute('opacity', '0');
+      if (l.glow) setGlow(l.glow, false);
+    }
+  }
+  function tick(now) {
+    const s = seqs[cur];
+    const t = (now - startT) / 1000;
+    if (t >= s.T) {
+      clearAll();
+      if (chain.length) { cur = chain.shift(); startT = now; raf = requestAnimationFrame(tick); return; }
+      if (looping) { if (s.onLoop) s.onLoop(); startT = now; raf = requestAnimationFrame(tick); return; }
+      raf = null;
+      if (opts.idleCap) cap.textContent = opts.idleCap;
+      if (opts.onStop) opts.onStop();
+      return;
+    }
+    let text = '';
+    const glows = new Set();
+    for (const l of s.legs) {
+      if (t >= l.t0 && t <= l.t1) {
+        const u = (t - l.t0) / (l.t1 - l.t0);
+        const pt = l.el.getPointAtLength(u * l.len);
+        l.dot.setAttribute('cx', pt.x); l.dot.setAttribute('cy', pt.y);
+        l.dot.setAttribute('opacity', '1');
+        if (l.glow) glows.add(l.glow);
+        if (l.cap) text = l.cap;
+      } else {
+        l.dot.setAttribute('opacity', '0');
+      }
+    }
+    // apply glow states after the sweep, so an inactive leg can't switch off
+    // a target another (active) leg is glowing
+    for (const l of s.legs) if (l.glow) setGlow(l.glow, glows.has(l.glow));
+    if (text) cap.textContent = text;
+    raf = requestAnimationFrame(tick);
+  }
+  const api = {
+    playing: () => !!raf || paused,
+    start(names, loop) {
+      api.stopQuiet();
+      chain = names.slice(1); cur = names[0]; looping = !!loop; paused = false;
+      startT = performance.now();
+      raf = requestAnimationFrame(tick);
+    },
+    stopQuiet() { if (raf) cancelAnimationFrame(raf); raf = null; paused = false; chain = []; looping = false; clearAll(); },
+    stop() { api.stopQuiet(); if (opts.idleCap) cap.textContent = opts.idleCap; if (opts.onStop) opts.onStop(); },
+  };
+  // pause the animation while it's scrolled out of view
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(es => es.forEach(e => {
+      if (!e.isIntersecting && raf) { cancelAnimationFrame(raf); raf = null; paused = true; }
+      else if (e.isIntersecting && paused) { paused = false; startT = performance.now(); raf = requestAnimationFrame(tick); }
+    })).observe(svg);
+  }
+  return api;
+}
+
+/* the per-frame conversation, animated on the module-09 architecture diagram */
+function DspFlow() {
+  const fig = document.querySelector('#dsp .dsp-diagram');
+  if (!fig) return;
+  const svg = fig.querySelector('svg');
+  const cap = fig.querySelector('[data-anim-cap]');
+  const loopBtn = fig.querySelector('[data-flow-loop]');
+  const stepBtn = fig.querySelector('[data-flow-step]');
+  if (!svg || !cap || !loopBtn || !svg.querySelector('#p-aram')) return;
+  const V = '#a884ff', C = '#45e4d1', M = '#ff5f9e', A = '#ffb14e';
+  let booted = false;
+  const anim = FlowAnim({
+    svg, cap,
+    idleCap: 'Press ▶ to watch the boot handshake, then one 5 ms audio frame after another — slowed ~900×.',
+    onStop() { loopBtn.textContent = '▶ Boot & loop'; },
+    seqs: {
+      boot: { T: 3.1, legs: [
+        { path: 'p-cpu-mail', t0: 0.10, t1: 0.85, color: V, cap: 'boot · ① CPU mails 0x8071FEED — “incoming ucode!” — plus where it lives and how big it is' },
+        { path: 'p-dma', t0: 0.95, t1: 2.05, color: C, glow: '#g-iram', cap: 'boot · ② the boot ROM ucode DMAs the program from main RAM into IRAM' },
+        { path: 'p-dma', t0: 1.20, t1: 2.30, color: C },
+        { path: 'p-dma', t0: 2.35, t1: 3.00, color: C, r: 0, glow: '#g-iram', cap: 'boot · ③ jump to IRAM 0x0000 — the game’s ucode is live' },
+      ]},
+      frame: { T: 4.7, legs: [
+        { path: 'p-cpu-mram', t0: 0.05, t1: 0.55, color: V, cap: 'frame · ① CPU writes this frame’s command list + voice parameter blocks into main RAM' },
+        { path: 'p-cpu-mail', t0: 0.62, t1: 1.15, color: V, cap: 'frame · ② mail: “commands ready — here’s the address”' },
+        { path: 'p-mram-dram', t0: 1.22, t1: 1.75, color: V, cap: 'frame · ③ the ucode DMAs the commands into DRAM and walks the voice list' },
+        { path: 'p-aram', t0: 1.82, t1: 2.22, color: M, glow: '#g-alu', cap: 'frame · ④ the accelerator streams every voice’s ADPCM from ARAM — decode · resample · envelope · filter · mix' },
+        { path: 'p-aram', t0: 2.06, t1: 2.46, color: M, glow: '#g-alu' },
+        { path: 'p-aram', t0: 2.30, t1: 2.70, color: M, glow: '#g-alu' },
+        { path: 'p-aram', t0: 2.54, t1: 2.94, color: M, glow: '#g-alu' },
+        { path: 'p-out', t0: 3.05, t1: 3.65, color: A, cap: 'frame · ⑤ 5 ms of finished stereo (+ matrix surround) heads out to the DAC' },
+        { path: 'p-mail-cpu', t0: 3.75, t1: 4.35, color: C, cap: 'frame · ⑥ mail back: DSP_FRAME_END — same again in 5 ms' },
+      ]},
+    },
+  });
+  loopBtn.addEventListener('click', () => {
+    if (anim.playing()) { anim.stop(); return; }
+    loopBtn.textContent = '⏸ Stop';
+    anim.start(booted ? ['frame'] : ['boot', 'frame'], true);
+    booted = true;
+  });
+  stepBtn.addEventListener('click', () => {
+    loopBtn.textContent = '▶ Boot & loop';
+    anim.start(['frame'], false);
+    booted = true;
+  });
+}
+
+/* the AUX reverb round trip, with its one-frame delay made visible */
+function AuxFlow() {
+  const fig = document.getElementById('aux-flow');
+  if (!fig) return;
+  const svg = fig.querySelector('svg');
+  const cap = fig.querySelector('[data-anim-cap]');
+  const btn = fig.querySelector('[data-aux-flow]');
+  const frn = svg.querySelector('#aux-frn');
+  let n = 214;
+  const V = '#a884ff', C = '#45e4d1', M = '#ff5f9e';
+  const anim = FlowAnim({
+    svg, cap,
+    idleCap: 'The reverb detour, animated — note the frame counter: the wet signal always lands one frame late.',
+    onStop() { btn.textContent = '▶ Animate the round trip'; },
+    seqs: {
+      trip: { T: 4.4, onLoop() { n++; frn.textContent = 'frame ' + n; }, legs: [
+        { path: 'p-ax-mram', t0: 0.05, t1: 0.80, color: C, cap: '① AX writes this frame’s AUX mix into the buffer in main RAM' },
+        { path: 'p-mram-cpu', t0: 0.90, t1: 1.60, color: V, cap: '② the CPU fetches it…' },
+        { path: 'p-mram-cpu', t0: 1.60, t1: 2.30, color: V, r: 0, glow: '#g-auxcpu', cap: '③ …and runs the reverb — on the CPU, not the DSP' },
+        { path: 'p-cpu-mram2', t0: 2.35, t1: 3.05, color: V, cap: '④ the wet buffer goes back into main RAM' },
+        { path: 'p-mram-ax', t0: 3.15, t1: 3.95, color: M, cap: '⑤ NEXT frame, AX folds it into the mix — the reverb is always one frame late' },
+      ]},
+    },
+  });
+  btn.addEventListener('click', () => {
+    if (anim.playing()) { anim.stop(); return; }
+    btn.textContent = '⏸ Stop';
+    anim.start(['trip'], true);
+  });
+}
+
 /* -------------------------------------------------------- mailbox lab      */
 /* Replays the CPU<->DSP boot handshake from module 14, one mail at a time —
    the real 32-bit values, with a translation beside each. Pure DOM, no audio. */
@@ -1151,6 +1318,10 @@ document.addEventListener('DOMContentLoaded', () => {
   /* AUX reverb + frame budget labs (Part II) */
   const auxL = document.getElementById('lab-aux'); if (auxL) AuxLab(auxL);
   const frL = document.getElementById('lab-frame'); if (frL) FrameLab(frL);
+
+  /* animated flow diagrams (modules 09 + 11) */
+  DspFlow();
+  AuxFlow();
 
   /* mailbox + resampler labs (Part III) */
   const mlb = document.getElementById('lab-mail'); if (mlb) MailLab(mlb);

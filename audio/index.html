@@ -1343,7 +1343,7 @@
               <text x="318" y="130" text-anchor="middle" class="d-label" style="font-size:13px">IROM</text>
               <text x="318" y="148" text-anchor="middle" class="d-sub">boot code</text>
 
-              <rect x="376" y="104" width="96" height="60" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <rect id="g-iram" x="376" y="104" width="96" height="60" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
               <text x="424" y="130" text-anchor="middle" class="d-label" style="font-size:13px">IRAM</text>
               <text x="424" y="148" text-anchor="middle" class="d-sub">ucode here</text>
 
@@ -1357,7 +1357,7 @@
               <text x="636" y="156" text-anchor="middle" class="d-sub">taps</text>
 
               <!-- ALU + accumulators -->
-              <rect x="270" y="190" width="200" height="86" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <rect id="g-alu" x="270" y="190" width="200" height="86" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
               <text x="370" y="222" text-anchor="middle" class="d-label">ALU</text>
               <text x="370" y="244" text-anchor="middle" class="d-sub">40-bit accumulators</text>
               <text x="370" y="260" text-anchor="middle" class="d-sub">multiply · add · shift</text>
@@ -1394,26 +1394,35 @@
                 <marker id="ahm" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker>
               </defs>
 
+              <!-- invisible motion guides for the frame animation -->
+              <path id="p-cpu-mram" d="M91 222 L 91 250" fill="none" stroke="none"/>
+              <path id="p-mram-dram" d="M166 268 C 350 268, 340 200, 528 166" fill="none" stroke="none"/>
+
               <!-- CPU <-> mailbox (control) -->
-              <path d="M166 186 C 210 186, 214 330, 268 330" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#ah)"/>
-              <path d="M268 342 C 214 348, 210 200, 168 200" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#ah)"/>
+              <path id="p-cpu-mail" d="M166 186 C 210 186, 214 330, 268 330" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#ah)"/>
+              <path id="p-mail-cpu" d="M268 342 C 214 348, 210 200, 168 200" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#ah)"/>
               <text x="188" y="262" class="d-flow">mailbox</text>
               <text x="188" y="276" class="d-flow">messages</text>
 
               <!-- MRAM -> IRAM (ucode DMA) -->
-              <path d="M166 274 C 320 274, 300 168, 410 166" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#ahc)"/>
+              <path id="p-dma" d="M166 274 C 320 274, 300 168, 410 166" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#ahc)"/>
               <text x="196" y="126" class="d-flow d-cyan">DMA ucode → IRAM</text>
 
               <!-- ARAM -> accelerator (sample stream) -->
-              <path d="M774 190 C 720 196, 700 220, 686 226" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#ahm)"/>
+              <path id="p-aram" d="M774 190 C 720 196, 700 220, 686 226" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#ahm)"/>
               <text x="700" y="180" class="d-flow d-magenta">sample stream</text>
 
               <!-- mix out -> AI/DAC -->
-              <path d="M684 332 C 720 332, 740 334, 772 335" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#ah)"/>
+              <path id="p-out" d="M684 332 C 720 332, 740 334, 772 335" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#ah)"/>
 
               <!-- accelerator -> ALU (decoded samples in) -->
               <path d="M486 233 L 474 233" fill="none" stroke="#877f9e" stroke-width="1.5" marker-end="url(#ah)"/>
             </svg>
+            <div class="flow-controls">
+              <button class="surr-btn" data-flow-loop>▶ Boot &amp; loop</button>
+              <button class="surr-btn" data-flow-step>⏭ One frame</button>
+              <span class="fig-cap anim-cap" data-anim-cap>Press ▶ to watch the boot handshake, then one 5&nbsp;ms audio frame after another — slowed ~900×.</span>
+            </div>
             <figcaption class="fig-cap">
               <strong>The whole chip at a glance.</strong> The CPU talks to the DSP
               only through two mailboxes, and loads a program by copying it into
@@ -1806,6 +1815,41 @@ tap_done:
               </div>
             </div>
           </div>
+
+          <figure class="figure" id="aux-flow">
+            <svg viewBox="0 0 900 250" role="img" aria-label="Animated round trip: the DSP writes an AUX mix to main RAM, the CPU applies the reverb, and the result returns to the DSP one frame later">
+              <defs><marker id="axh" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#392f57"/></marker></defs>
+              <rect x="40" y="95" width="170" height="64" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="125" y="122" text-anchor="middle" class="d-label" style="font-size:14px">DSP · AX</text>
+              <text x="125" y="141" text-anchor="middle" class="d-sub">mixes voices</text>
+              <rect x="365" y="95" width="170" height="64" rx="10" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="122" text-anchor="middle" class="d-label" style="font-size:14px">Main RAM</text>
+              <text x="450" y="141" text-anchor="middle" class="d-sub">AUX buffer</text>
+              <rect id="g-auxcpu" x="690" y="95" width="170" height="64" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="775" y="122" text-anchor="middle" class="d-label" style="font-size:14px">CPU</text>
+              <text x="775" y="141" text-anchor="middle" class="d-sub">runs the reverb</text>
+              <path id="p-ax-mram" d="M210 108 C 265 96, 310 96, 363 108" fill="none" stroke="#392f57" stroke-width="1.5" marker-end="url(#axh)"/>
+              <path id="p-mram-cpu" d="M535 108 C 590 96, 635 96, 688 108" fill="none" stroke="#392f57" stroke-width="1.5" marker-end="url(#axh)"/>
+              <path id="p-cpu-mram2" d="M688 146 C 635 158, 590 158, 537 146" fill="none" stroke="#392f57" stroke-width="1.5" marker-end="url(#axh)"/>
+              <path id="p-mram-ax" d="M363 146 C 310 158, 265 158, 212 146" fill="none" stroke="#392f7e" stroke-width="1.5" marker-end="url(#axh)"/>
+              <text x="286" y="82" text-anchor="middle" class="d-flow">send</text>
+              <text x="612" y="82" text-anchor="middle" class="d-flow">fetch</text>
+              <text x="612" y="176" text-anchor="middle" class="d-flow">wet buffer back</text>
+              <text x="286" y="176" text-anchor="middle" class="d-flow">fold into NEXT frame</text>
+              <text id="aux-frn" x="858" y="34" text-anchor="end" class="d-tag d-amber">frame 214</text>
+            </svg>
+            <div class="flow-controls">
+              <button class="surr-btn" data-aux-flow>▶ Animate the round trip</button>
+              <span class="fig-cap anim-cap" data-anim-cap>The reverb detour, animated — note the frame counter: the wet signal always lands one frame late.</span>
+            </div>
+            <figcaption class="fig-cap">
+              <strong>The AUX round trip.</strong> The DSP hands its side-mix to
+              main RAM, the CPU applies the effect, and the processed buffer is
+              folded into the <em>next</em> frame&rsquo;s mix — a division of
+              labour that costs one 5&nbsp;ms frame of latency, which nobody can
+              hear on a reverb tail.
+            </figcaption>
+          </figure>
 
           <h4>The frame budget — why ~64 voices</h4>
           <p>

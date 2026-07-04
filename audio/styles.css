@@ -577,6 +577,25 @@ td .crc { font: 600 12.5px/1 var(--mono); color: var(--cyan); }
 }
 .env-canvas { height: 210px; }
 
+/* animated flow diagrams (modules 09 + 11) */
+.flow-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 4px 2px;
+}
+.flow-controls .anim-cap {
+  margin: 0;
+  color: var(--cyan);
+  min-height: 1.4em;
+  font-variant-numeric: tabular-nums;
+}
+.fx-glow {
+  stroke-width: 3px;
+  filter: drop-shadow(0 0 6px rgba(69, 228, 209, .85));
+}
+
 /* mailbox handshake simulator (module 14) */
 .mail-log {
   display: flex;
