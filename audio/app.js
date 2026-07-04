@@ -414,10 +414,14 @@ function PanLab(root) {
       lp.connect(l); lp.connect(r);
       lp.connect(delay); delay.connect(inv);
       inv.connect(surr);
-      // surround -> both channels out of phase (Lt = ..+S, Rt = ..-S)
+      // Surround is summed into the output channels out of phase (Lt = ..+S,
+      // Rt = ..-S) INDEPENDENTLY of the front gains. (Routing it through l/r —
+      // whose gain is the *front* level — zeroed the surround at rear positions,
+      // so a bottom-centre source went silent and the decoder got nothing.)
       const surrR = ctx.createGain(); surrR.gain.value = -1;
-      surr.connect(l); surr.connect(surrR); surrR.connect(r);
+      surr.connect(surrR);
       l.connect(merger, 0, 0); r.connect(merger, 0, 1);
+      surr.connect(merger, 0, 0); surrR.connect(merger, 0, 1);
       merger.connect(dest);
       osc.start();
       gains = { l, r, surr };
