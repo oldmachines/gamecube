@@ -199,7 +199,7 @@ const Engine = (() => {
     };
 
     if (ctx.audioWorklet && window.AudioWorkletNode) {
-      (workletLoad || (workletLoad = ctx.audioWorklet.addModule('plii.js')))
+      (workletLoad || (workletLoad = ctx.audioWorklet.addModule('plii.js?v=20260704a')))
         .then(attachSteered)
         .catch(attachPassive);
     } else {
@@ -797,9 +797,12 @@ function DspFlow() {
     },
   });
   let stepIdx = -1;
+  let stepping = false;
   loopBtn.addEventListener('click', () => {
+    const wasStepping = stepping;
+    stepping = false;
     stepIdx = -1;
-    if (anim.playing()) { anim.stop(); return; }
+    if (anim.playing() && !wasStepping) { anim.stop(); return; }
     loopBtn.textContent = '⏸ Stop';
     anim.start(booted ? ['frame'] : ['boot', 'frame'], true);
     booted = true;
@@ -807,6 +810,7 @@ function DspFlow() {
   // one operation per press: each click advances to the next phase and loops
   // just that phase (dot replaying slowly) until the next click
   stepBtn.addEventListener('click', () => {
+    stepping = true;
     loopBtn.textContent = '▶ Boot & loop';
     const total = anim.phaseCount('frame');
     stepIdx = (stepIdx + 1) % total;
