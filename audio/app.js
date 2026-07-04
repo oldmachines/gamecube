@@ -112,30 +112,57 @@ const Engine = (() => {
         channelInterpretation: 'speakers',
       });
       analyser.connect(node);
-      // Virtual speaker layout: front L/R/C, rear Ls/Rs. Each HRTF panner is
-      // followed by a StereoPanner bias: browser HRTF datasets cap the
-      // interaural level difference around 1.4x, which dilutes even a well-
-      // steered rear pair to near-mono at the ears. The bias restores a clear
-      // left/right level cue while the HRTF keeps the front/back (spectral +
-      // timing) cues.
-      const SPEAKERS = [
-        { pos: [-1.0, 0, -0.6], bias: -0.4 },   // L
-        { pos: [ 1.0, 0, -0.6], bias:  0.4 },   // R
-        { pos: [ 0,   0, -0.9], bias:  0   },   // C
-        { pos: [-1.2, 0,  0.5], bias: -0.5 },   // Ls
-        { pos: [ 1.2, 0,  0.5], bias:  0.5 },   // Rs
-      ];
-      SPEAKERS.forEach((spk, k) => {
-        const p = makePanner(...spk.pos);
-        node.connect(p, k);
-        if (spk.bias && ctx.createStereoPanner) {
-          const sp = ctx.createStereoPanner();
-          sp.pan.value = spk.bias;
-          p.connect(sp); sp.connect(wet);
-        } else {
-          p.connect(wet);
-        }
-      });
+
+      // --- discrete 5.1 output -------------------------------------------
+      // If the output device reports 6+ channels (a PC with real 5.1
+      // speakers), skip binauralisation entirely: map the five steered
+      // channels straight onto the 5.1 layout (L R C LFE SL SR — LFE left
+      // silent, no bass management) and drive the destination discretely.
+      // This path bypasses the media element, which is stereo-only.
+      let multi = false;
+      if (ctx.destination.maxChannelCount >= 6) {
+        try {
+          ctx.destination.channelCount = 6;
+          ctx.destination.channelCountMode = 'explicit';
+          ctx.destination.channelInterpretation = 'discrete';
+          const m6 = ctx.createChannelMerger(6);
+          // worklet outputs 0..4 = L R C Ls Rs → 5.1 channels 0 1 2 4 5
+          [[0, 0], [1, 1], [2, 2], [3, 4], [4, 5]]
+            .forEach(([o, c]) => node.connect(m6, o, c));
+          try { wet.disconnect(out); } catch (e) {}
+          m6.connect(wet);
+          wet.connect(ctx.destination);
+          decoder.multi = true;
+          multi = true;
+        } catch (e) { /* device refused 6ch — fall through to binaural */ }
+      }
+
+      if (!multi) {
+        // Virtual speaker layout: front L/R/C, rear Ls/Rs. Each HRTF panner
+        // is followed by a StereoPanner bias: browser HRTF datasets cap the
+        // interaural level difference around 1.4x, which dilutes even a well-
+        // steered rear pair to near-mono at the ears. The bias restores a
+        // clear left/right level cue while the HRTF keeps the front/back
+        // (spectral + timing) cues.
+        const SPEAKERS = [
+          { pos: [-1.0, 0, -0.6], bias: -0.4 },   // L
+          { pos: [ 1.0, 0, -0.6], bias:  0.4 },   // R
+          { pos: [ 0,   0, -0.9], bias:  0   },   // C
+          { pos: [-1.2, 0,  0.5], bias: -0.5 },   // Ls
+          { pos: [ 1.2, 0,  0.5], bias:  0.5 },   // Rs
+        ];
+        SPEAKERS.forEach((spk, k) => {
+          const p = makePanner(...spk.pos);
+          node.connect(p, k);
+          if (spk.bias && ctx.createStereoPanner) {
+            const sp = ctx.createStereoPanner();
+            sp.pan.value = spk.bias;
+            p.connect(sp); sp.connect(wet);
+          } else {
+            p.connect(wet);
+          }
+        });
+      }
       decoder.node = node;
       decoder.ready = true;
       applyRoute();
