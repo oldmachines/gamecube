@@ -86,9 +86,15 @@ class PLIIActiveProcessor extends AudioWorkletProcessor {
       const ux = m > EPS ? x / m : 0;
       const uy = m > EPS ? y / m : 0;
 
-      // --- passive matrix ---
-      const pL = l;
-      const pR = r;
+      // --- passive matrix + centre crosstalk CANCELLATION ---
+      // When the field steers to front-centre, subtract the centre content
+      // from L/R (real decoders cancel, not just gate). Without this, one
+      // coherent source plays from three virtual speakers at once — comb
+      // filtering plus a level pile-up that audibly garbles speech.
+      const cc = g * Math.max(0, uy) * Math.max(0, 1 - 1.4 * Math.abs(ux));
+      const half = 0.5 * cc * (l + r);               // cc·0.7071·C0
+      const pL = l - half;
+      const pR = r - half;
       const pC = c0;
       const pLs = B * r - A * l;                     // PLII surround decode
       const pRs = A * r - B * l;

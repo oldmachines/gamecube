@@ -99,7 +99,15 @@ const Engine = (() => {
     if (decoder || !ctx) return;
     const wet = ctx.createGain();
     wet.gain.value = 0;
-    wet.connect(out);
+    // Safety limiter on the binaural decode path: five steered virtual
+    // speakers can momentarily sum hot (e.g. a loud centred source), and
+    // clipped speech sounds garbled. Bypassed by the discrete-5.1 branch,
+    // since DynamicsCompressor would fold 6 channels down to stereo.
+    const lim = ctx.createDynamicsCompressor();
+    lim.threshold.value = -4; lim.knee.value = 4; lim.ratio.value = 12;
+    lim.attack.value = 0.002; lim.release.value = 0.15;
+    wet.connect(lim);
+    lim.connect(out);
     decoder = { wet, ready: false };
 
     const attachSteered = () => {
@@ -129,7 +137,7 @@ const Engine = (() => {
           // worklet outputs 0..4 = L R C Ls Rs → 5.1 channels 0 1 2 4 5
           [[0, 0], [1, 1], [2, 2], [3, 4], [4, 5]]
             .forEach(([o, c]) => node.connect(m6, o, c));
-          try { wet.disconnect(out); } catch (e) {}
+          try { wet.disconnect(lim); } catch (e) {}
           m6.connect(wet);
           wet.connect(ctx.destination);
           decoder.multi = true;
