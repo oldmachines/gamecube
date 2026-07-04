@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameCube Disc Drive — a course on optical storage, the miniDVD &amp; emulation</title>
+<meta name="description" content="A hands-on course in three parts: how optical discs store data with pits and light, how the GameCube's custom 8 cm miniDVD drive actually works (layout, the DI, copy protection, streaming), and how Dolphin emulates it — with interactive labs so you can see every concept, not just read it.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237d5cf0%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27none%27 stroke=%27%230c0a13%27 stroke-width=%273%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><div class="fill" id="progress-fill"></div></div>
+<button class="menu-btn" id="menu-btn" aria-label="Open contents">☰</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+
+  <!-- ================================================= SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>GameCube Disc Drive</h1>
+        <span class="sub">A course · 13 modules</span>
+      </div>
+    </div>
+
+    <nav class="toc" aria-label="Course contents">
+      <div class="toc-group">Part I · Optical storage from zero</div>
+      <a href="#light"><span class="n">01</span><span>Reading with light</span></a>
+      <a href="#spiral"><span class="n">02</span><span>The spiral &amp; spinning</span></a>
+      <a href="#scratches"><span class="n">03</span><span>Surviving scratches</span></a>
+      <a href="#cd-dvd"><span class="n">04</span><span>From CD to DVD</span></a>
+
+      <div class="toc-group">Part II · The GameCube's drive</div>
+      <a href="#minidisc"><span class="n">05</span><span>The 8 cm disc</span></a>
+      <a href="#layout"><span class="n">06</span><span>What's on the disc</span></a>
+      <a href="#di"><span class="n">07</span><span>Talking to the drive: the DI</span></a>
+      <a href="#protection"><span class="n">08</span><span>The copy protection</span></a>
+      <a href="#streaming"><span class="n">09</span><span>Streaming &amp; hiding the seams</span></a>
+
+      <div class="toc-group">Part III · Emulating in Dolphin</div>
+      <a href="#image"><span class="n">10</span><span>The disc, as a file</span></a>
+      <a href="#emulating"><span class="n">11</span><span>Emulating the drive</span></a>
+      <a href="#try"><span class="n">12</span><span>Try it in Dolphin</span></a>
+      <a href="#epilogue"><span class="n">13</span><span>The last spinning disc</span></a>
+
+      <div class="progress-note">Progress · <b id="pct">0%</b></div>
+    </nav>
+  </aside>
+
+  <!-- ================================================= MAIN =============== -->
+  <main class="main">
+
+    <!-- ------------------------------------------------ HERO -------------- -->
+    <header class="hero">
+      <canvas id="hero-disc" aria-hidden="true"></canvas>
+      <div class="wrap">
+        <div class="inner">
+          <span class="eyebrow">An interactive course · Dolphin emulator</span>
+          <h2>How the <span class="grad">GameCube</span> read its games.</h2>
+          <p class="lede">
+            We start from the very beginning — how a beam of light can read data
+            off a spinning piece of plastic — assuming you know nothing about
+            optical storage. Once the vocabulary is solid, we open up Nintendo's
+            odd little 8&nbsp;cm disc and the drive that reads it, then follow the
+            data into Dolphin's emulator. Thirteen modules, each with
+            <strong>live simulations</strong> so you can watch every idea, not
+            just read it. No game data ships with this page; every disc you'll
+            see is a fictional one, generated in your browser.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#light">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Begin Part I
+            </a>
+            <a class="btn" href="#minidisc">Skip to the GameCube's drive</a>
+          </div>
+
+          <div class="arc-cards">
+            <a class="arc" href="#part-1">
+              <div class="an">PART I</div>
+              <h4>Optical storage</h4>
+              <p>Pits, lands and lasers, the spiral track, error correction and the CD→DVD leap — the universal vocabulary of optical media, explained from zero.</p>
+              <div class="cnt">4 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-2">
+              <div class="an">PART II</div>
+              <h4>The GameCube's drive</h4>
+              <p>The 8 cm miniDVD, what's actually on it, the DI interface, the copy protection, and how games hid their loading screens.</p>
+              <div class="cnt">5 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-3">
+              <div class="an">PART III</div>
+              <h4>Emulating in Dolphin</h4>
+              <p>Disc images and RVZ compression, why timing matters more than you'd think, and a farewell to spinning media.</p>
+              <div class="cnt">4 modules · with labs</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ============================================ PART I ============== -->
+      <section class="part" id="part-1">
+        <div class="part-inner">
+          <div class="kicker">Part I</div>
+          <h3>Optical storage from zero</h3>
+          <p>
+            This first part is pure fundamentals — nothing about any specific
+            console yet. It's how <em>every</em> optical disc works, whether
+            that's a music CD, a DVD movie, or the small purple-tinted disc
+            we'll meet in Part II. We build the vocabulary one word at a time —
+            pit, land, transition, spiral, sector, error correction — and you
+            can watch each idea run live in a simulation. If a term is ever used
+            before it's explained, that's a bug; tell us. Everything in Parts II
+            and III is just these four ideas wired together.
+          </p>
+          <div class="part-meta"><span>Modules <b>01–04</b></span><span>Difficulty <b>Absolute beginner</b></span><span>Labs <b>3 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 01 --- -->
+      <section class="doc" id="light">
+        <div class="mod-head">
+          <span class="eye">Module 01 <span class="part-tag">· Part I</span></span>
+          <h3>Reading with light</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand, from scratch, how microscopic dents on a plastic disc become a stream of 1s and 0s — without anything ever touching the data.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Let's start with what an optical disc physically <em>is</em>. Take a
+            thin platter of clear plastic (polycarbonate), coat one side with a
+            mirror-thin layer of metal, and seal it under lacquer and a label.
+            The data lives in that metal layer, as a pattern of microscopic
+            dents pressed into it at the factory. Each dent is called a
+            <strong>pit</strong>; each flat, undented stretch between pits is a
+            <strong>land</strong>. That's the entire storage medium: billions of
+            tiny pits and lands, far too small to see — a pit on a DVD-class
+            disc is shorter than a bacterium.
+          </p>
+          <p>
+            To read them, the drive shines a <strong>laser</strong> — a very
+            narrow, very pure beam of light — up through the clear plastic onto
+            the metal layer, and watches what bounces back with a light sensor
+            called a <strong>photodiode</strong> (a component whose electrical
+            output rises and falls with how much light lands on it). When the
+            beam sits on a <span class="term" data-tip="A flat, undented stretch of the disc's reflective layer. Reflects the laser strongly.">land</span>,
+            the mirror-flat metal reflects it cleanly and the photodiode sees a
+            bright return. When the beam crosses a
+            <span class="term" data-tip="A microscopic dent pressed into the disc's reflective layer. Engineered so the laser's reflection drops sharply when the beam crosses it.">pit</span>,
+            the reflection drops sharply — the pit's depth is engineered (to
+            around a quarter of the light's wavelength) so that light bouncing
+            off the pit and light bouncing off the surrounding land interfere
+            and largely cancel. Bright, dim, bright, dim: as the disc spins, the
+            photodiode's output becomes an electrical signal that traces the
+            pattern of pits flying under the beam.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A record player made of light</span>
+            <p>
+              A vinyl record stores sound as a physical groove, and a needle
+              rides in that groove to read it — touching it, and wearing it out,
+              on every single play. An optical disc is the same idea with the
+              needle replaced by a beam: the
+              <span class="term" data-tip="A narrow, single-colour beam of light used to read the disc; nothing physical touches the data layer.">laser</span>
+              &ldquo;rides&rdquo; the track of pits without ever touching it.
+              Nothing rubs, nothing wears. Play a disc ten thousand times and
+              the ten-thousandth read is identical to the first.
+            </p>
+          </div>
+
+          <h4>From bright-and-dim to bits</h4>
+          <p>
+            Here's the part almost everyone guesses wrong: a pit does
+            <em>not</em> mean 1 and a land does <em>not</em> mean 0. Instead,
+            the drive watches for <strong>transitions</strong> — the moments
+            where the signal <em>changes</em>, at a pit's leading or trailing
+            edge. Each transition is read as a <strong>1</strong>; every steady
+            stretch (staying on a pit, or staying on a land) is a run of
+            <strong>0</strong>s. Edges are used because a sharp <em>change</em>
+            is far easier to detect reliably than an absolute brightness level,
+            which drifts with dust, disc tilt and laser ageing.
+          </p>
+          <p>
+            One more subtlety and the picture is complete. If the data were
+            allowed to produce transitions bunched arbitrarily close together,
+            the pits would have to be impossibly small; and if it allowed
+            enormously long steady runs, the drive would lose count of how many
+            0s went by — it keeps time with an internal
+            <span class="term" data-tip="The drive's internal metronome — a steady tick that tells it where one bit slot ends and the next begins. It re-synchronises on every transition.">clock</span>
+            that re-synchronises on each edge, like a metronome you have to keep
+            tapping. So the raw data is first re-written through a
+            <span class="term" data-tip="A code that re-writes data so that transitions are never too close together (pits stay big enough to press) nor too far apart (the clock stays in sync). CDs use EFM; DVDs use a close cousin.">run-length code</span>
+            that guarantees every transition is followed by at least two 0s but
+            never more than ten — CDs use a scheme called EFM, DVDs a close
+            cousin of it. The result: pits and lands always come in a
+            comfortable range of sizes, easy to press and easy to read.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="Cross-section of a disc: a laser reflects strongly off lands and weakly off pits, producing an intensity signal that is decoded into bits at each transition">
+              <defs><marker id="ah01" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <!-- disc cross-section: label side up, laser reads from below -->
+              <rect x="70" y="30" width="760" height="14" rx="3" class="d-fill-panel2 d-stroke-line" stroke-width="1"/>
+              <text x="836" y="41" class="d-sub">label</text>
+              <!-- metal layer with pits (notches poking down toward the laser) -->
+              <path d="M70,52 H150 V64 H210 V52 H330 V64 H370 V52 H470 V64 H570 V52 H650 V64 H710 V52 H830" fill="none" stroke="#45e4d1" stroke-width="2.6" stroke-linejoin="round"/>
+              <text x="836" y="58" class="d-sub d-cyan">metal</text>
+              <rect x="70" y="66" width="760" height="34" rx="3" fill="rgba(168,132,255,0.07)" class="d-stroke-line" stroke-width="1"/>
+              <text x="836" y="88" class="d-sub">plastic</text>
+              <text x="160" y="80" class="d-tag d-cyan" text-anchor="start">pit</text>
+              <text x="252" y="80" class="d-tag" text-anchor="start">land</text>
+              <!-- laser beam from below hitting a land -->
+              <line x1="260" y1="180" x2="260" y2="54" stroke="#ff5f9e" stroke-width="2.4"/>
+              <line x1="268" y1="54" x2="300" y2="176" stroke="#ff5f9e" stroke-width="1.6" opacity="0.7" marker-end="url(#ah01)"/>
+              <rect x="216" y="182" width="88" height="34" rx="8" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <text x="260" y="204" text-anchor="middle" class="d-label" style="font-size:12px">laser</text>
+              <rect x="312" y="182" width="118" height="34" rx="8" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <text x="371" y="204" text-anchor="middle" class="d-label" style="font-size:12px">photodiode</text>
+              <text x="300" y="140" class="d-flow d-magenta">strong return = land</text>
+              <!-- reflected intensity trace -->
+              <text x="70" y="246" class="d-tag d-magenta">Reflected intensity</text>
+              <path d="M70,262 H150 L156,286 H210 L216,262 H330 L336,286 H370 L376,262 H470 L476,286 H570 L576,262 H650 L656,286 H710 L716,262 H830" fill="none" class="d-wave-m"/>
+              <!-- decoded bits -->
+              <text x="70" y="318" class="d-tag">Decoded bits</text>
+              <text x="150" y="318" class="d-num d-cyan">1</text>
+              <text x="182" y="318" class="d-num">0 0</text>
+              <text x="212" y="318" class="d-num d-cyan">1</text>
+              <text x="262" y="318" class="d-num">0 0 0 0</text>
+              <text x="330" y="318" class="d-num d-cyan">1</text>
+              <text x="352" y="318" class="d-num">0</text>
+              <text x="372" y="318" class="d-num d-cyan">1</text>
+              <text x="416" y="318" class="d-num">0 0 0</text>
+              <text x="470" y="318" class="d-num d-cyan">1</text>
+              <text x="516" y="318" class="d-num">0 0 0 0</text>
+              <text x="572" y="318" class="d-num d-cyan">1</text>
+              <text x="608" y="318" class="d-num">0 0</text>
+              <text x="652" y="318" class="d-num d-cyan">1</text>
+              <text x="682" y="318" class="d-num">0</text>
+              <text x="712" y="318" class="d-num d-cyan">1</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>How light becomes bits.</strong> The laser reads through the clear plastic: a <strong>land</strong> reflects it strongly, a <strong>pit</strong> cancels most of the reflection. The photodiode's signal (magenta) steps between bright and dim — and each <em>edge</em> of that signal, a <span class="term" data-tip="A change in the reflected signal — the laser crossing a pit's leading or trailing edge. Each transition is decoded as a 1.">transition</span>, is decoded as a 1, with steady stretches counted off as 0s by the drive's clock.</figcaption>
+          </figure>
+
+          <h4>Why this design is quietly brilliant</h4>
+          <p>
+            Two properties fall out of &ldquo;reading with light,&rdquo; and both
+            matter enormously for a games console. First, it's
+            <strong>contactless</strong> — no wear, ever, no matter how many
+            hours a child leaves the disc spinning. Second, it's surprisingly
+            <strong>durable</strong>: the laser is focused on the metal layer
+            <em>deep inside</em> the plastic, so a speck of dust or a light
+            scratch on the surface sits far out of focus — blurred into
+            irrelevance, the way a smudge on your glasses doesn't blot out the
+            world. Deeper scratches <em>do</em> get through, and Module 03 is
+            about the mathematics that survives them.
+          </p>
+          <p>
+            The lab below is a magnified flyover: a strip of track scrolls under
+            a fixed laser spot, and you can watch the reflected-intensity trace
+            and the recovered bitstream being built in real time. Then flip the
+            <strong>dust</strong> switch to drop a contaminated patch onto the
+            track and watch the bits garble — remember what that looks like,
+            because Module 03 exists to fix it.
+          </p>
+
+          <div class="lab" id="lab-laser">
+            <div class="lab-head"><span class="dot"></span><span class="title">Laser-readout lab — pits &amp; lands under the beam</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="Magnified track scrolling under a laser with the reflected-intensity trace and recovered bitstream"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Disc speed — <span class="val" data-laser-speed-val>×1.0</span></label>
+                  <input type="range" min="20" max="300" value="100" step="5" data-laser-speed aria-label="Disc speed">
+                </div>
+                <div class="ctrl">
+                  <label>Surface</label>
+                  <div class="seg-btns" role="group" aria-label="Surface condition">
+                    <button class="on" data-laser-dust="off">clean</button>
+                    <button data-laser-dust="on">dust patch</button>
+                  </div>
+                </div>
+                <span class="sim-note">Track magnified ~50,000×. Watch a transition become a <b>1</b> and steady runs become <b>0</b>s; with dust on, the mid-level mush turns into garbage bits (red).</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Data is stored as microscopic pits and lands in a metal layer inside clear plastic.</li>
+              <li>A laser reads them by reflection: lands return bright, pits return dim.</li>
+              <li>Transitions (edges) are 1s; steady runs are 0s, counted by the drive's clock — a run-length code keeps runs in a readable range.</li>
+              <li>Reading is contactless (no wear) and focused deep inside the disc (surface dirt is out of focus).</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of course</span></a>
+            <a class="next" href="#spiral"><span class="dir">Next →</span><span class="ttl">02 · The spiral &amp; spinning</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 02 --- -->
+      <section class="doc" id="spiral">
+        <div class="mod-head">
+          <span class="eye">Module 02 <span class="part-tag">· Part I</span></span>
+          <h3>The spiral &amp; spinning</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how the track is laid out on the disc, why the same RPM means different data speeds at different radii, and understand the two spinning strategies — CLV and CAV.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Module 01 followed the track as a straight magnified strip. Zoom
+            back out and you'll find it's not a set of concentric rings like the
+            grooves you might imagine — it's <strong>one single, continuous
+            spiral</strong>, starting near the centre hole and winding outward
+            to the rim, exactly like a vinyl record in reverse. Unrolled, the
+            spiral on a full-size DVD is over ten kilometres long. Neighbouring
+            turns of the spiral sit astonishingly close together — the spacing
+            between them is the <span class="term" data-tip="The radial distance between neighbouring turns of the spiral track — under a thousandth of a millimetre on DVD-class discs.">track pitch</span>,
+            under a thousandth of a millimetre on DVD-class media.
+          </p>
+          <p>
+            Starting from the <em>inside</em> matters: every disc, regardless of
+            how full it is, begins its data at the same small radius, and a
+            half-empty disc simply stops partway out. The innermost turns also
+            carry the disc's table-of-contents area — the
+            <span class="term" data-tip="The innermost region of the spiral, read first, describing what the disc is and how its data is laid out.">lead-in</span>
+            — which the drive reads first to learn what it's holding. File that
+            term away; it returns with a twist in Module 08.
+          </p>
+
+          <h4>The geometry problem</h4>
+          <p>
+            Now spin the disc. Here's the wrinkle: a point near the rim travels
+            a much longer circle per revolution than a point near the hub. Spin
+            at a fixed rate and the track flies under the laser <em>faster</em>
+            at the outer edge than at the inner edge — same revolutions, more
+            millimetres. Two speeds are in play and it pays to name them:
+            <strong>angular velocity</strong>, how fast the disc turns (measured
+            in <span class="term" data-tip="Revolutions per minute — how many full turns the disc makes each minute.">RPM</span>,
+            revolutions per minute), and <strong>linear velocity</strong>, how
+            fast the track itself streams past the laser (metres per second).
+            Since pits are a fixed physical size, <em>linear</em> velocity is
+            what sets the data rate: track passing twice as fast means bits
+            arriving twice as fast.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Lanes on a running track</span>
+            <p>
+              Runners going side-by-side around a bend at the same
+              <em>angular</em> rate — staying shoulder to shoulder — are moving
+              at very different <em>linear</em> speeds: the outside runner
+              covers far more ground per lap. The disc is the same track with
+              thousands of lanes. Keep the RPM fixed and the laser in the
+              &ldquo;outside lane&rdquo; reads data much faster than in the
+              inside lane — that's
+              <span class="term" data-tip="Constant Angular Velocity — spin at a fixed RPM and accept that the data rate grows toward the rim.">CAV</span>.
+              Slow the whole field down whenever you watch the outside runner,
+              so that every lane passes you at the same ground speed — that's
+              <span class="term" data-tip="Constant Linear Velocity — vary the RPM with head position so the track always passes the laser at the same speed, giving a constant data rate.">CLV</span>.
+            </p>
+          </div>
+
+          <p>
+            Every drive designer must pick a side, and the trade-off shapes how
+            the machine behaves:
+          </p>
+          <ul>
+            <li><strong>CLV — Constant Linear Velocity.</strong> Continuously adjust the motor so the track always passes the laser at the same speed: fast RPM at the hub, slow at the rim. You get a perfectly <em>constant data rate</em> — which is why audio CDs, which must feed a DAC at exactly 44,100 samples per second, chose it. The cost: every time the laser jumps to a different radius, the motor must physically speed up or slow down before reading can resume, and motors change speed slowly. CLV drives <em>seek</em> sluggishly.</li>
+            <li><strong>CAV — Constant Angular Velocity.</strong> Spin at one fixed RPM, always. The motor never needs to change speed, so jumps between radii are as fast as the optics can move — but the data rate now <em>depends on where you are</em>: slowest at the hub, fastest at the rim. Fine for a computer that buffers data anyway, and it makes the outer edge premium real estate — a fact game developers exploited, as you'll see in Modules 05 and 06.</li>
+          </ul>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 320" role="img" aria-label="Two discs compared: CLV varies RPM to keep the data rate constant; CAV keeps RPM fixed so the data rate grows with radius">
+              <!-- CLV disc -->
+              <circle cx="230" cy="150" r="112" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <circle cx="230" cy="150" r="86" fill="none" class="d-grid"/>
+              <circle cx="230" cy="150" r="62" fill="none" class="d-grid"/>
+              <circle cx="230" cy="150" r="38" fill="none" class="d-grid"/>
+              <circle cx="230" cy="150" r="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <line x1="230" y1="150" x2="230" y2="38" class="d-stem"/>
+              <circle cx="230" cy="112" r="5" class="d-dot-v"/>
+              <circle cx="230" cy="64" r="5" class="d-dot-m"/>
+              <text x="118" y="28" class="d-tag d-cyan">CLV — constant data rate</text>
+              <text x="248" y="116" class="d-sub">inner: ~fast RPM</text>
+              <text x="248" y="68" class="d-sub">outer: ~slow RPM</text>
+              <text x="118" y="290" class="d-sub">motor re-speeds on every jump → slow seeks</text>
+              <text x="118" y="308" class="d-sub d-cyan">data rate: flat everywhere</text>
+              <!-- CAV disc -->
+              <circle cx="660" cy="150" r="112" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <circle cx="660" cy="150" r="86" fill="none" class="d-grid"/>
+              <circle cx="660" cy="150" r="62" fill="none" class="d-grid"/>
+              <circle cx="660" cy="150" r="38" fill="none" class="d-grid"/>
+              <circle cx="660" cy="150" r="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <line x1="660" y1="150" x2="660" y2="38" class="d-stem"/>
+              <circle cx="660" cy="112" r="5" class="d-dot-v"/>
+              <circle cx="660" cy="64" r="5" class="d-dot-m"/>
+              <text x="548" y="28" class="d-tag d-magenta">CAV — constant RPM</text>
+              <text x="678" y="116" class="d-sub">inner: slower data</text>
+              <text x="678" y="68" class="d-sub">outer: faster data</text>
+              <text x="548" y="290" class="d-sub">motor never re-speeds → fast seeks</text>
+              <text x="548" y="308" class="d-sub d-magenta">data rate: grows with radius</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Two spinning strategies.</strong> <span class="term" data-tip="Constant Linear Velocity — RPM varies with head position; the data rate stays flat but seeks are slow.">CLV</span> chases a constant track speed by re-tuning the motor for every radius — steady data, sluggish jumps. <span class="term" data-tip="Constant Angular Velocity — one fixed RPM; jumps are fast but the data rate depends on the radius.">CAV</span> locks the RPM and lets the data rate ride the radius — the outer edge reads fastest. The GameCube's drive picks CAV (Module 05).</figcaption>
+          </figure>
+
+          <div class="example">
+            <span class="lbl">Worked example</span>
+            <p>
+              Take a disc spinning CAV at a steady 1,500&nbsp;RPM, and compare a
+              point at radius 2.4&nbsp;cm with one at 5.8&nbsp;cm. Circumference
+              is 2πr, so each revolution moves 15.1&nbsp;cm of track past the
+              laser at the inner point but 36.4&nbsp;cm at the outer point — the
+              same spin, <em>2.4× more data per turn</em>. Under CLV the drive
+              would instead spin about 2.4× slower at the outer radius to hold
+              the track speed constant. That single ratio — outer radius over
+              inner radius — is why CAV drives always quote their speed as a
+              range.
+            </p>
+          </div>
+
+          <p>
+            The lab gives you the disc, the head and both strategies. Drag the
+            read head to any radius; in <strong>CLV</strong> mode watch the
+            platter visibly speed up and slow down to hold the data rate flat,
+            and in <strong>CAV</strong> mode watch the RPM pin while the data
+            rate climbs as you slide outward.
+          </p>
+
+          <div class="lab" id="lab-spin">
+            <div class="lab-head"><span class="dot"></span><span class="title">Spin lab — CLV vs CAV, live</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-tall" aria-label="A spinning disc with a draggable read head, showing RPM and data rate for CLV and CAV modes"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Strategy</label>
+                  <div class="seg-btns" role="group" aria-label="Spin strategy">
+                    <button class="on" data-spin-mode="cav">CAV — fixed RPM</button>
+                    <button data-spin-mode="clv">CLV — fixed rate</button>
+                  </div>
+                </div>
+                <div class="readouts">
+                  <span class="readout">RPM <b data-spin-rpm>—</b></span>
+                  <span class="readout">Data rate <b data-spin-rate>—</b></span>
+                  <span class="readout">Head radius <b data-spin-radius>—</b></span>
+                </div>
+                <span class="sim-note">Drag the head (the bright dot) in or out along its rail. Illustrative numbers, scaled for a small disc.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The track is one continuous spiral, wound from the inside out, with a table-of-contents lead-in at the hub.</li>
+              <li>At fixed RPM the track streams faster at the rim — linear velocity, not RPM, sets the data rate.</li>
+              <li>CLV re-tunes the motor for a flat data rate but seeks slowly; CAV fixes the RPM, seeks fast, and reads fastest at the outer edge.</li>
+              <li>Data-hungry computers (and the GameCube) prefer CAV and simply buffer around the varying rate.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#light"><span class="dir">← Prev</span><span class="ttl">01 · Reading with light</span></a>
+            <a class="next" href="#scratches"><span class="dir">Next →</span><span class="ttl">03 · Surviving scratches</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 03 --- -->
+      <section class="doc" id="scratches">
+        <div class="mod-head">
+          <span class="eye">Module 03 <span class="part-tag">· Part I</span></span>
+          <h3>Surviving scratches</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn why the raw bits off a disc can never be trusted, and how parity, Reed–Solomon codes and interleaving turn a gouged disc into a perfect read.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            You saw it yourself in the Module 01 lab: drop a little dust on the
+            track and the recovered bits turn to garbage. Now scale that up.
+            A real disc lives a hard life — fingerprints, scratches from being
+            slid across a carpet, microscopic pressing defects from the factory
+            itself. At the densities involved, a scratch you can barely see can
+            obliterate <em>thousands</em> of bits in a row. And here's the
+            crucial observation about the damage: it is almost never one wrong
+            bit here and one wrong bit there. Physical damage produces
+            <strong>bursts</strong> — long, contiguous stretches of destroyed
+            data — because a scratch is a physical object lying across a
+            physical track.
+          </p>
+          <p>
+            So every optical format is designed around a blunt admission:
+            <em>the raw bits are unreliable, and that's fine.</em> The disc
+            deliberately stores <strong>more</strong> than the data — extra,
+            mathematically-related check information — so the drive can detect
+            damage and <em>reconstruct</em> what was lost. This is
+            <strong>error correction</strong>, and it's the deepest magic in
+            this whole course.
+          </p>
+
+          <h4>Parity: the small idea underneath</h4>
+          <p>
+            Start tiny. Suppose you send four numbers, plus a fifth number that
+            is their sum: <code>3, 7, 2, 5</code> and the check value
+            <code>17</code>. If one of the four goes missing — say you receive
+            <code>3, ?, 2, 5, 17</code> — you can rebuild it:
+            <code>17 − 3 − 2 − 5 = 7</code>. One extra number bought you the
+            power to recover any <em>one</em> lost value. That extra number is
+            <span class="term" data-tip="Extra check information computed from the data (like a sum), stored alongside it, that lets missing or corrupted values be reconstructed.">parity</span>.
+            Add more check values, computed in cleverer ways, and you can
+            recover more losses — the redundancy budget scales.
+          </p>
+          <p>
+            The industrial-strength version used on CDs and DVDs is the
+            <strong>Reed–Solomon code</strong>. Without the heavy mathematics,
+            here is its honest shape: data is processed in fixed-size groups of
+            bytes called <span class="term" data-tip="One fixed-size group of data bytes plus its parity bytes, protected together as a unit by the Reed–Solomon code.">codewords</span>,
+            and each codeword carries some number of parity bytes — call it
+            2<em>t</em> of them. Those parity bytes buy a precise, guaranteed
+            budget: the decoder can repair up to <em>t</em> corrupted bytes at
+            <em>unknown</em> positions, or up to 2<em>t</em>
+            <span class="term" data-tip="A corrupted symbol whose position is already known (e.g. 'this byte was under the scratch'). Erasures are twice as cheap to fix as errors at unknown positions.">erasures</span>
+            — losses whose <em>positions</em> are known, which are twice as
+            cheap to fix (knowing <em>where</em> the damage is does half the
+            work; the drive often does know, because the signal there was
+            obviously mush). Stay inside the budget and the reconstruction is
+            <em>perfect</em>, bit-for-bit. Go one byte over and the codeword is
+            unrecoverable. It's not fuzzy — it's a hard contract.
+          </p>
+
+          <h4>Interleaving: turning one deep wound into many shallow ones</h4>
+          <p>
+            But wait — a budget of a few dozen bytes per codeword, against a
+            scratch that kills thousands of bits in a row? A burst would blow
+            through any single codeword's budget instantly. The fix is not more
+            parity; it's a change of <em>layout</em>, called
+            <span class="term" data-tip="Shuffling the bytes of many codewords together on the disc so that a physical burst of damage lands a little on each codeword instead of a lot on one.">interleaving</span>:
+            before writing to disc, the bytes of many codewords are shuffled
+            together, so that <em>consecutive positions on the disc belong to
+            different codewords</em>. A physical gouge still wipes out a long
+            run of disc — but after un-shuffling, that run turns out to be one
+            or two bytes from each of hundreds of codewords. Every codeword
+            takes a small, affordable hit; every codeword stays inside budget;
+            everything is repaired.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A letter on many postcards</span>
+            <p>
+              Imagine mailing a long letter as fifty postcards — but instead of
+              putting sentence 1 on card 1 and sentence 2 on card 2, you write
+              the 1st word of every sentence on card 1, the 2nd word of every
+              sentence on card 2, and so on. Now if the postal service loses
+              three whole postcards, no sentence loses more than three words —
+              and a sentence missing a few words can be reconstructed from
+              context. That's <span class="term" data-tip="Spreading each codeword's bytes far apart on the disc so a burst of damage costs each codeword only a little.">interleaving</span>:
+              lose a chunk of the medium, lose a sliver of everything, recover
+              all of it.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="Interleaving: a scratch destroys a run of disc positions, but those positions belong to many different codewords, so each codeword loses little">
+              <text x="60" y="30" class="d-tag">Bytes as written on the disc — colour = which codeword each belongs to</text>
+              <g>
+                <rect x="60"  y="44" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="81" y="66" text-anchor="middle" class="d-num">A1</text>
+                <rect x="108" y="44" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="129" y="66" text-anchor="middle" class="d-num">B1</text>
+                <rect x="156" y="44" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="177" y="66" text-anchor="middle" class="d-num">C1</text>
+                <rect x="204" y="44" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="225" y="66" text-anchor="middle" class="d-num">D1</text>
+                <rect x="252" y="44" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="273" y="66" text-anchor="middle" class="d-num">A2</text>
+                <rect x="300" y="44" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="321" y="66" text-anchor="middle" class="d-num">B2</text>
+                <rect x="348" y="44" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="369" y="66" text-anchor="middle" class="d-num">C2</text>
+                <rect x="396" y="44" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="417" y="66" text-anchor="middle" class="d-num">D2</text>
+                <rect x="444" y="44" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="465" y="66" text-anchor="middle" class="d-num">A3</text>
+                <rect x="492" y="44" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="513" y="66" text-anchor="middle" class="d-num">B3</text>
+                <rect x="540" y="44" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="561" y="66" text-anchor="middle" class="d-num">C3</text>
+                <rect x="588" y="44" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="609" y="66" text-anchor="middle" class="d-num">D3</text>
+                <rect x="636" y="44" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="657" y="66" text-anchor="middle" class="d-num">A4</text>
+                <rect x="684" y="44" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="705" y="66" text-anchor="middle" class="d-num">B4</text>
+                <rect x="732" y="44" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="753" y="66" text-anchor="middle" class="d-num">C4</text>
+                <rect x="780" y="44" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="801" y="66" text-anchor="middle" class="d-num">D4</text>
+              </g>
+              <!-- scratch overlay -->
+              <rect x="296" y="36" width="196" height="50" rx="8" fill="rgba(255,106,106,0.16)" stroke="#ff6a6a" stroke-width="1.6" stroke-dasharray="5 4"/>
+              <text x="394" y="110" text-anchor="middle" class="d-flow" style="fill:#ff6a6a">scratch: 4 consecutive bytes destroyed</text>
+              <!-- de-interleaved codewords -->
+              <text x="60" y="152" class="d-tag">After un-shuffling — the same damage, seen per codeword</text>
+              <g>
+                <text x="60" y="188" class="d-sub d-cyan">codeword A</text>
+                <rect x="170" y="166" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="191" y="188" text-anchor="middle" class="d-num">A1</text>
+                <rect x="218" y="166" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="239" y="188" text-anchor="middle" class="d-num">A2</text>
+                <rect x="266" y="166" width="42" height="34" rx="5" fill="rgba(255,106,106,0.2)" stroke="#ff6a6a" stroke-width="1.4"/><text x="287" y="188" text-anchor="middle" class="d-num" style="fill:#ff6a6a">A3</text>
+                <rect x="314" y="166" width="42" height="34" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="335" y="188" text-anchor="middle" class="d-num">A4</text>
+                <text x="376" y="188" class="d-sub" style="fill:#5fd18b">1 loss — repaired ✓</text>
+                <text x="60" y="232" class="d-sub d-violet">codeword B</text>
+                <rect x="170" y="210" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="191" y="232" text-anchor="middle" class="d-num">B1</text>
+                <rect x="218" y="210" width="42" height="34" rx="5" fill="rgba(255,106,106,0.2)" stroke="#ff6a6a" stroke-width="1.4"/><text x="239" y="232" text-anchor="middle" class="d-num" style="fill:#ff6a6a">B2</text>
+                <rect x="266" y="210" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="287" y="232" text-anchor="middle" class="d-num">B3</text>
+                <rect x="314" y="210" width="42" height="34" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="335" y="232" text-anchor="middle" class="d-num">B4</text>
+                <text x="376" y="232" class="d-sub" style="fill:#5fd18b">1 loss — repaired ✓</text>
+                <text x="60" y="276" class="d-sub d-amber">codeword C</text>
+                <rect x="170" y="254" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="191" y="276" text-anchor="middle" class="d-num">C1</text>
+                <rect x="218" y="254" width="42" height="34" rx="5" fill="rgba(255,106,106,0.2)" stroke="#ff6a6a" stroke-width="1.4"/><text x="239" y="276" text-anchor="middle" class="d-num" style="fill:#ff6a6a">C2</text>
+                <rect x="266" y="254" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="287" y="276" text-anchor="middle" class="d-num">C3</text>
+                <rect x="314" y="254" width="42" height="34" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="335" y="276" text-anchor="middle" class="d-num">C4</text>
+                <text x="376" y="276" class="d-sub" style="fill:#5fd18b">1 loss — repaired ✓</text>
+                <text x="60" y="318" class="d-sub d-magenta">codeword D</text>
+                <rect x="170" y="296" width="42" height="34" rx="5" fill="rgba(255,106,106,0.2)" stroke="#ff6a6a" stroke-width="1.4"/><text x="191" y="318" text-anchor="middle" class="d-num" style="fill:#ff6a6a">D1</text>
+                <rect x="218" y="296" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="239" y="318" text-anchor="middle" class="d-num">D2</text>
+                <rect x="266" y="296" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="287" y="318" text-anchor="middle" class="d-num">D3</text>
+                <rect x="314" y="296" width="42" height="34" rx="5" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="335" y="318" text-anchor="middle" class="d-num">D4</text>
+                <text x="376" y="318" class="d-sub" style="fill:#5fd18b">1 loss — repaired ✓</text>
+              </g>
+            </svg>
+            <figcaption class="fig-cap"><strong>Interleaving defuses bursts.</strong> On the disc (top), consecutive bytes belong to <em>different</em> codewords (colours). A scratch destroys four bytes in a row — but after un-shuffling (bottom), each codeword has lost only <em>one</em> byte, comfortably inside its <span class="term" data-tip="The guaranteed number of corrupted bytes a Reed–Solomon codeword can repair — t errors at unknown positions, or 2t known-position erasures.">correction budget</span>. Without interleaving, the same scratch would have destroyed one codeword completely.</figcaption>
+          </figure>
+
+          <h4>Why scratch <em>direction</em> matters</h4>
+          <p>
+            This layout has a famous, testable consequence. A
+            <strong>radial</strong> scratch — running from the centre toward the
+            rim — crosses each turn of the spiral only briefly: a short burst
+            once per revolution, exactly the pattern interleaving was built to
+            absorb. But a <strong>circumferential</strong> scratch — running
+            <em>along</em> the track, following the spiral — wipes out an
+            enormous contiguous stretch of one region. Even after
+            de-interleaving, the losses pile up in the same codewords and blow
+            the budget. Same length of scratch, wildly different outcomes.
+            This is why disc-care folklore says to always wipe a disc from the
+            centre outward, never in circles: a cleaning scratch in the radial
+            direction is the survivable kind.
+          </p>
+          <p>
+            The lab makes you the vandal. Drag across the block grid to scratch
+            it, and watch which codewords survive. Then turn interleaving
+            <strong>off</strong> and repeat the same scratch — the difference is
+            the whole argument of this module in one gesture. Try a horizontal
+            gouge (along the &ldquo;track&rdquo;) versus a vertical one
+            (&ldquo;radial&rdquo;) and see the direction effect for yourself.
+          </p>
+
+          <div class="lab" id="lab-scratch">
+            <div class="lab-head"><span class="dot"></span><span class="title">Scratch lab — error correction vs your thumbnail</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-tall" aria-label="A grid of data blocks arranged as interleaved codewords; drag to scratch them and see which codewords can still be corrected"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Layout</label>
+                  <div class="seg-btns" role="group" aria-label="Interleaving">
+                    <button class="on" data-il="on">interleaved</button>
+                    <button data-il="off">not interleaved</button>
+                  </div>
+                </div>
+                <div class="readouts">
+                  <span class="readout">Codewords OK <b data-scratch-ok>8 / 8</b></span>
+                  <span class="readout">Budget <b>3 losses each</b></span>
+                </div>
+                <button class="reset-btn" data-scratch-reset>Repair disc</button>
+                <span class="sim-note">Drag across the grid to scratch. Rows read left-to-right are disc order; colours show codeword membership. Green = repaired, red = budget exceeded.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Physical damage corrupts data in bursts, not single bits — the format is designed around that.</li>
+              <li>Parity is stored check information that lets lost values be reconstructed; Reed–Solomon is the industrial version with a hard budget: t unknown errors or 2t known-position erasures per codeword.</li>
+              <li>Interleaving shuffles codewords across the disc so one burst becomes many small, affordable losses.</li>
+              <li>Radial scratches are survivable (short burst per revolution); circumferential ones concentrate damage and can exceed the budget — wipe discs centre-out.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#spiral"><span class="dir">← Prev</span><span class="ttl">02 · The spiral &amp; spinning</span></a>
+            <a class="next" href="#cd-dvd"><span class="dir">Next →</span><span class="ttl">04 · From CD to DVD</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 04 --- -->
+      <section class="doc" id="cd-dvd">
+        <div class="mod-head">
+          <span class="eye">Module 04 <span class="part-tag">· Part I</span></span>
+          <h3>From CD to DVD</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how shrinking the pits and sharpening the laser multiplied capacity seven-fold, and learn what a sector is — the unit every drive actually reads.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Everything you've learned so far — pits, the spiral, error
+            correction — was invented for the compact disc in the early 1980s.
+            The DVD, a decade and a half later, changed almost nothing about the
+            <em>ideas</em>. It changed the <em>scale</em>. Three shrinks,
+            multiplied together, are the whole story:
+          </p>
+          <ul>
+            <li><strong>Smaller pits.</strong> The shortest pit on a CD is about 0.83&nbsp;µm; on a DVD, about 0.4&nbsp;µm — each pit packs the same information into half the length of track.</li>
+            <li><strong>A tighter spiral.</strong> The <span class="term" data-tip="The radial distance between neighbouring turns of the spiral track.">track pitch</span> drops from 1.6&nbsp;µm to 0.74&nbsp;µm — more than twice as many turns fit in the same band of disc.</li>
+            <li><strong>A sharper laser.</strong> You can't just <em>declare</em> pits smaller — the reading spot must shrink too, and a light spot can't be focused smaller than roughly its own wavelength. So the DVD moved from the CD's 780&nbsp;nm infrared laser to a 650&nbsp;nm red one, and paired it with tighter focusing optics. Shorter wavelength, smaller spot, smaller readable pits. (The next generation repeated the trick with a 405&nbsp;nm blue-violet laser — hence &ldquo;Blu-ray.&rdquo;)</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Finer handwriting, sharper eyes</span>
+            <p>
+              A page holds more words if you write smaller — but only if the
+              reader's eyes can resolve the smaller letters. The
+              <span class="term" data-tip="The colour of the laser's light, measured in nanometres. Shorter wavelength = a smaller focusable spot = smaller readable pits.">wavelength</span>
+              of the laser is the reader's eyesight: infrared light simply
+              cannot see a 0.4&nbsp;µm pit, the way you can't read 4-point text
+              from across a room. Every generation of optical disc is the same
+              page, written in finer handwriting, read with sharper eyes.
+            </p>
+          </div>
+
+          <p>
+            Multiply the gains — shorter pits, tighter spiral, plus somewhat
+            more efficient coding and error-correction overhead — and a
+            12&nbsp;cm disc goes from the CD's ~650&nbsp;MB to the DVD's
+            <strong>4.7&nbsp;GB</strong> on a single layer. Same plastic, same
+            factory presses, roughly seven times the data.
+          </p>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>Property</th><th>CD (1982)</th><th>DVD (1996)</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Laser wavelength</td><td><span class="crc">780 nm</span> infrared</td><td><span class="crc">650 nm</span> red</td></tr>
+                <tr><td>Track pitch</td><td><span class="crc">1.6 µm</span></td><td><span class="crc">0.74 µm</span></td></tr>
+                <tr><td>Shortest pit</td><td><span class="crc">~0.83 µm</span></td><td><span class="crc">~0.40 µm</span></td></tr>
+                <tr><td>Capacity (12 cm, 1 layer)</td><td><span class="crc">~650–700 MB</span></td><td><span class="crc">4.7 GB</span></td></tr>
+                <tr><td>Data rate at 1×</td><td><span class="crc">~150 KB/s</span> (paced for audio)</td><td><span class="crc">~1.4 MB/s</span> (paced for video)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:13px;color:var(--muted)">
+            &ldquo;1×&rdquo; is each format's original real-time job — playing
+            music, playing a movie. A &ldquo;16×&rdquo; drive just spins
+            proportionally faster. The figures above are the commonly quoted
+            nominal values; real drives vary a little around them.
+          </p>
+
+          <h4>Sectors: the unit you actually read</h4>
+          <p>
+            One more piece of vocabulary completes Part I, and it's the one
+            you'll use constantly from here on. Software never asks a drive for
+            &ldquo;bits&rdquo; or &ldquo;pits&rdquo; — it asks for a
+            <span class="term" data-tip="The addressable unit of a data disc: 2,048 user bytes, wrapped on the disc in extra addressing and error-correction bytes.">sector</span>:
+            the disc's addressable block, which on DVD-class data discs carries
+            exactly <strong>2,048 user bytes</strong>. On the disc itself each
+            sector is wrapped in overhead you never see: an ID number saying
+            <em>which</em> sector it is (so the drive can confirm it landed
+            where it meant to), a checksum, and the Reed–Solomon parity from
+            Module 03 — on DVD the correction actually spans groups of sixteen
+            sectors protected together, which is interleaving thinking at a
+            larger scale. Roughly one byte in eight on the disc is overhead
+            rather than payload.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 250" role="img" aria-label="CD and DVD track scale compared, and the anatomy of a 2048-byte sector with its overhead">
+              <!-- CD tracks -->
+              <text x="60" y="30" class="d-tag d-cyan">CD scale</text>
+              <line x1="60" y1="52" x2="420" y2="52" class="d-axis"/>
+              <line x1="60" y1="84" x2="420" y2="84" class="d-axis"/>
+              <line x1="60" y1="116" x2="420" y2="116" class="d-axis"/>
+              <rect x="90" y="46" width="56" height="12" rx="6" class="d-cyan"/>
+              <rect x="176" y="46" width="34" height="12" rx="6" class="d-cyan"/>
+              <rect x="240" y="46" width="72" height="12" rx="6" class="d-cyan"/>
+              <rect x="120" y="78" width="44" height="12" rx="6" class="d-cyan"/>
+              <rect x="196" y="78" width="60" height="12" rx="6" class="d-cyan"/>
+              <rect x="286" y="78" width="38" height="12" rx="6" class="d-cyan"/>
+              <text x="430" y="72" class="d-sub">pitch 1.6 µm</text>
+              <!-- DVD tracks -->
+              <text x="60" y="158" class="d-tag d-magenta">DVD scale — same area, ~7× the data</text>
+              <line x1="60" y1="176" x2="420" y2="176" class="d-axis"/>
+              <line x1="60" y1="192" x2="420" y2="192" class="d-axis"/>
+              <line x1="60" y1="208" x2="420" y2="208" class="d-axis"/>
+              <line x1="60" y1="224" x2="420" y2="224" class="d-axis"/>
+              <rect x="76" y="172" width="26" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="112" y="172" width="16" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="140" y="172" width="34" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="188" y="172" width="20" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="220" y="172" width="28" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="90" y="188" width="18" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="122" y="188" width="30" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="166" y="188" width="16" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="196" y="188" width="26" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="82" y="204" width="24" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="118" y="204" width="18" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="150" y="204" width="32" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="198" y="204" width="20" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="96" y="220" width="20" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="130" y="220" width="28" height="7" rx="3.5" class="d-magenta"/>
+              <rect x="172" y="220" width="18" height="7" rx="3.5" class="d-magenta"/>
+              <text x="430" y="200" class="d-sub">pitch 0.74 µm</text>
+              <!-- sector anatomy -->
+              <text x="520" y="30" class="d-tag">One sector, as recorded</text>
+              <rect x="520" y="44" width="54" height="44" rx="6" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="547" y="63" text-anchor="middle" class="d-sub d-violet">ID +</text>
+              <text x="547" y="78" text-anchor="middle" class="d-sub d-violet">check</text>
+              <rect x="578" y="44" width="212" height="44" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="684" y="66" text-anchor="middle" class="d-label" style="font-size:13px">2,048 user bytes</text>
+              <text x="684" y="81" text-anchor="middle" class="d-sub">what software sees</text>
+              <rect x="794" y="44" width="66" height="44" rx="6" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="827" y="63" text-anchor="middle" class="d-sub d-amber">RS</text>
+              <text x="827" y="78" text-anchor="middle" class="d-sub d-amber">parity</text>
+              <text x="520" y="118" class="d-sub">…and 16 sectors share one error-correction block,</text>
+              <text x="520" y="134" class="d-sub">interleaved together (Module 03, at industrial scale)</text>
+              <text x="520" y="176" class="d-sub d-cyan">payload ≈ 7/8 of the raw bytes</text>
+              <rect x="520" y="188" width="298" height="16" rx="5" class="d-fill-panel2 d-stroke-line" stroke-width="1"/>
+              <rect x="520" y="188" width="260" height="16" rx="5" class="d-cyan" opacity="0.75"/>
+              <text x="520" y="228" class="d-sub">the rest is addressing + parity overhead</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The DVD shrink, and the sector.</strong> Left: the same patch of disc holds ~7× more data once pits and track pitch shrink (drawn to relative scale). Right: what one <span class="term" data-tip="The disc's addressable block: 2,048 user bytes plus hidden addressing and parity overhead.">sector</span> really looks like on the disc — 2,048 bytes of payload wrapped in an ID, a checksum, and Reed–Solomon parity shared across a 16-sector group.</figcaption>
+          </figure>
+
+          <p>
+            And that's the whole optical toolkit: light reads pits, the spiral
+            carries them, error correction makes them trustworthy, and sectors
+            parcel them out 2&nbsp;KB at a time. Every optical drive ever made
+            is these four ideas. Time to meet a very particular one.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>DVD ≈ CD with everything shrunk: ~half-length pits, half the track pitch, a shorter-wavelength (650 nm) laser to resolve them.</li>
+              <li>The shrinks multiply: ~650 MB becomes 4.7 GB on the same 12 cm platter.</li>
+              <li>A sector = 2,048 user bytes plus hidden ID/checksum/parity overhead; DVDs correct errors across 16-sector groups.</li>
+              <li>1× CD ≈ 150 KB/s, 1× DVD ≈ 1.4 MB/s — each format's original real-time job.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#scratches"><span class="dir">← Prev</span><span class="ttl">03 · Surviving scratches</span></a>
+            <a class="next" href="#minidisc"><span class="dir">Next → Part II</span><span class="ttl">05 · The 8 cm disc</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART II ============= -->
+      <section class="part" id="part-2">
+        <div class="part-inner">
+          <div class="kicker">Part II</div>
+          <h3>The GameCube's drive</h3>
+          <p>
+            Now we put the Part&nbsp;I toolkit into a real machine. Nintendo's
+            console reads a deliberately strange disc: an 8&nbsp;cm,
+            DVD-technology platter holding about 1.46&nbsp;GB, pressed in a
+            format no ordinary drive can read, spun CAV by a custom
+            Matsushita mechanism. These five modules cover the disc itself,
+            what a game actually looks like laid out on it, the DI — the
+            hardware doorway the CPU talks to the drive through — the copy
+            protection story, and the streaming tricks games used to hide
+            every loading screen. From here on we'll name real hardware, but
+            every piece maps back to a fundamental you already know.
+          </p>
+          <div class="part-meta"><span>Modules <b>05–09</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>2 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 05 --- -->
+      <section class="doc" id="minidisc">
+        <div class="mod-head">
+          <span class="eye">Module 05 <span class="part-tag">· Part II</span></span>
+          <h3>The 8 cm disc</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet the GameCube's odd little disc and drive — what they are, what they can do, and the (widely-reported) reasoning behind Nintendo's decision to go small and custom.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Open a GameCube's lid and you find something that looks like a DVD
+            that shrank in the wash: a disc just <strong>8&nbsp;cm</strong>
+            across — palm-sized, two-thirds the diameter of a normal 12&nbsp;cm
+            disc — holding roughly <strong>1.46&nbsp;GB</strong>. Technically
+            it's a <span class="term" data-tip="A disc built on DVD-generation technology (650 nm laser, DVD pit and track geometry) but pressed on a small 8 cm platter — and, in Nintendo's case, in a deliberately non-standard format.">miniDVD</span>:
+            the same 650&nbsp;nm-laser, small-pit, tight-spiral technology from
+            Module 04, on a smaller platter. Less area, less spiral, less data —
+            4.7&nbsp;GB scales down to about 1.46&nbsp;GB. The drive that reads
+            it was built by <strong>Matsushita</strong> (the company behind the
+            Panasonic brand), and it is a proprietary unit through and through:
+            custom mechanism, custom controller, custom firmware, custom disc
+            format. This was not an off-the-shelf DVD drive with a small tray.
+          </p>
+          <p>
+            Why would anyone do this? Rivals were shipping full-size discs —
+            the PlayStation&nbsp;2's DVD drive held over three times as much
+            <em>and</em> played movies. Nintendo never published a formal
+            rationale, so treat what follows as the widely-reported reasoning
+            rather than gospel; but three threads come up consistently:
+          </p>
+          <ul>
+            <li><strong>Piracy scars.</strong> During the Nintendo 64 era, Nintendo had watched CD-based rivals suffer rampant, trivial piracy — a stock PC burner could duplicate a PlayStation game. Cartridges had dodged that, at brutal cost-per-megabyte. A custom disc promised the economics of optical media <em>without</em> being writable or even readable by consumer hardware: there was nothing to burn it onto, and (as Module 08 details) a PC drive couldn't even see its contents.</li>
+            <li><strong>No DVD licensing.</strong> Shipping a standards-compliant DVD player means paying per-unit royalties to the DVD consortium and building in video-playback features Nintendo didn't want. A non-standard format sidestepped the licence entirely — the GameCube pointedly did <em>not</em> play movies. (Matsushita sold its own licensed hybrid, the <strong>Panasonic Q</strong>, a GameCube in a shiny steel body that <em>did</em> play DVDs — the exception that proves the licensing rule.)</li>
+            <li><strong>Speed of the small.</strong> On a small platter the read head simply has less distance to travel — the worst-case hop from hub to rim is shorter, so worst-case <span class="term" data-tip="Moving the read head to a different part of the disc before reading can begin. Covered in detail, with arithmetic, in Module 09.">seeks</span> are quicker. For a games machine, which hops around its disc constantly, snappy seeks matter more than raw capacity.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A key blank nobody sells</span>
+            <p>
+              A standard door lock can be picked with standard tools — and
+              standard keys can be copied at any kiosk. Nintendo instead had its
+              own lock <em>and its own key blank</em> manufactured: GameCube
+              discs came off presses that only Nintendo's disc plants ran, in a
+              shape no consumer device could write. Nothing about the lock was
+              cleverer than a normal one — the protection was that the blanks
+              simply didn't exist in the wild. Module 08 tells the story of how
+              that held up.
+            </p>
+          </div>
+
+          <p>
+            The drive spins <span class="term" data-tip="Constant Angular Velocity — fixed RPM, so the data rate grows with radius. See Module 02.">CAV</span>
+            — the fixed-RPM strategy from Module 02 — so its read speed depends
+            on where the head is: commonly quoted figures put it at roughly
+            <strong>2&nbsp;MB/s near the hub rising to about 3&nbsp;MB/s at the
+            rim</strong> (treat the exact numbers as approximate; they vary by
+            source and measurement). That inner-to-outer gradient is not
+            trivia: it made the outer millimetres of every disc premium real
+            estate, and in the next module's lab you'll watch developers
+            exploit it.
+          </p>
+
+          <div class="specs">
+            <div class="spec"><div class="k">Platter</div><div class="v">8<small> cm</small></div><div class="d">vs 12 cm standard DVD</div></div>
+            <div class="spec"><div class="k">Capacity</div><div class="v">~1.46<small> GB</small></div><div class="d">single layer, single side</div></div>
+            <div class="spec"><div class="k">Read rate</div><div class="v">~2–3<small> MB/s</small></div><div class="d">CAV — grows with radius</div></div>
+            <div class="spec"><div class="k">Laser</div><div class="v">650<small> nm</small></div><div class="d">DVD-generation red</div></div>
+            <div class="spec"><div class="k">Maker</div><div class="v">MEI</div><div class="d">Matsushita / Panasonic</div></div>
+            <div class="spec"><div class="k">Format</div><div class="v">custom</div><div class="d">unreadable by stock PC drives</div></div>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="A 12 cm DVD compared with the 8 cm GameCube disc, drawn to scale, with capacities">
+              <!-- 12cm DVD -->
+              <circle cx="250" cy="150" r="120" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <circle cx="250" cy="150" r="98" fill="none" class="d-grid"/>
+              <circle cx="250" cy="150" r="72" fill="none" class="d-grid"/>
+              <circle cx="250" cy="150" r="46" fill="none" class="d-grid"/>
+              <circle cx="250" cy="150" r="24" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <circle cx="250" cy="150" r="7" class="d-fill-ground d-stroke-line" stroke-width="1"/>
+              <text x="250" y="42" text-anchor="middle" class="d-tag">12 cm DVD</text>
+              <text x="250" y="290" text-anchor="middle" class="d-sub">4.7 GB · plays movies · standard format</text>
+              <!-- 8cm GC disc -->
+              <circle cx="640" cy="170" r="80" fill="rgba(168,132,255,0.10)" class="d-violet-s" stroke-width="1.5"/>
+              <circle cx="640" cy="170" r="64" fill="none" class="d-grid"/>
+              <circle cx="640" cy="170" r="46" fill="none" class="d-grid"/>
+              <circle cx="640" cy="170" r="28" fill="none" class="d-grid"/>
+              <circle cx="640" cy="170" r="18" class="d-fill-ground d-violet-s" stroke-width="1.5"/>
+              <circle cx="640" cy="170" r="6" class="d-fill-ground d-stroke-line" stroke-width="1"/>
+              <text x="640" y="62" text-anchor="middle" class="d-tag d-violet">8 cm GameCube disc</text>
+              <text x="640" y="290" text-anchor="middle" class="d-sub d-violet">~1.46 GB · games only · custom format</text>
+              <!-- annotations -->
+              <line x1="640" y1="90" x2="640" y2="102" class="d-stem"/>
+              <text x="775" y="130" text-anchor="middle" class="d-sub">same pit geometry,</text>
+              <text x="775" y="146" text-anchor="middle" class="d-sub">smaller platter</text>
+              <text x="775" y="176" text-anchor="middle" class="d-sub d-cyan">shorter worst-case</text>
+              <text x="775" y="192" text-anchor="middle" class="d-sub d-cyan">head travel = faster seeks</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Two-thirds the diameter, a third the capacity.</strong> The GameCube disc (right, to scale) uses the same DVD-generation pit geometry as its big sibling — the capacity difference is purely area. The small platter's hidden gift: the head never has far to travel, so worst-case <span class="term" data-tip="Moving the read head to a different part of the disc; the dominant cost of random access. Module 09 does the arithmetic.">seeks</span> stay short.</figcaption>
+          </figure>
+
+          <p>
+            One caution before we open the disc up: capacity discipline was
+            real. 1.46&nbsp;GB was generous in 2001 and cramped by 2004 —
+            late-generation games shipped on <em>two</em> discs (you may
+            remember swapping mid-game) and compressed their assets hard. Keep
+            that pressure in mind through the next module: the layout you're
+            about to see was drawn by developers fighting for every megabyte
+            and every millisecond.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The GameCube disc is an 8 cm miniDVD-technology platter holding about 1.46 GB, read by a custom Matsushita drive.</li>
+              <li>The widely-reported rationale for going small and custom: piracy resistance, avoiding DVD licensing (and movie playback), and shorter seeks — Nintendo never published an official one.</li>
+              <li>The drive spins CAV: roughly 2 MB/s at the hub to ~3 MB/s at the rim (approximate figures) — the outer edge reads fastest.</li>
+              <li>Capacity was tight; late games shipped on two discs and leaned on compression.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#cd-dvd"><span class="dir">← Prev · Part I</span><span class="ttl">04 · From CD to DVD</span></a>
+            <a class="next" href="#layout"><span class="dir">Next →</span><span class="ttl">06 · What's on the disc</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 06 --- -->
+      <section class="doc" id="layout">
+        <div class="mod-head">
+          <span class="eye">Module 06 <span class="part-tag">· Part II</span></span>
+          <h3>What's actually on the disc</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Read a GameCube disc's layout like a map: the boot header, the apploader, the main executable, and the FST that turns filenames into disc offsets.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Pop the mental lid off a game disc and you will not find a general-
+            purpose filesystem like a PC's — no directories being created, no
+            files growing, nothing ever written. A GameCube disc is
+            <strong>one big read-only filesystem</strong>, laid out once at
+            mastering time and then pressed, identically, a million times. That
+            permanence buys wonderful simplicity: everything can live at a
+            fixed, known offset, and &ldquo;opening a file&rdquo; reduces to
+            &ldquo;read <em>n</em> bytes starting at sector <em>x</em>.&rdquo;
+            Here's the map, from sector zero outward:
+          </p>
+          <ul>
+            <li><strong>The boot header</strong> — the very first bytes of the disc. It carries the six-character game ID (something like <code>GALE01</code>: game, region, maker), the game's title, a magic number proving this is a GameCube disc, and — crucially — the disc offsets of everything below. The console's boot ROM reads this first.</li>
+            <li><strong>The <span class="term" data-tip="A small bootstrap program stored near the start of the disc. The console's boot ROM runs it, and it in turn loads the game's main executable into memory.">apploader</span></strong> — a small bootstrap program (living at a fixed early offset, 0x2440). The console's ROM doesn't know how to load a game; it knows how to load <em>the apploader</em>, and the apploader — shipped on every disc, built from Nintendo's SDK — does the rest: it copies the main executable off the disc into RAM and jumps to it.</li>
+            <li><strong>The main executable</strong> — a file in <span class="term" data-tip="The GameCube executable format: a simple container listing code/data sections, where each loads in RAM, and the entry point address.">DOL</span> format (the extension is <code>.dol</code>): the game's actual code. It's a refreshingly simple format — a header listing code and data sections, the RAM address each should be copied to, and the entry point to jump to. No dynamic linking, no relocation: the game owns the whole machine.</li>
+            <li><strong>The <span class="term" data-tip="File String Table — the disc's directory: a table mapping every file's name to its offset and length on the disc.">FST</span></strong> — the File String Table, the disc's entire directory in one block: a tree of entries (file or folder), each file entry holding a name (pointing into a shared string table), a disc <strong>offset</strong>, and a <strong>length</strong>. When game code asks for <code>audio/theme.adp</code>, the runtime looks the name up in the FST — already sitting in RAM — and issues a raw read at the resulting offset. That's the whole filesystem.</li>
+            <li><strong>The files themselves</strong> — everything else, gigabyte and a half of textures, models, music, cutscene video, laid out in whatever order the developers chose. And between them…</li>
+            <li><strong>Padding and junk</strong> — files are aligned to convenient boundaries, and the gaps between them (plus all the unused tail of a not-full disc) aren't zeroed: the mastering tools filled them with <em>pseudo-random junk bytes</em>. Remember this detail — it looks like trivia now, but in Module 10 it turns out to decide how well a dumped disc compresses.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A printed atlas</span>
+            <p>
+              A game disc is like a printed atlas, not a filing cabinet. The
+              first page (the boot header) names the book and points to the
+              index; the index (the
+              <span class="term" data-tip="File String Table — maps every filename to a disc offset and length.">FST</span>)
+              maps every place-name to a page number; and because the book is
+              printed, page numbers never change — the runtime can jump straight
+              to page 812 without searching. Nothing is ever filed, moved or
+              renamed. The only &ldquo;write&rdquo; that ever happened was the
+              printing press.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 250" role="img" aria-label="The layout of a GameCube disc from offset zero: boot header, apploader, main DOL, FST, then file data with junk padding between files">
+              <defs><marker id="ah06" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <text x="60" y="30" class="d-tag">One disc, laid out flat — inner edge on the left</text>
+              <!-- main bar -->
+              <rect x="60"  y="50" width="52"  height="56" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <rect x="112" y="50" width="66"  height="56" rx="6" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <rect x="178" y="50" width="92"  height="56" rx="6" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <rect x="270" y="50" width="72"  height="56" rx="6" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <rect x="342" y="50" width="130" height="56" rx="6" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <rect x="472" y="50" width="26"  height="56" rx="4" fill="rgba(135,127,158,0.18)" class="d-stroke-line" stroke-width="1"/>
+              <rect x="498" y="50" width="170" height="56" rx="6" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <rect x="668" y="50" width="20"  height="56" rx="4" fill="rgba(135,127,158,0.18)" class="d-stroke-line" stroke-width="1"/>
+              <rect x="688" y="50" width="98"  height="56" rx="6" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <rect x="786" y="50" width="54"  height="56" rx="4" fill="rgba(135,127,158,0.18)" class="d-stroke-line" stroke-width="1"/>
+              <!-- labels above -->
+              <text x="86"  y="78" text-anchor="middle" class="d-sub d-cyan">boot</text>
+              <text x="86"  y="93" text-anchor="middle" class="d-sub d-cyan">header</text>
+              <text x="145" y="78" text-anchor="middle" class="d-sub d-violet">app-</text>
+              <text x="145" y="93" text-anchor="middle" class="d-sub d-violet">loader</text>
+              <text x="224" y="78" text-anchor="middle" class="d-sub d-magenta">main</text>
+              <text x="224" y="93" text-anchor="middle" class="d-sub d-magenta">.dol</text>
+              <text x="306" y="78" text-anchor="middle" class="d-sub d-amber">FST</text>
+              <text x="407" y="78" text-anchor="middle" class="d-sub">movies/…</text>
+              <text x="583" y="78" text-anchor="middle" class="d-sub">audio/…</text>
+              <text x="737" y="78" text-anchor="middle" class="d-sub">maps/…</text>
+              <text x="813" y="82" text-anchor="middle" class="d-sub">junk</text>
+              <!-- offsets below -->
+              <text x="60"  y="128" class="d-sub" style="font-size:10px">0x0000</text>
+              <text x="112" y="128" class="d-sub" style="font-size:10px">0x2440</text>
+              <text x="840" y="128" text-anchor="end" class="d-sub" style="font-size:10px">~1.46 GB</text>
+              <!-- junk callout -->
+              <line x1="485" y1="110" x2="485" y2="150" class="d-stem"/>
+              <text x="485" y="168" text-anchor="middle" class="d-flow">alignment gaps: pseudo-random junk (→ Module 10)</text>
+              <!-- FST detail -->
+              <line x1="306" y1="110" x2="306" y2="192" class="d-stem"/>
+              <rect x="130" y="196" width="420" height="40" rx="8" class="d-fill-panel d-amber-s" stroke-width="1.2"/>
+              <text x="150" y="221" class="d-sub d-amber" style="font-size:11px">FST entry:  "audio/theme.adp"  →  offset 0x2C40_0000 · length 0x0122_8000</text>
+              <line x1="550" y1="216" x2="580" y2="90" class="d-axis" stroke-width="1.4" marker-end="url(#ah06)"/>
+            </svg>
+            <figcaption class="fig-cap"><strong>The disc as an address map.</strong> A fixed <strong>boot header</strong> at offset 0, the <span class="term" data-tip="The small bootstrap program the console's ROM runs to load the game's executable.">apploader</span> at its fixed early offset, the game's <span class="term" data-tip="The GameCube executable: sections, load addresses, entry point.">.dol</span> executable, then the <span class="term" data-tip="File String Table — the read-only directory mapping filenames to offsets and lengths.">FST</span> that maps every filename to an offset+length in the file area beyond. Grey slivers are junk-filled padding. (Offsets in the FST example are made up.)</figcaption>
+          </figure>
+
+          <h4>Layout as a performance tool</h4>
+          <p>
+            Because the disc is pressed once and read forever, <em>where</em> a
+            file sits is a designer's decision — and it interacts with both
+            facts you learned about the drive. The
+            <span class="term" data-tip="Constant Angular Velocity — the GameCube drive's fixed-RPM strategy: data reads faster at larger radii.">CAV</span>
+            gradient means data near the rim streams up to half again as fast as
+            data near the hub, so mastering tools let developers push
+            bandwidth-hungry files (streaming video, big level data) outward.
+            And because seeks cost tens of milliseconds (Module 09 does the
+            arithmetic), files read together were placed together — some games
+            even pressed <em>duplicate copies</em> of small shared files next to
+            each big level, spending cheap capacity to avoid expensive head
+            travel.
+          </p>
+          <p>
+            The lab below is a full fictional game disc drawn as the spiral it
+            really is. Click a file in the picker and watch the head do real
+            work: slide to the radius, wait for the platter to bring the data
+            around, then read — with a millisecond-by-millisecond breakdown, and
+            the CAV rate difference plainly visible between an inner file and an
+            outer one.
+          </p>
+
+          <div class="lab" id="lab-discmap">
+            <div class="lab-head"><span class="dot"></span><span class="title">Disc-map lab — seek around a game disc</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-sq" aria-label="A radial map of a fictional game disc; clicking a file animates the head seeking to it with a timing breakdown"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Read a file</label>
+                  <div class="seg-btns wrap" role="group" aria-label="File to read">
+                    <button data-target="boot">boot header</button>
+                    <button data-target="dol">main.dol</button>
+                    <button data-target="fst">FST</button>
+                    <button data-target="intro">movies/intro.thp</button>
+                    <button data-target="theme">audio/theme.adp</button>
+                    <button data-target="level">maps/level7.arc</button>
+                  </div>
+                </div>
+                <div class="readouts">
+                  <span class="readout">Seek <b data-seek-time>—</b></span>
+                  <span class="readout">Read rate <b data-seek-rate>—</b></span>
+                </div>
+                <span class="sim-note">Breakdown = sled move + settle + rotational wait + read. Notice the outer files (bigger radius) report a higher CAV read rate. Illustrative timings, not measurements.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A game disc is one read-only filesystem, fixed at mastering: boot header → apploader → main .dol → FST → file data.</li>
+              <li>The boot ROM runs the apploader; the apploader loads the .dol; the .dol is the game.</li>
+              <li>The FST maps every filename to a raw offset + length — &ldquo;opening&rdquo; a file is just an offset lookup and a read.</li>
+              <li>Placement is a tool: fast outer tracks for hungry files, co-location (even duplication) to dodge seeks, and pseudo-random junk filling the gaps.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#minidisc"><span class="dir">← Prev</span><span class="ttl">05 · The 8 cm disc</span></a>
+            <a class="next" href="#di"><span class="dir">Next →</span><span class="ttl">07 · Talking to the drive: the DI</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 07 --- -->
+      <section class="doc" id="di">
+        <div class="mod-head">
+          <span class="eye">Module 07 <span class="part-tag">· Part II</span></span>
+          <h3>Talking to the drive: the DI</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow one disc read end-to-end through the DI: the CPU posts a command, the drive's own firmware does the work, DMA lands the data in RAM, and an interrupt says &ldquo;done.&rdquo;</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            So far the drive has been a black box that &ldquo;reads
+            sectors.&rdquo; Time to wire it to the rest of the console. The
+            GameCube's main chip, Flipper, contains a small block of hardware
+            called the <strong>DI</strong> — the <em>disc interface</em> — and
+            it is the <em>only</em> doorway between the CPU and the drive.
+            The CPU cannot touch the laser, the motor, or a single pit. It can
+            only do one thing: fill in a short form and ring a bell.
+          </p>
+          <p>
+            The &ldquo;form&rdquo; is a handful of
+            <span class="term" data-tip="A hardware register that appears at a fixed memory address — the CPU reads and writes it like memory, but the values go straight to (or come from) a device.">memory-mapped registers</span>
+            — special addresses that, when written, poke the DI hardware
+            directly. To read from the disc, the game's runtime:
+          </p>
+          <ol>
+            <li>writes a <strong>command</strong> into the DI's command-buffer registers — an opcode (&ldquo;read&rdquo;) plus parameters (which disc offset, how many bytes);</li>
+            <li>writes a main-RAM <strong>destination address</strong> and a <strong>length</strong> into the DI's DMA registers;</li>
+            <li>sets the &ldquo;go&rdquo; bit in the DI control register — rings the bell;</li>
+            <li>…and walks away. This is the important part: the CPU does <em>not</em> sit there copying bytes.</li>
+          </ol>
+          <p>
+            The drive does the slow physical work — seek, wait, read, error-
+            correct — and streams the resulting sectors back through the DI,
+            which writes them into main RAM by
+            <span class="term" data-tip="Direct Memory Access — hardware copies a block of data straight into memory without the CPU moving a single byte.">DMA</span>
+            (Direct Memory Access: hardware-to-memory copying with no CPU
+            involvement). When the last byte lands, the DI raises an
+            <span class="term" data-tip="A hardware signal that makes the CPU drop what it's doing and run a handler — how devices say 'done' (or 'help') without being polled.">interrupt</span>
+            — a hardware tap on the CPU's shoulder that runs a completion
+            handler. Between the bell-ring and the tap, the CPU was simulating
+            physics and building graphics frames. Small commands that need only
+            a short answer (a status code, the drive's ID string) skip the DMA
+            and return their reply in an <em>immediate buffer</em> register
+            instead.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A restaurant pass-through window</span>
+            <p>
+              The kitchen (the drive) and the dining room (the CPU) never mix.
+              A waiter clips an order ticket to the pass-through window — dish
+              name, table number — and goes back to serving. The kitchen cooks
+              at its own pace, puts the finished plate on the shelf
+              (<span class="term" data-tip="Direct Memory Access — the hardware delivers data straight into RAM, no CPU copying.">DMA</span>
+              into RAM), and rings the little bell (the
+              <span class="term" data-tip="The hardware 'done' signal that interrupts the CPU and runs a completion handler.">interrupt</span>).
+              The ticket rail is the DI's command registers; the bell is wired
+              so the waiter <em>always</em> hears it, mid-conversation or not.
+            </p>
+          </div>
+
+          <figure class="dsp-diagram">
+            <svg viewBox="0 0 940 430" role="img" aria-labelledby="didiag-title didiag-desc">
+              <title id="didiag-title">The GameCube disc interface</title>
+              <desc id="didiag-desc">The CPU writes commands into the DI's registers inside Flipper. The DI forwards commands to the drive, which runs its own firmware on its own controller. Sector data flows back through the DI and lands in main RAM by DMA; interrupts (transfer complete, cover) flow back to the CPU.</desc>
+              <defs>
+                <marker id="ah07" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker>
+                <marker id="ah07c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker>
+                <marker id="ah07m" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker>
+                <marker id="ah07a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ffb14e"/></marker>
+              </defs>
+              <!-- left: CPU + RAM -->
+              <rect x="16" y="80" width="150" height="72" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="91" y="112" text-anchor="middle" class="d-label">Main CPU</text>
+              <text x="91" y="132" text-anchor="middle" class="d-sub">Gekko</text>
+              <rect x="16" y="290" width="150" height="72" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="91" y="322" text-anchor="middle" class="d-label">Main RAM</text>
+              <text x="91" y="342" text-anchor="middle" class="d-sub">sectors land here</text>
+              <!-- center: Flipper / DI -->
+              <rect x="250" y="40" width="380" height="360" rx="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="270" y="70" class="d-tag">Flipper — the DI block</text>
+              <text x="270" y="88" class="d-sub">memory-mapped registers</text>
+              <rect x="270" y="104" width="160" height="64" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="350" y="130" text-anchor="middle" class="d-label" style="font-size:13px">Command buffer</text>
+              <text x="350" y="150" text-anchor="middle" class="d-sub">opcode + offset + len</text>
+              <rect x="446" y="104" width="164" height="64" rx="8" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="528" y="130" text-anchor="middle" class="d-label" style="font-size:13px">DMA registers</text>
+              <text x="528" y="150" text-anchor="middle" class="d-sub">RAM address · length</text>
+              <rect x="270" y="188" width="160" height="64" rx="8" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="350" y="214" text-anchor="middle" class="d-label" style="font-size:13px">Control / status</text>
+              <text x="350" y="234" text-anchor="middle" class="d-sub">go bit · busy · error</text>
+              <rect x="446" y="188" width="164" height="64" rx="8" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <text x="528" y="214" text-anchor="middle" class="d-label" style="font-size:13px">Immediate buffer</text>
+              <text x="528" y="234" text-anchor="middle" class="d-sub">short replies</text>
+              <rect x="270" y="272" width="340" height="56" rx="8" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <text x="440" y="296" text-anchor="middle" class="d-label" style="font-size:13px">Interrupts</text>
+              <text x="440" y="315" text-anchor="middle" class="d-sub">transfer complete · error · cover open/close</text>
+              <text x="270" y="382" class="d-sub">audio-streaming control also lives here (→ Module 09)</text>
+              <!-- right: drive -->
+              <rect x="700" y="60" width="224" height="200" rx="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="720" y="90" class="d-tag d-magenta">The drive</text>
+              <rect x="716" y="104" width="192" height="56" rx="8" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="812" y="128" text-anchor="middle" class="d-label" style="font-size:13px">Own controller</text>
+              <text x="812" y="147" text-anchor="middle" class="d-sub">runs its own firmware</text>
+              <rect x="716" y="172" width="192" height="72" rx="8" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="812" y="198" text-anchor="middle" class="d-label" style="font-size:13px">Mechanism</text>
+              <text x="812" y="217" text-anchor="middle" class="d-sub">laser · sled · motor</text>
+              <text x="812" y="233" text-anchor="middle" class="d-sub">servo + error correction</text>
+              <rect x="700" y="300" width="224" height="62" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="812" y="326" text-anchor="middle" class="d-label" style="font-size:13px">Lid switch</text>
+              <text x="812" y="346" text-anchor="middle" class="d-sub">cover open / close</text>
+              <!-- arrows -->
+              <path d="M166 100 C 210 100, 214 128, 268 132" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#ah07c)"/>
+              <text x="176" y="86" class="d-flow d-cyan">1 · write command</text>
+              <path d="M430 136 C 640 130, 640 130, 698 130" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#ah07c)"/>
+              <text x="638" y="118" class="d-flow d-cyan">2 · to drive</text>
+              <path d="M716 236 C 620 320, 480 336, 172 330" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#ah07m)"/>
+              <text x="470" y="356" class="d-flow d-magenta">3 · sector data → DMA into RAM</text>
+              <path d="M268 296 C 210 296, 206 160, 166 148" fill="none" stroke="#ffb14e" stroke-width="1.8" marker-end="url(#ah07a)"/>
+              <text x="176" y="212" class="d-flow d-amber">4 · interrupt:</text>
+              <text x="176" y="226" class="d-flow d-amber">&ldquo;done&rdquo;</text>
+              <path d="M812 300 C 812 282, 700 298, 614 300" fill="none" stroke="#877f9e" stroke-width="1.5" marker-end="url(#ah07)"/>
+            </svg>
+            <figcaption class="fig-cap">
+              <strong>One read, end to end.</strong> The CPU fills the DI's
+              <span class="term" data-tip="Registers holding the command the drive should run: an opcode plus parameters like disc offset and length.">command buffer</span>
+              and DMA registers, sets the go bit, and leaves. The drive — a
+              little computer in its own right, running its own
+              <span class="term" data-tip="The program permanently stored in a device's own controller. The GameCube drive's firmware handles seeking, error correction and command handling — and is a character in Module 08's story.">firmware</span>
+              — does the physical work and streams sectors back; the DI lands
+              them in RAM by DMA and raises an interrupt. Even the lid is an
+              interrupt source.
+            </figcaption>
+          </figure>
+
+          <h4>The command set</h4>
+          <p>
+            The vocabulary the CPU can put on that ticket rail is small. The
+            exact opcode numbers are an implementation detail (Dolphin's source
+            is the public reference), but the jobs are:
+          </p>
+          <div class="defs">
+            <div class="row"><dt>Read</dt><dd>The workhorse: &ldquo;deliver <em>n</em> bytes from disc offset <em>x</em> into RAM.&rdquo; Nearly everything a game does with the disc is this.</dd></div>
+            <div class="row"><dt>Seek</dt><dd>Move the head to an offset <em>without</em> reading — games issue it early so the mechanical work (Module 09) overlaps with other setup.</dd></div>
+            <div class="row"><dt>Request error / status</dt><dd>&ldquo;What happened?&rdquo; / &ldquo;What are you doing?&rdquo; Returns a code in the immediate buffer: ready, busy, lid open, read error, wrong disc…</dd></div>
+            <div class="row"><dt>Audio-streaming control</dt><dd>Start, stop and query the drive's built-in background-music streaming — a lovely trick that gets its own treatment in Module 09.</dd></div>
+            <div class="row"><dt>Stop motor / inquiry</dt><dd>Housekeeping: spin the disc down; report the drive's identity and firmware revision.</dd></div>
+          </div>
+
+          <p>
+            Two details in that diagram deserve a second look, because both
+            return as emulation problems in Part III. First, <strong>the lid is
+            an interrupt</strong>: opening the cover mid-game fires a DI
+            interrupt, and games genuinely handle it — pausing, showing
+            &ldquo;the disc cover was opened,&rdquo; then re-checking the disc
+            and resuming when it closes. Disc-swap in two-disc games is built on
+            this little dance. Second, <strong>the drive is a computer</strong>:
+            its own controller and firmware handle focus, tracking, spin-up,
+            retries and error correction privately. The CPU never sees a pit or
+            a parity byte — it sees clean 2,048-byte sectors and status codes.
+            Keep both facts warm for Module 08 (where the firmware becomes a
+            battleground) and Module 11 (where Dolphin has to impersonate all
+            of it).
+          </p>
+
+          <div class="pipe">
+            <div class="stage"><div class="t">CPU posts</div><div class="d">command + DMA target, sets go</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Drive works</div><div class="d">seek · rotate · read · correct</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">DMA lands</div><div class="d">sectors written into main RAM</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Interrupt</div><div class="d">&ldquo;done&rdquo; — handler runs</div></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The DI is the only doorway between CPU and drive: command-buffer, DMA, control and immediate-buffer registers.</li>
+              <li>Reads are asynchronous: the CPU posts a command and gets on with the game; DMA delivers the data; an interrupt signals completion.</li>
+              <li>The command set is tiny: read, seek, status/error, audio-streaming control, and housekeeping.</li>
+              <li>The lid is an interrupt too, and the drive runs its own firmware on its own controller — the CPU only ever sees clean sectors and status codes.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#layout"><span class="dir">← Prev</span><span class="ttl">06 · What's on the disc</span></a>
+            <a class="next" href="#protection"><span class="dir">Next →</span><span class="ttl">08 · The copy protection</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 08 --- -->
+      <section class="doc" id="protection">
+        <div class="mod-head">
+          <span class="eye">Module 08 <span class="part-tag">· Part II</span></span>
+          <h3>The copy protection</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand — as history, not as a manual — why a GameCube disc is invisible to a PC drive, what the barcode near the hub is, and why the cat-and-mouse game moved to the drive's firmware.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            A quick framing note before we start: this module is the
+            <em>history</em> of a twenty-year-old protection scheme, told at the
+            level long documented by the emulation and preservation community.
+            It explains <em>why</em> things were built as they were — it is not
+            a how-to for anything.
+          </p>
+          <p>
+            Here is the striking, easily-verified fact at the centre of it all:
+            put a GameCube disc in an ordinary PC DVD drive, and the drive
+            <strong>cannot read it at all</strong>. Not &ldquo;the files are
+            encrypted&rdquo; — the drive typically reports no usable disc.
+            Physically it's DVD technology through and through (same laser,
+            same pit scale — Module 05), but the low-level format is
+            deliberately <em>off-spec</em>: the widely-reported account is that
+            the innermost structures a drive reads first — the
+            <span class="term" data-tip="The innermost region of the spiral, read first, telling the drive what kind of disc it holds and how it's laid out (Module 02). Nintendo's version doesn't follow the DVD standard.">lead-in</span>
+            from Module 02 — and the low-level
+            <span class="term" data-tip="A reversible bit-mixing step applied to sector data before pressing, part of the DVD low-level format. Change the scheme and a standard drive can no longer make sense of the sectors.">sector scrambling</span>
+            don't follow the DVD standard's rules. A standard drive's firmware
+            reads the opening structures, finds gibberish where a
+            table-of-contents should be, and gives up. Nintendo never published
+            the details, so treat the precise mechanism as community inference;
+            the <em>effect</em> — stock drives refuse, and only the console's
+            own Matsushita drive knows the dialect — is beyond doubt.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The same alphabet, a different first page</span>
+            <p>
+              Imagine two books printed with the same ink, same paper, same
+              letters — but one shuffles its letters by a private rule and opens
+              with a title page written in that shuffled form. A reader who
+              doesn't know the rule can't even find the table of contents; they
+              hold a physically perfect book they cannot begin to read. The
+              GameCube disc is that book: the <em>printing technology</em> is
+              standard DVD; the <em>opening conventions</em> are private.
+            </p>
+          </div>
+
+          <p>
+            Two more layers completed the scheme:
+          </p>
+          <ul>
+            <li><strong>The barcode by the hub.</strong> Look at the inner rim of a GameCube disc and you can see a faint ring of marks — a <span class="term" data-tip="Burst Cutting Area — a barcode-like ring burned near a disc's hub after pressing, carrying a small amount of per-disc data readable by the drive.">BCA</span>-style barcode (the DVD world's &ldquo;Burst Cutting Area&rdquo;), burned into each disc after pressing. It carries a small amount of data the drive can read and is understood to take part in the drive's disc-verification; the specifics of what's checked were never published. The salient property: a home-burned disc has no way to carry it.</li>
+            <li><strong>No writable medium existed.</strong> Even with a perfect image of a game (Part III is all about legitimate ones), there was nothing to write it <em>onto</em>: no consumer burner produced the non-standard format, and no blank &ldquo;GameCube discs&rdquo; existed. The Module 05 key-blank analogy, made literal.</li>
+          </ul>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 280" role="img" aria-label="A GameCube disc is readable by the console's drive but rejected by a standard PC drive; inset shows the BCA barcode ring near the hub">
+              <defs><marker id="ah08" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <!-- the disc -->
+              <circle cx="180" cy="140" r="92" fill="rgba(168,132,255,0.10)" class="d-violet-s" stroke-width="1.5"/>
+              <circle cx="180" cy="140" r="30" fill="none" stroke="#ffb14e" stroke-width="6" stroke-dasharray="3 4"/>
+              <circle cx="180" cy="140" r="20" class="d-fill-ground d-violet-s" stroke-width="1.5"/>
+              <text x="180" y="32" text-anchor="middle" class="d-tag d-violet">GameCube disc</text>
+              <text x="180" y="258" text-anchor="middle" class="d-sub">standard DVD physics ·</text>
+              <text x="180" y="274" text-anchor="middle" class="d-sub">non-standard format</text>
+              <line x1="216" y1="118" x2="300" y2="74" class="d-stem"/>
+              <text x="308" y="70" class="d-sub d-amber">BCA-style barcode ring,</text>
+              <text x="308" y="86" class="d-sub d-amber">burned per-disc near the hub</text>
+              <!-- console drive path -->
+              <path d="M276 150 C 340 150, 360 120, 420 118" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#ah08)"/>
+              <rect x="424" y="88" width="200" height="60" rx="10" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="524" y="113" text-anchor="middle" class="d-label" style="font-size:13px">GameCube drive</text>
+              <text x="524" y="132" text-anchor="middle" class="d-sub">knows the dialect</text>
+              <line x1="624" y1="118" x2="700" y2="118" class="d-axis" stroke-width="1.8" marker-end="url(#ah08)"/>
+              <rect x="704" y="92" width="150" height="52" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="779" y="115" text-anchor="middle" class="d-label" style="font-size:13px">reads fine ✓</text>
+              <text x="779" y="133" text-anchor="middle" class="d-sub">clean sectors out</text>
+              <!-- PC drive path -->
+              <path d="M276 176 C 340 176, 360 204, 420 206" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#ah08)"/>
+              <rect x="424" y="176" width="200" height="60" rx="10" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <text x="524" y="201" text-anchor="middle" class="d-label" style="font-size:13px">Stock PC DVD drive</text>
+              <text x="524" y="220" text-anchor="middle" class="d-sub">expects the DVD standard</text>
+              <line x1="624" y1="206" x2="700" y2="206" class="d-axis" stroke-width="1.8" marker-end="url(#ah08)"/>
+              <rect x="704" y="180" width="150" height="52" rx="10" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="779" y="203" text-anchor="middle" class="d-label" style="font-size:13px">no disc found ✕</text>
+              <text x="779" y="221" text-anchor="middle" class="d-sub">lead-in unreadable</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Same physics, private dialect.</strong> The console's Matsushita drive reads the off-spec lead-in and scrambling natively; a standard drive's firmware finds gibberish where the table of contents should be and reports no usable disc. The amber ring is the per-disc <span class="term" data-tip="Burst Cutting Area — a barcode-like ring burned near the hub after pressing, carrying per-disc data.">BCA</span>-style barcode — something a home-burned disc could never carry.</figcaption>
+          </figure>
+
+          <h4>Why the attacks went after the firmware</h4>
+          <p>
+            Now connect this to Module 07's closing thought: <em>the drive is a
+            computer running firmware, and the console trusts what it says</em>.
+            The disc format was effectively unforgeable — so the historical
+            cat-and-mouse, as documented across two decades of emulator and
+            homebrew history, went around the disc entirely and targeted the
+            <em>trusted messenger</em>. Commercial
+            <span class="term" data-tip="An aftermarket board soldered into a console to alter its behaviour — here, by sitting on the drive's electronics and changing what the drive reports or accepts.">mod-chips</span>
+            of the era attached to the drive's electronics and interfered with
+            its firmware-level conversation, making the drive accept media or
+            report checks as passed when they hadn't. In other words: nobody
+            counterfeited the key — they suborned the doorman. Later, the
+            community found gentler doors for legitimate homebrew: software
+            exploits (famously via crafted save files) that ran code without
+            touching the drive at all, which is the lineage today's homebrew
+            and disc-preservation tools descend from. That preservation path —
+            dumping a disc you own into a file — is exactly where Part III
+            begins.
+          </p>
+
+          <div class="note warn">
+            <div class="ico">▲</div>
+            <div><p><strong>Scope note.</strong> Mechanism details in this module
+            (which structures differ from the DVD spec, what the barcode
+            encodes, what exactly mod-chips patched) were never officially
+            documented; the summaries above reflect the consensus of published
+            reverse-engineering history and are hedged accordingly. The
+            <em>effects</em> — PC drives can't read the discs, per-disc barcode,
+            firmware-level attacks — are well established.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>GameCube discs use standard DVD physics but a deliberately non-standard low-level format — stock PC drives can't read them at all.</li>
+              <li>The widely-reported (unofficial) mechanism: off-spec lead-in structures and sector scrambling, plus a per-disc BCA-style barcode near the hub.</li>
+              <li>With the disc unforgeable, historical attacks targeted the drive's firmware — the trusted messenger — via mod-chips; homebrew later used software exploits instead.</li>
+              <li>All of this is why disc <em>images</em>, not disc <em>copies</em>, are the unit of preservation — Part III's subject.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#di"><span class="dir">← Prev</span><span class="ttl">07 · Talking to the drive: the DI</span></a>
+            <a class="next" href="#streaming"><span class="dir">Next →</span><span class="ttl">09 · Streaming &amp; hiding the seams</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 09 --- -->
+      <section class="doc" id="streaming">
+        <div class="mod-head">
+          <span class="eye">Module 09 <span class="part-tag">· Part II</span></span>
+          <h3>Streaming &amp; hiding the seams</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Do the brutal arithmetic of a seek, then learn the tricks — corridors, prefetching into ARAM, and the drive's own music streaming — that games used to make loading invisible.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Time to put numbers on the drive's one great weakness. Reading
+            <em>sequentially</em> is fine — 2 to 3&nbsp;MB/s of steady flow.
+            The killer is <em>jumping</em>. Every random hop pays a mechanical
+            toll with several parts:
+          </p>
+          <ul>
+            <li><strong>Command overhead</strong> — the DI handshake and the drive's firmware deciding what to do: a millisecond or so.</li>
+            <li><strong>Sled move</strong> — the whole optical assembly physically slides along its rails to the target radius. Motors and mass: tens of milliseconds for a long hop.</li>
+            <li><strong>Settle &amp; re-lock</strong> — the servo re-focuses the laser and locks onto the exact spiral turn: a few more milliseconds.</li>
+            <li><strong><span class="term" data-tip="After the head arrives, the wait for the platter to rotate the target sector around to the laser — on average half a revolution.">Rotational latency</span></strong> — the head is at the right radius, but the data you want is somewhere around the circle. On average you wait <em>half a revolution</em> for it to come around.</li>
+          </ul>
+
+          <div class="example">
+            <span class="lbl">Worked example</span>
+            <p>
+              Take a drive spinning around 1,400&nbsp;RPM (a plausible
+              GameCube-class figure — treat it as illustrative). One revolution
+              is 60&nbsp;÷&nbsp;1,400 ≈ <strong>43&nbsp;ms</strong>, so the
+              average rotational wait alone is ≈ <strong>21&nbsp;ms</strong>.
+              Add ~1&nbsp;ms of command overhead, a 30–80&nbsp;ms sled move for
+              a mid-to-long hop, and settle time, and a random read costs
+              somewhere in the region of <strong>50–150&nbsp;ms</strong> before
+              the first byte arrives. In that time the console could have
+              rendered <em>up to nine 60&nbsp;fps frames</em> — or read
+              ~300&nbsp;KB sequentially. Seeks aren't slightly expensive; they
+              are catastrophically expensive, and every design decision in this
+              module flows from that.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 210" role="img" aria-label="Timeline anatomy of one random disc read: command, sled move, settle, rotational wait, then data flowing">
+              <line x1="60" y1="120" x2="860" y2="120" class="d-axis"/>
+              <rect x="60"  y="92" width="28"  height="28" rx="5" class="d-fill-panel d-stroke-line" stroke-width="1.2"/>
+              <rect x="88"  y="92" width="270" height="28" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/>
+              <rect x="358" y="92" width="60"  height="28" rx="5" class="d-fill-panel d-stroke-line" stroke-width="1.2"/>
+              <rect x="418" y="92" width="190" height="28" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <rect x="608" y="92" width="252" height="28" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="74"  y="84" text-anchor="middle" class="d-sub">cmd</text>
+              <text x="223" y="84" text-anchor="middle" class="d-sub d-violet">sled moves to radius</text>
+              <text x="388" y="84" text-anchor="middle" class="d-sub">settle</text>
+              <text x="513" y="84" text-anchor="middle" class="d-sub d-amber">rotational wait (avg ½ rev)</text>
+              <text x="734" y="84" text-anchor="middle" class="d-sub d-cyan">data flows — at last</text>
+              <text x="74"  y="146" text-anchor="middle" class="d-sub" style="font-size:10px">~1 ms</text>
+              <text x="223" y="146" text-anchor="middle" class="d-sub" style="font-size:10px">~30–80 ms</text>
+              <text x="388" y="146" text-anchor="middle" class="d-sub" style="font-size:10px">~ms</text>
+              <text x="513" y="146" text-anchor="middle" class="d-sub" style="font-size:10px">~0–43 ms · avg 21</text>
+              <text x="734" y="146" text-anchor="middle" class="d-sub" style="font-size:10px">2–3 MB/s</text>
+              <text x="60" y="34" class="d-tag">Anatomy of one random read (illustrative figures)</text>
+              <text x="60" y="186" class="d-sub">total before first byte: ~50–150 ms — up to nine whole frames at 60 fps</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Where a seek's time goes.</strong> The sled move and the <span class="term" data-tip="The wait, after arriving at the right radius, for the platter to bring the target sector around — on average half a revolution.">rotational wait</span> dominate. Nothing useful arrives until every stage completes — which is why games organise their whole disc layout (Module 06) around <em>not paying this toll</em>.</figcaption>
+          </figure>
+
+          <h4>Hiding the seams</h4>
+          <p>
+            Yet you rarely stared at a loading screen on a GameCube. That's not
+            because the drive was fast — you've just seen it isn't — but because
+            developers became masters of <em>overlap</em>: making sure that
+            whenever the drive was paying its mechanical toll, you were looking
+            at something else.
+          </p>
+          <ul>
+            <li><strong>Corridors, elevators &amp; airlocks.</strong> That suspiciously long hallway between areas, the slow elevator ride, the door that takes two seconds to open — often load-bearing theatre. While you walk it, the game is streaming the next area in behind the scenes. Level designers shaped spaces around the drive's timings.</li>
+            <li><strong>Prefetching into ARAM.</strong> The console has a second, 16&nbsp;MB pool of memory called <span class="term" data-tip="Auxiliary RAM — a separate 16 MB memory pool, slower than main RAM, used for sound samples and as a staging cache for data streamed off the disc.">ARAM</span> — officially &ldquo;audio RAM&rdquo; (its starring role is in our <a href="../audio/">audio course</a>), but games treated it as a disc cache: stream likely-soon assets into ARAM during quiet moments, then copy them to main RAM in microseconds when actually needed. A software-managed read-ahead.</li>
+            <li><strong>Layout, again.</strong> Module 06's tricks — group files read together, duplicate small shared files next to each level — exist precisely to convert would-be seeks into sequential reads.</li>
+            <li><strong>Early seeks.</strong> The DI's <em>seek</em> command (Module 07) lets a game send the head toward data it will want soon, overlapping the sled move with gameplay before issuing the actual read.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The water tank on the roof</span>
+            <p>
+              A house with irregular mains pressure puts a tank on the roof: the
+              mains fills it when pressure allows, the taps drain it smoothly at
+              any moment. A streaming game runs the same plumbing — the drive
+              fills a memory
+              <span class="term" data-tip="A region of memory that absorbs the mismatch between a bursty producer (the drive, which stalls during seeks) and a steady consumer (the game).">buffer</span>
+              in bursts (stalling entirely during seeks), the game drains it
+              steadily. As long as the tank never runs dry, you never notice the
+              pump stopping. The lab below lets you run the tank dry on purpose.
+            </p>
+          </div>
+
+          <h4>The drive plays the music: DTK</h4>
+          <p>
+            One more streaming trick is so elegant it deserves its own heading.
+            The drive can play background music <em>by itself</em>. A game
+            issues the DI's audio-streaming command (Module 07) pointing at a
+            compressed audio file on the disc, and from then on the
+            <em>drive</em> — its own firmware, its own schedule — reads that
+            stream and feeds it, decoded from its
+            <span class="term" data-tip="Adaptive Differential PCM — a compact audio encoding storing small per-sample corrections. Our audio course's Module 04 builds it from scratch.">ADPCM</span>
+            encoding, straight to the console's audio output, with essentially
+            no CPU involvement. This is <span class="term" data-tip="Disc Track audio — the GameCube's hardware audio-streaming feature: the drive itself reads and decodes ADPCM music from the disc in the background.">DTK</span>
+            (&ldquo;Disc Track&rdquo;) audio. It's why music could keep playing
+            seamlessly while the CPU was flat-out mid-load. The stream arrives
+            at 48&nbsp;kHz and joins the audio mixer's other sources — our
+            <a href="../audio/">audio course</a> picks the story up from exactly
+            that point (its Module 15, &ldquo;The output path&rdquo;). The cost:
+            while the drive is busy streaming music, it is a shared, mechanical
+            resource — game and stream take turns, which the layout planners of
+            Module 06 also had to budget for.
+          </p>
+          <p>
+            In the lab, you are the streaming engine. Data flows from the drive
+            into the buffer and drains out to the game. Trigger a seek — the
+            player just entered a new area — and watch the buffer absorb the
+            stall. Then set the drain faster than the fill, or seek twice in
+            quick succession, and watch the tank run dry: that moment is a
+            loading screen being born.
+          </p>
+
+          <div class="lab" id="lab-stream">
+            <div class="lab-head"><span class="dot"></span><span class="title">Streaming lab — keep the buffer alive</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="A read buffer filling from the disc and draining to the game; seeks pause the filling and can starve the buffer"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Drive read rate — <span class="val" data-read-rate-val>2.5 MB/s</span></label>
+                  <input type="range" min="5" max="40" value="25" step="1" data-read-rate aria-label="Drive read rate">
+                </div>
+                <div class="ctrl">
+                  <label>Game consumption — <span class="val" data-consume-rate-val>1.8 MB/s</span></label>
+                  <input type="range" min="5" max="40" value="18" step="1" data-consume-rate aria-label="Game consumption rate">
+                </div>
+                <button class="play-btn" data-do-seek>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Player enters new area (seek!)
+                </button>
+                <span class="sim-note">Each seek stalls the drive ~120 ms while the game keeps draining. If the buffer empties, the dreaded &ldquo;loading…&rdquo; appears.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A random read costs ~50–150 ms (command + sled + settle + avg half-revolution rotational wait) — frames' worth of time.</li>
+              <li>Games hid the toll with overlap: corridor/elevator loading theatre, prefetching into ARAM, seek-early commands, and seek-avoiding layout.</li>
+              <li>Buffering absorbs the drive's bursts-and-stalls; a starved buffer <em>is</em> a loading screen.</li>
+              <li>DTK audio streaming lets the drive itself read and decode background music with no CPU work — see the <a href="../audio/">audio course</a> for where that stream goes next.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#protection"><span class="dir">← Prev</span><span class="ttl">08 · The copy protection</span></a>
+            <a class="next" href="#image"><span class="dir">Next → Part III</span><span class="ttl">10 · The disc, as a file</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART III ============ -->
+      <section class="part" id="part-3">
+        <div class="part-inner">
+          <div class="kicker">Part III</div>
+          <h3>Emulating it in Dolphin</h3>
+          <p>
+            Finally: how does software on your PC stand in for that whole
+            spinning machine? First the disc has to become a file — and it
+            turns out Module 06's junk padding makes that surprisingly
+            interesting. Then the drive itself has to be impersonated, and
+            &ldquo;just read the file&rdquo; is nowhere near good enough:
+            twenty years of games are tuned, sometimes accidentally, to the
+            real drive's exact rhythms. These four modules connect the whole
+            course to the actual files and settings you'll see in the emulator
+            — and close with a short farewell to spinning media.
+          </p>
+          <div class="part-meta"><span>Modules <b>10–13</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>2 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 10 --- -->
+      <section class="doc" id="image">
+        <div class="mod-head">
+          <span class="eye">Module 10 <span class="part-tag">· Part III</span></span>
+          <h3>The disc, as a file</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand disc images: what a raw dump contains, why it compresses badly, how RVZ-style formats fix that losslessly, and how the community verifies a dump is perfect.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            An emulator has no laser, so the first step of this whole Part is
+            turning a disc you own into a file — <strong>dumping</strong> it.
+            A dump is beautifully unmysterious: read every sector from first to
+            last (homebrew on a real console is the classic legitimate path,
+            since Module 08 explained why a PC drive can't do it) and
+            concatenate the 2,048-byte payloads. The result is traditionally
+            named <span class="term" data-tip="A raw GameCube disc image: every user byte of every sector, in order. GCM is the traditional extension; ISO the generic one. Same bytes either way.">GCM</span>
+            or <code>.iso</code>, and because Module 06's filesystem is just
+            offsets, the file <em>is</em> the disc: byte 0x2440 of the file is
+            the apploader, exactly as pressed. Every full dump of a standard
+            GameCube disc is the same size — <strong>1,459,978,240 bytes</strong>,
+            about 1.46&nbsp;GB (1.36&nbsp;GiB) — whether the game &ldquo;uses&rdquo;
+            all of it or not, because the dump includes everything: files,
+            padding, junk and all.
+          </p>
+
+          <h4>Why a naive zip disappoints</h4>
+          <p>
+            1.46&nbsp;GB per game adds up, so you compress — and get a nasty
+            surprise: the ratio is often mediocre. The culprit is Module 06's
+            parting detail. The gaps between files, and the unused tail of the
+            disc, are filled with <strong>pseudo-random junk</strong>. A
+            compressor works by finding <em>patterns</em> — repetition,
+            structure, predictability. Random-looking bytes have none, by
+            construction: to a compressor, junk is incompressible noise, and on
+            a half-full disc there can be hundreds of megabytes of it, passed
+            through at a stubborn ~1:1 while the real game data compresses
+            politely.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Photographing static</span>
+            <p>
+              Try to describe a TV screen showing static: there's no shorter
+              description than the picture itself — random is, by definition,
+              patternless. But if you know the static came from a machine — a
+              <span class="term" data-tip="An algorithm that produces random-looking output from a small starting value (a seed). Same seed, same output, every time.">pseudo-random generator</span>
+              cranked from a known starting <em>seed</em> — the perfect
+              description is one line: &ldquo;the machine's output, seed
+              42.&rdquo; The junk on a GameCube disc came from exactly such a
+              machine in Nintendo's mastering tools, and that one-line
+              description is the trick behind RVZ.
+            </p>
+          </div>
+
+          <h4>Purpose-built formats: GCZ, then RVZ</h4>
+          <p>
+            Dolphin's community answered with formats that <em>understand</em>
+            what they're compressing while staying perfectly
+            <strong>lossless</strong> — the original image is reconstructible
+            bit-for-bit:
+          </p>
+          <ul>
+            <li><strong><span class="term" data-tip="Dolphin's older compressed disc-image format: the image cut into blocks, each deflate-compressed, with an index for random access.">GCZ</span></strong> — the older format: slice the image into blocks, compress each with a general-purpose algorithm, keep an index so the emulator can jump straight to any block (random access matters — the emulator seeks, too!). Helpful, but it still chews on the junk.</li>
+            <li><strong><span class="term" data-tip="Dolphin's modern disc-image format: junk padding is recognised and stored as generator parameters instead of bytes, and the remaining data is compressed with modern codecs — lossless, with random access.">RVZ</span></strong> — the modern one. Dolphin's developers worked out how the mastering tools' junk generator behaves (it's derived from values like the disc's ID), so RVZ <em>recognises</em> junk regions and stores, in effect, &ldquo;junk here, these parameters&rdquo; — kilobytes describing hundreds of megabytes, regenerated exactly on demand. Zero-filled and repeated blocks are deduplicated similarly, and what remains — the actual game data — is compressed with modern algorithms (Zstandard and friends). Typical results are dramatically smaller than a zipped ISO, still byte-exact, still randomly accessible.</li>
+          </ul>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 260" role="img" aria-label="Three bars comparing storage: raw ISO, naive zip where junk stays incompressible, and RVZ where junk collapses to generator parameters">
+              <text x="60" y="28" class="d-tag">The same disc, three ways (illustrative half-full disc: 60% data · 15% zero padding · 25% junk)</text>
+              <!-- raw -->
+              <text x="60" y="66" class="d-sub">raw ISO</text>
+              <rect x="150" y="50" width="420" height="24" rx="5" class="d-cyan" opacity="0.8"/>
+              <rect x="570" y="50" width="105" height="24" rx="0" fill="#2c2542"/>
+              <rect x="675" y="50" width="175" height="24" rx="5" class="d-magenta" opacity="0.8"/>
+              <text x="150" y="92" class="d-sub" style="font-size:10px">game data</text>
+              <text x="570" y="92" class="d-sub" style="font-size:10px">zeros</text>
+              <text x="675" y="92" class="d-sub" style="font-size:10px">pseudo-random junk</text>
+              <text x="856" y="66" text-anchor="end" class="d-num">100%</text>
+              <!-- zip -->
+              <text x="60" y="136" class="d-sub">naive zip</text>
+              <rect x="150" y="120" width="230" height="24" rx="5" class="d-cyan" opacity="0.8"/>
+              <rect x="380" y="120" width="6" height="24" fill="#2c2542"/>
+              <rect x="386" y="120" width="172" height="24" rx="5" class="d-magenta" opacity="0.8"/>
+              <text x="580" y="136" class="d-num">~58%</text>
+              <text x="386" y="162" class="d-sub" style="font-size:10px">junk barely shrinks — it looks random</text>
+              <!-- rvz -->
+              <text x="60" y="206" class="d-sub d-violet">RVZ-style</text>
+              <rect x="150" y="190" width="200" height="24" rx="5" class="d-cyan" opacity="0.8"/>
+              <rect x="350" y="190" width="8" height="24" rx="3" class="d-violet"/>
+              <text x="380" y="206" class="d-num">~30%</text>
+              <text x="150" y="232" class="d-sub" style="font-size:10px">data compressed with modern codecs</text>
+              <text x="350" y="248" class="d-sub d-violet" style="font-size:10px">junk + zeros stored as generator parameters — kilobytes</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Why RVZ wins.</strong> A general-purpose compressor treats the pseudo-random junk as incompressible noise. RVZ knows the junk was <em>generated</em>, stores the generator's parameters instead of its output, deduplicates zeros, and compresses only the real data. All three representations reconstruct the identical 1,459,978,240-byte image. (Proportions illustrative.)</figcaption>
+          </figure>
+
+          <h4>Trust, but verify</h4>
+          <p>
+            One last habit separates a preservation-grade dump from a hopeful
+            one. Optical reads can fail <em>silently</em> — a marginal disc, a
+            tired laser, and Module 03's error correction quietly gives up on a
+            sector without your dumping tool noticing anything worse than a
+            retry. The community's answer is verification by
+            <span class="term" data-tip="A short fingerprint (e.g. SHA-1) computed from a file's entire contents. Any single changed byte produces a completely different hash.">hash</span>:
+            compute a cryptographic fingerprint of your dump and compare it
+            against a community database of fingerprints from <em>many</em>
+            people's dumps of the same pressing (the Redump project is the
+            best-known such effort). If your hash matches the consensus, your
+            copy is bit-for-bit identical to everyone else's — about the
+            strongest statement of &ldquo;this dump is good&rdquo; you can make.
+            Dolphin can check a loaded image against these databases from its
+            game-properties window (Module 12).
+          </p>
+          <p>
+            The lab packs a fictional disc three ways. Watch where the bytes go
+            — especially the junk blocks, which sail through the zip untouched
+            but collapse to a sliver of parameters under RVZ.
+          </p>
+
+          <div class="lab" id="lab-image">
+            <div class="lab-head"><span class="dot"></span><span class="title">Image-compression lab — ISO vs zip vs RVZ-style</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="Blocks of a fictional disc image being packed under three different compression strategies with a final size bar"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Store as</label>
+                  <div class="seg-btns" role="group" aria-label="Image format">
+                    <button class="on" data-fmt="iso">raw ISO</button>
+                    <button data-fmt="zip">naive zip</button>
+                    <button data-fmt="rvz">RVZ-style</button>
+                  </div>
+                </div>
+                <div class="readouts">
+                  <span class="readout">Output size <b data-image-size>100%</b></span>
+                  <span class="readout">Ratio <b data-image-ratio>1.00 : 1</b></span>
+                </div>
+                <span class="sim-note">Educational simulation with made-up block sizes — real ratios vary per game. Cyan = game data, grey = zeros, magenta = pseudo-random junk.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A raw dump (GCM/ISO) is every sector's 2,048 payload bytes in order — always 1,459,978,240 bytes for a standard disc.</li>
+              <li>Generic compression stumbles on the pseudo-random junk padding: random-looking bytes have no patterns to exploit.</li>
+              <li>GCZ block-compresses; RVZ goes further — it regenerates junk from stored parameters and deduplicates padding, losslessly and with random access.</li>
+              <li>Preservation-grade dumps are verified by hashing against a community database of consensus fingerprints (Redump-style).</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#streaming"><span class="dir">← Prev · Part II</span><span class="ttl">09 · Streaming &amp; hiding the seams</span></a>
+            <a class="next" href="#emulating"><span class="dir">Next →</span><span class="ttl">11 · Emulating the drive</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 11 --- -->
+      <section class="doc" id="emulating">
+        <div class="mod-head">
+          <span class="eye">Module 11 <span class="part-tag">· Part III</span></span>
+          <h3>Emulating the drive</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See why a faithful drive emulation must imitate the drive's <em>slowness</em>, its status quirks and its side-channels — not just hand over the file's bytes.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Here's the naive plan, and it's genuinely tempting: the game writes
+            a read command into the emulated DI (Module 07), we <code>memcpy</code>
+            the bytes out of the RVZ at the right offset, fire the completion
+            interrupt on the next emulated cycle, done. Instant, perfect data.
+            What could be wrong with <em>faster and always correct</em>?
+          </p>
+          <p>
+            Quite a lot, it turns out. Twenty years of GameCube games were
+            developed against one specific physical drive, and they are shaped
+            by its rhythms in ways both deliberate and accidental:
+          </p>
+          <ul>
+            <li><strong>Some games race the drive.</strong> Module 09 taught developers to overlap work with reads: kick off a read, then spend the &ldquo;guaranteed&rdquo; 80&nbsp;ms doing setup. Some code — through bugs that never mattered on hardware — actually <em>relies</em> on the data not arriving too soon: an instant completion interrupt lands in the middle of the setup and fires callbacks in an order the developers never saw in testing. The game misbehaves — on data that is byte-perfect.</li>
+            <li><strong>Some games starve if it's too slow</strong> — or too fast in the wrong place: streaming systems tuned to the CAV rate curve (2→3&nbsp;MB/s across the radius, Module 05) can stutter or desync if fed at one flat rate.</li>
+            <li><strong>Status must lie convincingly.</strong> Games poll the drive: busy? ready? error? A drive that is never busy is a drive that never existed — polling loops written as &ldquo;wait until busy clears&rdquo; can fall straight through, or spin forever, when the emulated status doesn't sequence like the real firmware's.</li>
+            <li><strong>The side-channels are load-bearing.</strong> The <span class="term" data-tip="Disc Track audio — the drive's own background-music streaming (Module 09). Its position, play/pause state and looping are drive-side state an emulator must model.">DTK</span> music stream has drive-side state — position, looping, play/pause — that must tick along realistically (and survive savestates). And the lid: two-disc games orchestrate their swap around the cover-open and cover-close interrupts followed by a re-check of the new disc. An emulator's &ldquo;change disc&rdquo; menu item must perform that whole theatrical sequence — open, swap, close, interrupt, re-identify — or swap-time code breaks.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The too-perfect stagehand</span>
+            <p>
+              A play's actors are cued by the set changes: they begin their
+              lines <em>when the scenery arrives</em>. Hire a supernaturally
+              fast stagehand who slams every set into place instantly and the
+              actors trip over each other — scenes begin before costumes are
+              on. The fix isn't a slower stagehand out of nostalgia; it's one
+              who moves <em>on the rehearsed timing</em>, because the whole
+              production was rehearsed around it. Dolphin's drive emulation is
+              that stagehand: deliberately, faithfully punctual rather than
+              maximally fast.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="Two timelines: with instant reads the completion interrupt fires during game setup causing a glitch; with realistic timing events arrive in the rehearsed order">
+              <text x="60" y="30" class="d-tag" style="fill:#ff6a6a">Instant reads (inaccurate)</text>
+              <line x1="60" y1="86" x2="860" y2="86" class="d-axis"/>
+              <rect x="60"  y="58" width="90" height="28" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="105" y="77" text-anchor="middle" class="d-sub d-cyan">read cmd</text>
+              <rect x="150" y="58" width="10" height="28" rx="3" class="d-magenta"/>
+              <text x="171" y="52" class="d-sub" style="fill:#ff6a6a">interrupt fires immediately…</text>
+              <rect x="160" y="58" width="300" height="28" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/>
+              <text x="310" y="77" text-anchor="middle" class="d-sub d-violet">…while setup is still running</text>
+              <path d="M478 50 L492 86 L464 86 Z" fill="#ff6a6a"/>
+              <text x="502" y="77" class="d-sub" style="fill:#ff6a6a">callback order never seen on hardware → glitch</text>
+              <text x="60" y="160" class="d-tag" style="fill:#5fd18b">Realistic timing (accurate)</text>
+              <line x1="60" y1="216" x2="860" y2="216" class="d-axis"/>
+              <rect x="60"  y="188" width="90" height="28" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="105" y="207" text-anchor="middle" class="d-sub d-cyan">read cmd</text>
+              <rect x="150" y="188" width="300" height="28" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/>
+              <text x="300" y="207" text-anchor="middle" class="d-sub d-violet">setup runs in the drive's shadow</text>
+              <rect x="450" y="188" width="140" height="28" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="520" y="207" text-anchor="middle" class="d-sub d-amber">emulated seek + read</text>
+              <rect x="590" y="188" width="10" height="28" rx="3" fill="#5fd18b"/>
+              <text x="612" y="207" class="d-sub" style="fill:#5fd18b">interrupt — right on cue ✓</text>
+              <text x="60" y="272" class="d-sub">Same bytes both times. Only the <tspan style="fill:#ece8f6">when</tspan> differs — and the when is part of the interface.</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Correct data, wrong moment.</strong> Above: instant completion interrupts a setup phase that always finished first on real hardware — a latent bug becomes a real glitch. Below: Dolphin schedules the completion where the physical drive would have delivered it, and the rehearsed order holds.</figcaption>
+          </figure>
+
+          <h4>How Dolphin plays it</h4>
+          <p>
+            So Dolphin's disc emulation is a small physics act. The DI block is
+            emulated register-for-register; disc reads are served from the
+            image on a separate thread (decompressing RVZ blocks on the fly);
+            and — the heart of it — completion is <em>scheduled</em>, not
+            immediate: the emulator models the drive's behaviour, informed by
+            measurements of real hardware — per-command overheads, head travel
+            related to how far the target is, the CAV read-rate curve rising
+            toward the outer edge, even buffering effects where recently-passed
+            data returns faster (the fine details are tuned in Dolphin's
+            source; treat the exact model as an implementation detail that
+            keeps improving). Accurate disc timing ships <strong>enabled by
+            default</strong>, because a handful of well-known games simply
+            break without it — and a per-game escape hatch exists for the
+            impatient, which is Module 12's business.
+          </p>
+
+          <p>
+            The lab runs the same scripted &ldquo;load a level&rdquo; sequence
+            twice, side by side: once with instant reads, once against the
+            modelled drive. It's a deliberately simplified dramatisation — real
+            failures are subtler and rarer — but the shape of the problem is
+            exactly this.
+          </p>
+
+          <div class="lab" id="lab-timing">
+            <div class="lab-head"><span class="dot"></span><span class="title">Timing lab — instant vs realistic reads</span><span class="badge">Canvas · dramatisation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="Two side-by-side runs of a scripted game load: instant reads hit a desync marker, realistic timing plays smoothly"></canvas>
+              <div class="controls">
+                <button class="play-btn" data-timing-run>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Run the load sequence
+                </button>
+                <div class="readouts">
+                  <span class="readout">Instant run <b data-timing-instant>idle</b></span>
+                  <span class="readout">Realistic run <b data-timing-real>idle</b></span>
+                </div>
+                <span class="sim-note">A simplified dramatisation of a real class of bug — most games tolerate instant reads; a stubborn few do not, which is why accurate timing is the default.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Emulating the drive is not &ldquo;read the file&rdquo;: games depend on realistic transfer and seek timing, sometimes accidentally.</li>
+              <li>Status/error behaviour, the DTK audio-stream state, and the cover open/close sequence are all part of the drive's observable interface.</li>
+              <li>Dolphin schedules read completions from a model of the real drive (seek distance, CAV rate curve, buffering), with accurate timing on by default.</li>
+              <li>Byte-perfect data at the wrong moment is still a bug — the <em>when</em> is part of the contract.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#image"><span class="dir">← Prev</span><span class="ttl">10 · The disc, as a file</span></a>
+            <a class="next" href="#try"><span class="dir">Next →</span><span class="ttl">12 · Try it in Dolphin</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 12 --- -->
+      <section class="doc" id="try">
+        <div class="mod-head">
+          <span class="eye">Module 12 <span class="part-tag">· Part III</span></span>
+          <h3>Try it in Dolphin</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Turn the whole course into things you can click: where images live, the settings that map to what you've learned, and the full laser-to-RAM journey in one picture.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            You now know what a disc image <em>is</em>, so let's put the
+            knowledge to work in the emulator. (Menu wording shifts a little
+            between Dolphin versions; everything below is described by
+            <em>function</em>, so you can find it whatever it's currently
+            called.)
+          </p>
+          <ul>
+            <li><strong>The game list.</strong> Point Dolphin at the folders holding your dumps; it accepts raw <code>.iso</code>/<code>.gcm</code> alongside compressed <code>.gcz</code> and <code>.rvz</code> (Module 10) and reads the boot header of each — the ID, title and banner you see in the list are Module 06's header, parsed live.</li>
+            <li><strong>Convert.</strong> A built-in converter turns raw dumps into <span class="term" data-tip="Dolphin's modern lossless disc-image format: junk regenerated from parameters, real data compressed with modern codecs (Module 10).">RVZ</span> and back — losslessly, as Module 10 promised. Converting your library is the single most practical thing this course can hand you: identical games, a fraction of the disk space.</li>
+            <li><strong>Verify.</strong> The game's properties window can <span class="term" data-tip="Compute a short fingerprint of the whole file (Module 10); one changed byte changes the whole fingerprint.">hash</span> your image and check it against the community databases — Module 10's &ldquo;trust but verify,&rdquo; one click away. If a game misbehaves, verifying the dump is always step one.</li>
+            <li><strong>Disc-speed emulation.</strong> Somewhere in the settings lives the toggle from Module 11 — an option controlling whether reads follow the real drive's timing or complete as fast as possible (it has gone by names like &ldquo;emulate disc speed&rdquo; and &ldquo;speed up disc transfer&rdquo; across versions). Accurate is the default; the fast path shortens loads in many games and breaks a stubborn few. Now you know exactly why both facts are true.</li>
+            <li><strong>Change disc.</strong> The disc-swap menu item performs Module 11's full theatrical sequence — cover-open interrupt, new image mounted, cover-close interrupt, re-identification — because two-disc games genuinely watch each step happen.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The restored classic car</span>
+            <p>
+              A lovingly restored classic can be driven two ways: factory-exact
+              — original engine note, original (leisurely) acceleration — or
+              quietly upgraded for the daily commute. Neither is wrong; you just
+              want to <em>know which you've chosen and why</em>. Dolphin's
+              disc-timing options are the same choice: factory-exact is the
+              faithful default that everything was designed around; the upgrade
+              is faster and almost always fine. &ldquo;Almost&rdquo; is Module
+              11 in one word.
+            </p>
+          </div>
+
+          <h4>The whole journey, one last time</h4>
+          <p>
+            Here is the entire course in a single chain — worth tracing with
+            your finger once, because every link is now a module you've done:
+          </p>
+          <div class="pipe">
+            <div class="stage"><div class="t">Laser</div><div class="d">pits → transitions → bits <span style="color:var(--muted)">(01)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Sector</div><div class="d">2,048 bytes, error-corrected <span style="color:var(--muted)">(03–04)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Drive</div><div class="d">firmware, seeks, CAV <span style="color:var(--muted)">(05, 09)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">DI · DMA</div><div class="d">command in, sectors → RAM <span style="color:var(--muted)">(07)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Game</div><div class="d">FST offset → asset in memory <span style="color:var(--muted)">(06)</span></div></div>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 210" role="img" aria-label="The full journey of one byte: from pit under the laser, through sector correction, the drive, the DI and DMA, into main RAM — with Dolphin substituting the left half">
+              <defs><marker id="ah12" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <rect x="30"  y="60" width="130" height="64" rx="10" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="95" y="87" text-anchor="middle" class="d-label" style="font-size:13px">pit / land</text>
+              <text x="95" y="106" text-anchor="middle" class="d-sub">laser + photodiode</text>
+              <line x1="160" y1="92" x2="192" y2="92" class="d-axis" stroke-width="1.8" marker-end="url(#ah12)"/>
+              <rect x="194" y="60" width="130" height="64" rx="10" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="259" y="87" text-anchor="middle" class="d-label" style="font-size:13px">sector</text>
+              <text x="259" y="106" text-anchor="middle" class="d-sub">RS-corrected 2 KB</text>
+              <line x1="324" y1="92" x2="356" y2="92" class="d-axis" stroke-width="1.8" marker-end="url(#ah12)"/>
+              <rect x="358" y="60" width="130" height="64" rx="10" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <text x="423" y="87" text-anchor="middle" class="d-label" style="font-size:13px">drive</text>
+              <text x="423" y="106" text-anchor="middle" class="d-sub">firmware + buffer</text>
+              <line x1="488" y1="92" x2="520" y2="92" class="d-axis" stroke-width="1.8" marker-end="url(#ah12)"/>
+              <rect x="522" y="60" width="130" height="64" rx="10" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="587" y="87" text-anchor="middle" class="d-label" style="font-size:13px">DI + DMA</text>
+              <text x="587" y="106" text-anchor="middle" class="d-sub">interrupt on done</text>
+              <line x1="652" y1="92" x2="684" y2="92" class="d-axis" stroke-width="1.8" marker-end="url(#ah12)"/>
+              <rect x="686" y="60" width="130" height="64" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="751" y="87" text-anchor="middle" class="d-label" style="font-size:13px">main RAM</text>
+              <text x="751" y="106" text-anchor="middle" class="d-sub">the game reads it</text>
+              <!-- dolphin bracket -->
+              <path d="M30 148 H488" fill="none" stroke="#45e4d1" stroke-width="1.6"/>
+              <path d="M30 148 V138 M488 148 V138" fill="none" stroke="#45e4d1" stroke-width="1.6"/>
+              <text x="259" y="172" text-anchor="middle" class="d-sub d-cyan">in Dolphin: replaced by the image file + a timing model (10–11)</text>
+              <path d="M522 148 H816" fill="none" stroke="#a884ff" stroke-width="1.6"/>
+              <path d="M522 148 V138 M816 148 V138" fill="none" stroke="#a884ff" stroke-width="1.6"/>
+              <text x="669" y="172" text-anchor="middle" class="d-sub d-violet">emulated register-for-register — the game can't tell</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Laser → sector → drive → DI/DMA → RAM.</strong> On real hardware, every byte a game ever touched made this trip. In Dolphin, the left half becomes an RVZ file plus a timing model, the right half is emulated exactly — and if both halves are done well, the game cannot tell the difference. That's the entire course in one sentence.</figcaption>
+          </figure>
+
+          <p>
+            A good closing exercise: pick a game you know, convert it to RVZ,
+            verify it, then boot it twice — once with accurate disc timing,
+            once with the fast option — and pay attention to loading moments,
+            streaming music, and area transitions. Nine times in ten you'll
+            see nothing but shorter loads; you now know precisely what the
+            tenth time would look like, and why.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Dolphin reads ISO/GCM, GCZ and RVZ; convert to RVZ for identical games at a fraction of the space.</li>
+              <li>Verify dumps by hash from the properties window before blaming the emulator.</li>
+              <li>The disc-speed option is Module 11 as a checkbox: accurate by default, fast at your own (small) risk.</li>
+              <li>The full chain — laser → sector → drive → DI/DMA → RAM — is now something you can narrate link by link.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#emulating"><span class="dir">← Prev</span><span class="ttl">11 · Emulating the drive</span></a>
+            <a class="next" href="#epilogue"><span class="dir">Next →</span><span class="ttl">13 · The last spinning disc</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 13 --- -->
+      <section class="doc" id="epilogue">
+        <div class="mod-head">
+          <span class="eye">Module 13 <span class="part-tag">· Part III</span></span>
+          <h3>Epilogue: the last spinning disc</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Step back: where the GameCube's drive came from, where its lineage went, and what optical media did — for one shining decade — better than anything else.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The little drive you've spent twelve modules with did not retire
+            when the GameCube did. Its direct descendant went into the
+            <strong>Wii</strong>: a 12&nbsp;cm drive from the same lineage,
+            still speaking a proprietary DVD-based dialect — and, in the
+            original models, still perfectly happy to accept an 8&nbsp;cm
+            GameCube disc, which is how the Wii ran GameCube games with no
+            emulation at all: same drive family, same DI, same dance. The
+            Wii&nbsp;U carried optical media one console further with a
+            high-capacity custom disc, and then the line ended: the Switch went
+            to solid-state cartridges and downloads, and Nintendo has not spun
+            a disc since. Sony and Microsoft kept drives as optional Blu-ray
+            appendages, but by the 2020s the industry's centre of mass had
+            moved decisively to <strong>flash storage and downloads</strong> —
+            no seeks, no rotational latency, no moving parts. Module 09's
+            entire bag of tricks, obsoleted by silicon.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The lighthouse and the GPS</span>
+            <p>
+              Nobody argues GPS isn't better than lighthouses — and yet a
+              lighthouse is a magnificent, comprehensible thing: you can stand
+              inside one and see exactly how it works, lens to lamp. Optical
+              drives are the lighthouses of storage. A flash chip is
+              billions of invisible charge wells; a disc drive is a laser, a
+              sled, a spinning platter and some heroic error correction — every
+              part of which you have now personally watched work. When the
+              machinery is visible, understanding is possible. That's why this
+              course exists.
+            </p>
+          </div>
+
+          <p>
+            And be fair to the old machinery: <strong>in 2001, the spinning
+            disc was the right answer, by a mile.</strong> A pressed disc cost
+            mere cents to manufacture — orders of magnitude cheaper per
+            gigabyte than any solid-state option of the day (N64 cartridges had
+            cost dollars-per-megabyte territory to make; the exact figures
+            varied by chip and volume, but the gap was brutal). The disc is why
+            a GameCube game could afford 1.46&nbsp;GB of textures, orchestral
+            audio and full-motion video at a $49.99 price point. Every
+            weakness you've studied — the seeks, the buffering, the corridor
+            theatre — was the tax on an overwhelming bargain, and a generation
+            of engineers paid it brilliantly.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 240" role="img" aria-label="Timeline of Nintendo's disc lineage: GameCube 2001 miniDVD, Wii 2006 12cm proprietary DVD, Wii U 2012 custom high-capacity disc, Switch 2017 flash cartridges and downloads">
+              <line x1="60" y1="150" x2="860" y2="150" class="d-axis"/>
+              <!-- GC -->
+              <circle cx="140" cy="150" r="7" class="d-dot-v"/>
+              <circle cx="140" cy="94" r="30" fill="rgba(168,132,255,0.12)" class="d-violet-s" stroke-width="1.5"/>
+              <circle cx="140" cy="94" r="7" class="d-fill-ground d-violet-s" stroke-width="1.2"/>
+              <text x="140" y="182" text-anchor="middle" class="d-num">2001</text>
+              <text x="140" y="204" text-anchor="middle" class="d-sub d-violet">GameCube</text>
+              <text x="140" y="220" text-anchor="middle" class="d-sub">8 cm · ~1.46 GB</text>
+              <!-- Wii -->
+              <circle cx="360" cy="150" r="7" class="d-dot-v"/>
+              <circle cx="360" cy="90" r="40" fill="rgba(69,228,209,0.10)" class="d-cyan-s" stroke-width="1.5"/>
+              <circle cx="360" cy="90" r="8" class="d-fill-ground d-cyan-s" stroke-width="1.2"/>
+              <text x="360" y="182" text-anchor="middle" class="d-num">2006</text>
+              <text x="360" y="204" text-anchor="middle" class="d-sub d-cyan">Wii — same lineage</text>
+              <text x="360" y="220" text-anchor="middle" class="d-sub">12 cm · reads GC discs natively</text>
+              <!-- Wii U -->
+              <circle cx="580" cy="150" r="7" class="d-dot-v"/>
+              <circle cx="580" cy="90" r="40" fill="rgba(255,177,78,0.10)" class="d-amber-s" stroke-width="1.5"/>
+              <circle cx="580" cy="90" r="8" class="d-fill-ground d-amber-s" stroke-width="1.2"/>
+              <text x="580" y="182" text-anchor="middle" class="d-num">2012</text>
+              <text x="580" y="204" text-anchor="middle" class="d-sub d-amber">Wii U — the last one</text>
+              <text x="580" y="220" text-anchor="middle" class="d-sub">custom high-capacity disc</text>
+              <!-- Switch -->
+              <circle cx="790" cy="150" r="7" class="d-dot-m"/>
+              <rect x="762" y="66" width="56" height="48" rx="8" class="d-fill-panel d-magenta-s" stroke-width="1.5"/>
+              <text x="790" y="95" text-anchor="middle" class="d-sub d-magenta">flash</text>
+              <text x="790" y="182" text-anchor="middle" class="d-num">2017</text>
+              <text x="790" y="204" text-anchor="middle" class="d-sub d-magenta">Switch — nothing spins</text>
+              <text x="790" y="220" text-anchor="middle" class="d-sub">cartridges + downloads</text>
+              <text x="60" y="34" class="d-tag">One drive lineage, and where it ended</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The lineage.</strong> The GameCube's drive begat the Wii's — same proprietary approach, bigger platter, native backward compatibility — the Wii U pressed one last custom disc, and then the spinning stopped. Emulation and the RVZ archives of Module 10 are how this machinery stays alive and studiable.</figcaption>
+          </figure>
+
+          <p>
+            If this course did its job, a GameCube start-up now sounds
+            different to you: that whirr is a <span class="term" data-tip="Constant Angular Velocity — the drive's fixed-RPM spin strategy from Module 02.">CAV</span> spin-up, that first pause is
+            the <span class="term" data-tip="The innermost region of the spiral, read first, describing the disc (Modules 02 and 08).">lead-in</span> and boot header being read, the <span class="term" data-tip="The small bootstrap program on every disc that loads the game's executable (Module 06).">apploader</span> is pulling
+            the DOL into RAM, and somewhere a buffer is already filling ahead
+            of the title screen. The same machine has more stories like this
+            one. The <a href="../audio/">audio course</a> follows the DSP that
+            DTK music flows into; companion courses on the
+            <a href="../graphics/">graphics pipeline</a> and the
+            <a href="../cpu/">CPU</a> trace the other paths out of that main
+            RAM your sectors just landed in. Pick a door.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Course complete ✦</div>
+            <ul>
+              <li>You can narrate a byte's full journey: pit → transition → sector → firmware → DI/DMA → RAM → FST lookup.</li>
+              <li>You know why the disc was small, custom, CAV and unreadable elsewhere — and how the protection era actually played out.</li>
+              <li>You can dump, compress (RVZ), verify and configure a game in Dolphin, and explain every option you touch.</li>
+              <li>The drive's lineage ran GameCube → Wii → Wii U, then the industry stopped spinning — preservation is now the disc's afterlife.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#try"><span class="dir">← Prev</span><span class="ttl">12 · Try it in Dolphin</span></a>
+            <a class="next" href="#light"><span class="dir">↺ Restart</span><span class="ttl">01 · Reading with light</span></a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          An interactive course built for the Dolphin project. Every disc,
+          scratch and seek on this page is a synthetic simulation drawn on the
+          fly with the Canvas API to illustrate a concept. This page contains
+          <strong>no game data and no copyrighted material</strong>. Hardware
+          behaviour is grounded in Dolphin's source and published
+          reverse-engineering history; where a mechanism was never officially
+          documented (the low-level protection details in Module 08, exact
+          drive timings), the text says so and hedges.
+        </p>
+        <p class="src">
+          Source of truth · <code>Source/Core/Core/HW/DVD/</code> ·
+          <code>Source/Core/DiscIO/</code>
+        </p>
+      </footer>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /app -->
+
+<script src="app.js"></script>
+</body>
+</html>
