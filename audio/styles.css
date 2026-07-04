@@ -565,6 +565,28 @@ td .crc { font: 600 12.5px/1 var(--mono); color: var(--cyan); }
 .spectrum-grid > canvas { min-width: 0; }
 @media (max-width: 560px) { .spectrum-grid { grid-template-columns: 1fr; } }
 
+/* headphone-surround decode toggle (player bar + Pro Logic II lab) */
+.surr-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  border-radius: 9px;
+  padding: 9px 13px;
+  font: 600 12.5px/1 var(--sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.surr-btn:hover { color: var(--ink); border-color: var(--violet); }
+.surr-btn .state { font: 600 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.surr-btn.on {
+  background: linear-gradient(180deg, var(--violet), var(--violet-d));
+  color: #120c22;
+  border-color: transparent;
+  box-shadow: var(--glow-v);
+}
+.surr-btn.on .state { opacity: .85; }
+
 .controls { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: flex-end; }
 .ctrl { display: flex; flex-direction: column; gap: 7px; min-width: 120px; }
 .ctrl label { font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

@@ -14,6 +14,8 @@ const Engine = (() => {
   let current = null;          // active source node group we can stop
   let currentName = '—';
   let onState = () => {};
+  let dry = null, decoder = null;
+  let decodeOn = (() => { try { return localStorage.getItem('gc_decode') === '1'; } catch (e) { return false; } })();
 
   function ac() {
     if (!ctx) {
@@ -24,10 +26,64 @@ const Engine = (() => {
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.72;
       master.connect(analyser);
-      analyser.connect(ctx.destination);
+      // analyser -> dry (straight stereo) -> speakers. A parallel "wet" path
+      // (the matrix decoder) is built on demand and cross-faded against dry.
+      dry = ctx.createGain();
+      dry.gain.value = decodeOn ? 0 : 1;
+      analyser.connect(dry);
+      dry.connect(ctx.destination);
+      if (decodeOn) buildDecoder();
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
+  }
+
+  /* ------ optional Dolby Pro Logic II matrix decode -> headphone surround ---
+     For listeners without a DPL2-capable receiver: pull the in-phase content
+     to virtual front speakers and the anti-phase surround S = 0.5(L-R) — band-
+     limited and delayed the way DPL2 specifies — to virtual rears, rendered
+     binaurally with HRTF panners. This is what a real decoder does, done live
+     in Web Audio so it can be heard on plain headphones.                      */
+  function buildDecoder() {
+    if (decoder || !ctx) return;
+    const pan = (x, y, z) => {
+      const p = ctx.createPanner();
+      p.panningModel = 'HRTF';
+      p.distanceModel = 'linear';
+      if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; }
+      else p.setPosition(x, y, z);
+      return p;
+    };
+    const split = ctx.createChannelSplitter(2);
+    analyser.connect(split);
+    // in-phase front image (binaural)
+    const gL = ctx.createGain(), gR = ctx.createGain();
+    split.connect(gL, 0); split.connect(gR, 1);
+    const fL = pan(-0.7, 0, -0.6), fR = pan(0.7, 0, -0.6);
+    gL.connect(fL); gR.connect(fR);
+    // surround = 0.5(L - R) -> low-pass (~7 kHz) + ~12 ms delay -> virtual rears
+    const sMix = ctx.createGain();
+    const sL = ctx.createGain(); sL.gain.value = 0.5; split.connect(sL, 0); sL.connect(sMix);
+    const sR = ctx.createGain(); sR.gain.value = -0.5; split.connect(sR, 1); sR.connect(sMix);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+    const dl = ctx.createDelay(); dl.delayTime.value = 0.012;
+    sMix.connect(lp); lp.connect(dl);
+    const rL = pan(-0.9, 0, 0.9), rR = pan(0.9, 0, 0.9);
+    dl.connect(rL); dl.connect(rR);
+    const wet = ctx.createGain(); wet.gain.value = decodeOn ? 1 : 0;
+    [fL, fR, rL, rR].forEach(p => p.connect(wet));
+    wet.connect(ctx.destination);
+    decoder = { wet };
+  }
+
+  function setDecode(on) {
+    decodeOn = !!on;
+    try { localStorage.setItem('gc_decode', decodeOn ? '1' : '0'); } catch (e) {}
+    if (!ctx) return;                 // applied when the context is first built
+    if (decodeOn) buildDecoder();
+    const t = ctx.currentTime;
+    if (dry) dry.gain.setTargetAtTime(decodeOn ? 0 : 1, t, 0.02);
+    if (decoder) decoder.wet.gain.setTargetAtTime(decodeOn ? 1 : 0, t, 0.02);
   }
 
   function stop() {
@@ -68,6 +124,8 @@ const Engine = (() => {
     setVolume(v) { if (master) master.gain.value = v; },
     subscribe(fn) { onState = fn; },
     get name() { return currentName; },
+    setDecode,
+    get decode() { return decodeOn; },
   };
 })();
 
@@ -640,6 +698,19 @@ document.addEventListener('DOMContentLoaded', () => {
       b.classList.add('on');
       document.getElementById('lle-hle-note').textContent = b.dataset.note;
     }));
+  }
+
+  /* headphone surround decode toggle(s) — player bar + Pro Logic II lab */
+  const surrBtns = [...document.querySelectorAll('.surr-btn')];
+  if (surrBtns.length) {
+    const syncSurr = () => surrBtns.forEach(btn => {
+      const on = Engine.decode;
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      const st = btn.querySelector('.state'); if (st) st.textContent = on ? 'on' : 'off';
+    });
+    surrBtns.forEach(btn => btn.addEventListener('click', () => { Engine.setDecode(!Engine.decode); syncSurr(); }));
+    syncSurr();
   }
 
   /* glossary tooltips */
