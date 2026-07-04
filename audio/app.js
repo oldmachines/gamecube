@@ -355,7 +355,7 @@ function PanLab(root) {
   const pad = root.querySelector('.panner-pad');
   const puck = root.querySelector('.puck');
   const fills = root.querySelectorAll('.chan-meters .fill');
-  let px = 0.5, py = 0.35, playing = false, node = null, gains = null;
+  let px = 0.5, py = 0.35, playing = false, node = null, gains = null, pctx = null;
 
   function compute() {
     // x: -1 (L) .. +1 (R); y: 0 (front) .. 1 (rear)
@@ -390,11 +390,29 @@ function PanLab(root) {
 
   function applyPan(s) {
     // map to actual stereo + a surround "phase" bleed to sell the effect
-    const front = s.front;
     gains.l.gain.value = 0.5 * s.L + 0.25 * s.C;
     gains.r.gain.value = 0.5 * s.R + 0.25 * s.C;
     // surround: send phase-inverted, delayed signal to both -> the DPLII cue
     gains.surr.gain.value = 0.6 * s.rear;
+    // full-3D positional path (used when Decode Surround is on): follow the puck
+    // left<->right AND front<->back so rear-left / rear-right work — something a
+    // real mono-surround matrix can't carry, so this is a headphone-only preview.
+    if (gains.pos) {
+      const x = s.x, z = (py * 2 - 1) * 1.2;   // top=front(-z), bottom=behind(+z)
+      if (gains.pos.positionX) { gains.pos.positionX.value = x; gains.pos.positionY.value = 0; gains.pos.positionZ.value = z; }
+      else gains.pos.setPosition(x, 0, z);
+    }
+    applyDecodeRoute();
+  }
+
+  // Cross-fade between the matrix-encoded stereo (decode off) and the binaural
+  // positional render (decode on). Runs whenever the puck moves or decode toggles.
+  function applyDecodeRoute() {
+    if (!gains || !pctx) return;
+    const on = Engine.decode, t = pctx.currentTime;
+    const mv = (Engine.master && Engine.master.gain) ? Engine.master.gain.value : 0.7;
+    if (gains.matrixGain) gains.matrixGain.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
+    if (gains.posGain) gains.posGain.gain.setTargetAtTime(on ? 0.95 * mv : 0, t, 0.02);
   }
 
   pad.addEventListener('pointerdown', e => { pad.setPointerCapture(e.pointerId); setFromEvent(e); pad.__drag = true; });
@@ -402,29 +420,43 @@ function PanLab(root) {
   pad.addEventListener('pointerup', () => { pad.__drag = false; });
   updatePuck(); compute();
 
+  // re-apply the matrix/positional cross-fade after Decode Surround is toggled
+  // (setTimeout lets the global toggle handler flip Engine.decode first)
+  document.querySelectorAll('.surr-btn').forEach(btn =>
+    btn.addEventListener('click', () => setTimeout(applyDecodeRoute, 0)));
+
   root.querySelector('[data-pan-play]').addEventListener('click', () => {
     const g = Engine.play('Pro Logic II · matrix steering', (ctx, dest) => {
+      pctx = ctx;
+      const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 174.6;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+      osc.connect(lp);
+
+      // --- matrix-encoded stereo path (what you'd send to a real decoder) ---
       const merger = ctx.createChannelMerger(2);
       const l = ctx.createGain(), r = ctx.createGain(), surr = ctx.createGain();
       const delay = ctx.createDelay(); delay.delayTime.value = 0.012;
       const inv = ctx.createGain(); inv.gain.value = -1;   // phase inversion = surround cue
-      const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 174.6;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
-      osc.connect(lp);
       lp.connect(l); lp.connect(r);
       lp.connect(delay); delay.connect(inv);
       inv.connect(surr);
-      // Surround is summed into the output channels out of phase (Lt = ..+S,
-      // Rt = ..-S) INDEPENDENTLY of the front gains. (Routing it through l/r —
-      // whose gain is the *front* level — zeroed the surround at rear positions,
-      // so a bottom-centre source went silent and the decoder got nothing.)
+      // Surround summed into the channels out of phase INDEPENDENTLY of the front
+      // gains (routing it through l/r — the front level — zeroed it at the rear).
       const surrR = ctx.createGain(); surrR.gain.value = -1;
       surr.connect(surrR);
       l.connect(merger, 0, 0); r.connect(merger, 0, 1);
       surr.connect(merger, 0, 0); surrR.connect(merger, 0, 1);
-      merger.connect(dest);
+      const matrixGain = ctx.createGain();
+      merger.connect(matrixGain); matrixGain.connect(dest);
+
+      // --- binaural positional path (Decode Surround on) — full 3D from the puck,
+      //     straight to the output so the global matrix decoder doesn't re-process it
+      const pos = ctx.createPanner(); pos.panningModel = 'HRTF'; pos.distanceModel = 'linear';
+      const posGain = ctx.createGain(); posGain.gain.value = 0;
+      lp.connect(pos); pos.connect(posGain); posGain.connect(ctx.destination);
+
       osc.start();
-      gains = { l, r, surr };
+      gains = { l, r, surr, pos, matrixGain, posGain };
       applyPan(compute());
       playing = true;
       return { stop() { try { osc.stop(); } catch (e) {} playing = false; gains = null; } };
