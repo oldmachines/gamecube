@@ -39,11 +39,16 @@ const Engine = (() => {
   }
 
   /* ------ optional Dolby Pro Logic II matrix decode -> headphone surround ---
-     For listeners without a DPL2-capable receiver: pull the in-phase content
-     to virtual front speakers and the anti-phase surround S = 0.5(L-R) — band-
-     limited and delayed the way DPL2 specifies — to virtual rears, rendered
-     binaurally with HRTF panners. This is what a real decoder does, done live
-     in Web Audio so it can be heard on plain headphones.                      */
+     For listeners without a DPL2-capable receiver. A passive mid/side matrix:
+       front  = MID  = 0.5(L+R)   — the in-phase content (dialogue/centre)
+       rear   = SIDE = 0.5(L-R)   — the anti-phase surround
+     Each is placed on virtual speakers with HRTF panners, so it externalises
+     on plain headphones. Two deliberate choices make "behind" actually audible:
+       * NO front/rear delay — a Haas delay would make the precedence effect
+         pull everything to the front (the old bug); HRTF alone localises here.
+       * the rear is boosted, because back-of-head HRTFs are naturally quieter.
+     At the extreme rear position MID collapses to 0, so nothing plays up front
+     and the sound is unambiguously behind you.                                */
   function buildDecoder() {
     if (decoder || !ctx) return;
     const pan = (x, y, z) => {
@@ -56,22 +61,28 @@ const Engine = (() => {
     };
     const split = ctx.createChannelSplitter(2);
     analyser.connect(split);
-    // in-phase front image (binaural)
-    const gL = ctx.createGain(), gR = ctx.createGain();
-    split.connect(gL, 0); split.connect(gR, 1);
-    const fL = pan(-0.7, 0, -0.6), fR = pan(0.7, 0, -0.6);
-    gL.connect(fL); gR.connect(fR);
-    // surround = 0.5(L - R) -> low-pass (~7 kHz) + ~12 ms delay -> virtual rears
-    const sMix = ctx.createGain();
-    const sL = ctx.createGain(); sL.gain.value = 0.5; split.connect(sL, 0); sL.connect(sMix);
-    const sR = ctx.createGain(); sR.gain.value = -0.5; split.connect(sR, 1); sR.connect(sMix);
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
-    const dl = ctx.createDelay(); dl.delayTime.value = 0.012;
-    sMix.connect(lp); lp.connect(dl);
-    const rL = pan(-0.9, 0, 0.9), rR = pan(0.9, 0, 0.9);
-    dl.connect(rL); dl.connect(rR);
+
+    // MID = 0.5(L+R) -> virtual FRONT (centre + a little width)
+    const mid = ctx.createGain();
+    const mL = ctx.createGain(); mL.gain.value = 0.5; split.connect(mL, 0); mL.connect(mid);
+    const mR = ctx.createGain(); mR.gain.value = 0.5; split.connect(mR, 1); mR.connect(mid);
+    const fC = pan(0, 0, -0.9), fL = pan(-0.35, 0, -0.7), fR = pan(0.35, 0, -0.7);
+    const fCg = ctx.createGain(); fCg.gain.value = 0.9; mid.connect(fCg); fCg.connect(fC);
+    const fLg = ctx.createGain(); fLg.gain.value = 0.5; mid.connect(fLg); fLg.connect(fL);
+    const fRg = ctx.createGain(); fRg.gain.value = 0.5; mid.connect(fRg); fRg.connect(fR);
+
+    // SIDE = 0.5(L-R) -> virtual REAR, band-limited + boosted (no precedence delay)
+    const side = ctx.createGain();
+    const sL = ctx.createGain(); sL.gain.value = 0.5; split.connect(sL, 0); sL.connect(side);
+    const sR = ctx.createGain(); sR.gain.value = -0.5; split.connect(sR, 1); sR.connect(side);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
+    const boost = ctx.createGain(); boost.gain.value = 1.7;
+    side.connect(lp); lp.connect(boost);
+    const rL = pan(-0.5, 0, 1.0), rR = pan(0.5, 0, 1.0);
+    boost.connect(rL); boost.connect(rR);
+
     const wet = ctx.createGain(); wet.gain.value = decodeOn ? 1 : 0;
-    [fL, fR, rL, rR].forEach(p => p.connect(wet));
+    [fC, fL, fR, rL, rR].forEach(p => p.connect(wet));
     wet.connect(ctx.destination);
     decoder = { wet };
   }
