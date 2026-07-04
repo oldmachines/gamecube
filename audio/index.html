@@ -1886,38 +1886,51 @@
                       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
                       Play &amp; drag
                     </button>
-                    <button class="surr-btn" aria-pressed="false" title="Run this page's Pro Logic II active-steering decoder and render five virtual speakers binaurally — for listeners with no DPL2 device. Off = the raw encoded stereo.">🎧 Decode surround <span class="state">off</span></button>
+                    <button class="surr-btn" aria-pressed="false" title="Run this page's Pro Logic II active-steering decoder — for ordinary headphones. Keep OFF with AirPods (use Apple's Convert to Spatial Audio) or real DPL2 gear: one decoder at a time. Off = the raw encoded stereo.">🎧 Decode surround <span class="state">off</span></button>
                   </div>
                   <p style="font-size:12.5px;color:var(--muted);margin:12px 0 0">
                     Top-centre feeds a phantom centre; drag to the bottom and the
                     source is sent phase-inverted to both channels — the cue a Pro
-                    Logic II decoder steers to the rears. No surround gear? Flip
-                    <strong>🎧 Decode surround</strong> and this page will do the
-                    Pro Logic II matrix decode itself — put headphones on and the
-                    rear cue moves behind you. Off = the raw stereo you'd send to a
-                    real decoder (an AV receiver, soundbar, etc.).
+                    Logic II decoder steers to the rears. This lab is a real
+                    end-to-end PLII chain: the puck is encoded into plain stereo
+                    using PLII's <em>asymmetric</em> surround coefficients
+                    (0.87&nbsp;/&nbsp;0.49) — that asymmetry is how rear-left vs
+                    rear-right survives the two-channel trip, and it's why games like
+                    <em>Rogue Leader</em> can pan across the rears. Tip: switch the
+                    source to <strong>🗣 “can you hear me?”</strong> — human hearing
+                    localises speech far better than a steady tone.
                   </p>
                   <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
-                    This lab is a real end-to-end Pro Logic II chain. The puck is
-                    encoded into plain stereo using PLII's <em>asymmetric</em>
-                    surround coefficients (0.87 / 0.49) — that asymmetry is how
-                    rear-left vs rear-right survives the two-channel trip, and it's
-                    why games like <em>Rogue Leader</em> can pan across the rears.
-                    With decode <strong>on</strong> (headphones) the page runs its own
+                    <strong>🎧 Decode surround — on or off?</strong> The encoded
+                    stereo needs exactly <em>one</em> decoder; pick where it runs:
+                  </p>
+                  <ul style="font-size:12.5px;color:var(--muted);margin:6px 0 0;padding-left:20px">
+                    <li style="margin:5px 0"><strong>Real surround gear</strong> (AV
+                      receiver, DPL2 soundbar — e.g. over AirPlay): keep it
+                      <strong>off</strong>. The page sends the raw encoded stereo and
+                      your hardware does the decode.</li>
+                    <li style="margin:5px 0"><strong>AirPods (Pro / Max)</strong>:
+                      keep it <strong>off</strong> here too — enable Apple's
+                      <em>Convert to Spatial Audio</em> from Control Center instead,
+                      and iOS renders the stereo (surround cues included) with head
+                      tracking. Running the page's decoder <em>and</em> Apple's
+                      spatialiser at once double-processes and smears the image.</li>
+                    <li style="margin:5px 0"><strong>Ordinary headphones</strong>
+                      (wired, non-spatial Bluetooth, desktop): turn it
+                      <strong>on</strong> — the page becomes your surround processor.</li>
+                  </ul>
+                  <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
+                    With decode <strong>on</strong> the page runs its own
                     <span class="term" data-tip="An adaptive decoder that tracks the dominant sound direction on two axes (left/right and centre/surround) and adjusts the matrix moment-to-moment to cancel crosstalk.">active-steering</span>
                     decoder live: it finds the dominant direction, cancels crosstalk
                     toward the other speakers, and renders five virtual speakers
-                    binaurally — drag to a rear corner and it follows. Diffuse sound
+                    binaurally — drag to a rear corner and it follows; diffuse sound
                     relaxes back to the passive matrix. (Approximations vs real
                     Dolby: polarity + a short delay stand in for the 90° phase
                     quadrature, and an analytic gating law replaces Dolby's exact
                     coefficient tables.) With decode <strong>off</strong> you hear the
                     raw encoded stereo — at the very bottom it largely cancels on a
                     mono/phone speaker; that cancellation <em>is</em> the cue.
-                    Tip: switch the source to <strong>🗣 “can you hear me?”</strong> —
-                    human hearing localises speech far better than a steady tone, so
-                    the steering is much easier to judge as you drag her around the
-                    room.
                   </p>
                 </div>
               </div>
@@ -2349,7 +2362,7 @@
   <canvas class="viz" id="player-viz" aria-hidden="true"></canvas>
   <div class="right">
     <div class="stat" id="stat-voices">Web&nbsp;Audio · <b>synth</b><br>no game audio</div>
-    <button class="surr-btn" aria-pressed="false" title="Decode Dolby Pro Logic II with active steering to virtual headphone surround — for computers/headphones with no DPL2 device. Off = plain stereo.">🎧 Surround <span class="state">off</span></button>
+    <button class="surr-btn" aria-pressed="false" title="Decode Dolby Pro Logic II with active steering to virtual headphone surround — for ordinary headphones. Keep OFF with AirPods (use Apple's Convert to Spatial Audio) or real DPL2 gear: one decoder at a time.">🎧 Surround <span class="state">off</span></button>
     <input type="range" class="vol" id="vol" min="0" max="100" value="70" aria-label="Master volume">
   </div>
 </div>
