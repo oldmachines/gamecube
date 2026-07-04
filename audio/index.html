@@ -1917,15 +1917,12 @@
                       and iOS renders the stereo (surround cues included) with head
                       tracking. Running the page's decoder <em>and</em> Apple's
                       spatialiser at once double-processes and smears the image.</li>
-                    <li style="margin:5px 0"><strong>Non-DPL2-capable
-                      equipment</strong> (e.g. a PC with standard 5.1 or stereo
-                      speakers): turn it <strong>on</strong> — the page is then the
-                      only matrix decoder in the chain. If your device reports a
-                      5.1-capable output, the page sends the five decoded channels
-                      <em>discretely</em> to your speakers — real rears, no headphone
-                      processing. On plain stereo speakers it falls back to the
-                      headphone-style render, where the behind-you placement is
-                      weaker.</li>
+                    <li style="margin:5px 0"><strong>Multi-channel but
+                      non-DPL2-capable gear</strong> (e.g. a PC driving standard
+                      analogue 5.1 speakers): turn it <strong>on</strong> — the page
+                      is then the only matrix decoder in the chain, and it sends the
+                      five decoded channels <em>discretely</em> to your speakers —
+                      real rears, no headphone processing.</li>
                     <li style="margin:5px 0"><strong>A classic pair of stereo
                       headphones</strong> (wired or non-spatial Bluetooth — including
                       an iPhone with non-spatial headphones such as the classic white
@@ -1937,6 +1934,12 @@
                       so the fronts sit ahead of you and the surrounds behind. This is
                       the ideal way to hear this lab.</li>
                   </ul>
+                  <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
+                    (Plain <strong>stereo speakers</strong> aren't a surround endpoint
+                    at all: two fixed loudspeakers can't reproduce discrete rears, and
+                    the room mixes both channels into both ears, which destroys the
+                    binaural cues too. If that's your setup, grab headphones.)
+                  </p>
                   <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
                     With decode <strong>on</strong> the page runs its own
                     <span class="term" data-tip="An adaptive decoder that tracks the dominant sound direction on two axes (left/right and centre/surround) and adjusts the matrix moment-to-moment to cancel crosstalk.">active-steering</span>
