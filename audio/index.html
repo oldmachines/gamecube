@@ -1905,19 +1905,32 @@
                     stereo needs exactly <em>one</em> decoder; pick where it runs:
                   </p>
                   <ul style="font-size:12.5px;color:var(--muted);margin:6px 0 0;padding-left:20px">
-                    <li style="margin:5px 0"><strong>Real surround gear</strong> (AV
-                      receiver, DPL2 soundbar — e.g. over AirPlay): keep it
+                    <li style="margin:5px 0"><strong>Old, hardware DPL2-capable
+                      gear</strong> (e.g. a Yamaha RX-V481 receiver), <strong>or
+                      modern Dolby Surround-capable equipment</strong> (e.g. a Samsung
+                      HW-Q990 soundbar — say, over AirPlay): keep it
                       <strong>off</strong>. The page sends the raw encoded stereo and
-                      your hardware does the decode.</li>
+                      your hardware's matrix decoder / upmixer does the work.</li>
                     <li style="margin:5px 0"><strong>AirPods (Pro / Max)</strong>:
                       keep it <strong>off</strong> here too — enable Apple's
                       <em>Convert to Spatial Audio</em> from Control Center instead,
                       and iOS renders the stereo (surround cues included) with head
                       tracking. Running the page's decoder <em>and</em> Apple's
                       spatialiser at once double-processes and smears the image.</li>
-                    <li style="margin:5px 0"><strong>Ordinary headphones</strong>
-                      (wired, non-spatial Bluetooth, desktop): turn it
-                      <strong>on</strong> — the page becomes your surround processor.</li>
+                    <li style="margin:5px 0"><strong>Non-DPL2-capable
+                      equipment</strong> (e.g. a PC with standard 5.1 or stereo
+                      speakers): turn it <strong>on</strong> — the page is then the
+                      only matrix decoder in the chain. Fair warning: its rendering is
+                      tuned for headphones, so over speakers you'll hear the steering
+                      but the behind-you placement is weaker.</li>
+                    <li style="margin:5px 0"><strong>A classic pair of stereo
+                      headphones</strong> (wired, non-spatial Bluetooth): turn it
+                      <strong>on</strong> — the five decoded channels are
+                      <span class="term" data-tip="Rendered for two ears with HRTFs — the direction-dependent filtering of your head and ears — so each virtual speaker seems to sit in space around you.">binauralised</span>:
+                      each virtual speaker is rendered through an
+                      <span class="term" data-tip="Head-Related Transfer Function — how a sound is filtered by your head, torso and outer ear depending on its direction; applying it over headphones recreates that direction.">HRTF</span>,
+                      so the fronts sit ahead of you and the surrounds behind. This is
+                      the ideal way to hear this lab.</li>
                   </ul>
                   <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
                     With decode <strong>on</strong> the page runs its own
