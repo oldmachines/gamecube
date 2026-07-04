@@ -1,0 +1,2507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameCube CPU — a course on Gekko, paired singles &amp; JITs</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237d5cf0%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27none%27 stroke=%27%230c0a13%27 stroke-width=%273%27/%3E%3C/svg%3E">
+<meta name="description" content="A hands-on course in three parts: how a CPU works from absolute zero, what makes Nintendo's Gekko processor special — paired singles, quantised loads, the write-gather pipe, the locked cache — and how Dolphin turns PowerPC into your PC's own machine code. Every module has an interactive lab you can run in your browser.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><div class="fill" id="progress-fill"></div></div>
+<button class="menu-btn" id="menu-btn" aria-label="Open contents">☰</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+
+  <!-- ================================================= SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>GameCube CPU</h1>
+        <span class="sub">A course · 15 modules</span>
+      </div>
+    </div>
+
+    <nav class="toc" aria-label="Course contents">
+      <div class="toc-group">Part I · How CPUs work</div>
+      <a href="#loop"><span class="n">01</span><span>The fetch–decode–execute loop</span></a>
+      <a href="#registers"><span class="n">02</span><span>Registers, memory &amp; the ISA</span></a>
+      <a href="#floats"><span class="n">03</span><span>Numbers in silicon</span></a>
+      <a href="#pipeline"><span class="n">04</span><span>The pipeline</span></a>
+      <a href="#superscalar"><span class="n">05</span><span>Superscalar</span></a>
+      <a href="#caches"><span class="n">06</span><span>Caches</span></a>
+
+      <div class="toc-group">Part II · Gekko</div>
+      <a href="#gekko"><span class="n">07</span><span>Meet Gekko</span></a>
+      <a href="#paired-singles"><span class="n">08</span><span>Paired singles</span></a>
+      <a href="#quantised"><span class="n">09</span><span>Quantised loads &amp; stores</span></a>
+      <a href="#write-gather"><span class="n">10</span><span>Feeding Flipper</span></a>
+      <a href="#locked-cache"><span class="n">11</span><span>The locked cache &amp; DMA</span></a>
+      <a href="#memory"><span class="n">12</span><span>The memory system</span></a>
+
+      <div class="toc-group">Part III · Emulating in Dolphin</div>
+      <a href="#jit"><span class="n">13</span><span>Interpreters vs JITs</span></a>
+      <a href="#accuracy"><span class="n">14</span><span>The accuracy traps</span></a>
+      <a href="#try"><span class="n">15</span><span>Try it in Dolphin</span></a>
+
+      <div class="progress-note">Progress · <b id="pct">0%</b></div>
+    </nav>
+  </aside>
+
+  <!-- ================================================= MAIN =============== -->
+  <main class="main">
+
+    <!-- ------------------------------------------------ HERO -------------- -->
+    <header class="hero">
+      <canvas id="hero-pipe" aria-hidden="true"></canvas>
+      <div class="wrap">
+        <div class="inner">
+          <span class="eyebrow">An interactive course · Dolphin emulator</span>
+          <h2>How the <span class="grad">GameCube</span> thought.</h2>
+          <p class="lede">
+            We start from the very beginning — what a processor even
+            <em>is</em> — assuming you know nothing about computer architecture.
+            Once the vocabulary is solid, we meet <strong>Gekko</strong>, the
+            modified IBM PowerPC at the console's heart, and finish inside
+            Dolphin's just-in-time compiler. Fifteen modules, each with a
+            <strong>live, clickable machine</strong> so you can watch every idea
+            run, not just read about it. No game code ships with this page;
+            every simulation is built in your browser.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#loop">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Begin Part I
+            </a>
+            <a class="btn" href="#lab-toycpu">Step the toy CPU</a>
+          </div>
+
+          <div class="arc-cards">
+            <a class="arc" href="#part-1">
+              <div class="an">PART I</div>
+              <h4>How CPUs work</h4>
+              <p>Instructions, registers, binary and floating point, pipelines, superscalar issue and caches — the universal vocabulary of processors, explained from zero.</p>
+              <div class="cnt">6 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-2">
+              <div class="an">PART II</div>
+              <h4>Gekko</h4>
+              <p>The chip itself: paired singles, quantised loads, the write-gather pipe, the locked cache, and the memory system it lives in.</p>
+              <div class="cnt">6 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-3">
+              <div class="an">PART III</div>
+              <h4>Emulating in Dolphin</h4>
+              <p>Interpreters vs JITs, the accuracy traps that make emulation hard, and the settings that map to it all.</p>
+              <div class="cnt">3 modules · with labs</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ============================================ PART I ============== -->
+      <section class="part" id="part-1">
+        <div class="part-inner">
+          <div class="kicker">Part I</div>
+          <h3>How CPUs work</h3>
+          <p>
+            This first part is pure fundamentals — nothing about any specific
+            console or chip yet. It's the toolkit <em>every</em> processor is
+            built from, whether that's your phone, your laptop, or the chip
+            we'll meet in Part II. We build the vocabulary one word at a time —
+            instruction, register, pipeline, cache — and you can step and run
+            each idea in a tiny simulated machine. If a term is ever used
+            before it's explained, that's a bug; tell us. Everything in Parts
+            II and III is just these six ideas wired together.
+          </p>
+          <div class="part-meta"><span>Modules <b>01–06</b></span><span>Difficulty <b>Absolute beginner</b></span><span>Labs <b>4 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 01 --- -->
+      <section class="doc" id="loop">
+        <div class="mod-head">
+          <span class="eye">Module 01 <span class="part-tag">· Part I</span></span>
+          <h3>The fetch–decode–execute loop</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand, from scratch, what a processor actually does: fetch a number from memory, work out what it means, do it — forever.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Let's start with what a processor physically is. Strip away the
+            marketing and a CPU is a machine that repeats one tiny ritual,
+            billions of times per second, without ever getting bored. The
+            ritual has three steps: <strong>fetch</strong> a number from
+            memory, <strong>decode</strong> it — work out what command that
+            number stands for — and <strong>execute</strong> it. Then do the
+            next one. That's the whole job. Everything a computer has ever done
+            — every game, every physics engine, every pixel — is that loop,
+            running very fast.
+          </p>
+          <p>
+            Two words in that ritual need unpacking. <strong>Memory</strong> is
+            a long row of numbered pigeonholes, each holding one small number (a
+            <span class="term" data-tip="Eight bits — the smallest chunk of memory a CPU normally addresses. One byte holds a number from 0 to 255.">byte</span>).
+            The pigeonhole's position in the row is its
+            <strong>address</strong> — cell 0, cell 1, cell 2, and so on. And an
+            <strong>instruction</strong> is just one of those stored numbers
+            that the CPU has agreed to treat as a command. There is nothing
+            special about the number itself: <code>0x1E</code> sitting in memory
+            might mean &ldquo;load from cell 14&rdquo; to the processor, or it
+            might just be the number 30 in someone's data. Position and
+            convention decide, nothing else. Programs and data live in the same
+            memory, side by side — this is the single most important idea in
+            all of computing, and (in Module 14) it's also what makes emulators
+            sweat.
+          </p>
+          <p>
+            So how does the CPU know <em>which</em> cell holds its next
+            command? It keeps a bookmark: a small counter called the
+            <strong>program counter</strong> (<span class="term" data-tip="The register holding the memory address of the next instruction to run. It normally steps forward one instruction at a time; a branch rewrites it.">PC</span>).
+            Each trip round the loop it fetches the instruction the PC points
+            at, then normally bumps the PC forward by one so the next trip
+            fetches the next cell. The exception is a <strong>branch</strong> (a
+            &ldquo;jump&rdquo;): an instruction whose entire job is to
+            overwrite the PC with a new address, so execution leaps somewhere
+            else. Branches are how programs make decisions and loops — and in
+            Module 04 they'll turn out to be the pipeline's biggest headache.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A cook with recipe cards</span>
+            <p>
+              Picture a cook working from a stack of numbered recipe cards, one
+              short command per card: &ldquo;fetch the flour&rdquo;, &ldquo;add
+              two eggs&rdquo;, &ldquo;go back to card 3&rdquo;. The cook keeps a
+              finger on the current card — that finger is the
+              <span class="term" data-tip="The register holding the address of the next instruction — the CPU's bookmark into memory.">program counter</span>.
+              Read a card, do what it says, slide the finger to the next card.
+              The cook never sees the &ldquo;whole recipe&rdquo;; only ever one
+              card at a time. A CPU is exactly this cook — just one who reads
+              half a billion cards a second and never misreads one.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="The fetch, decode, execute cycle reading instructions from memory">
+              <defs><marker id="m1a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m1c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="m1v" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>
+              <!-- memory column -->
+              <rect x="40" y="40" width="180" height="220" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="130" y="30" text-anchor="middle" class="d-tag">Memory</text>
+              <rect x="56" y="56"  width="148" height="30" rx="5" class="d-cell"/><text x="70" y="76" class="d-num">0 · 0x1E</text><text x="196" y="76" text-anchor="end" class="d-sub">load</text>
+              <rect x="56" y="92"  width="148" height="30" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="70" y="112" class="d-num">1 · 0x2D</text><text x="196" y="112" text-anchor="end" class="d-sub">add</text>
+              <rect x="56" y="128" width="148" height="30" rx="5" class="d-cell"/><text x="70" y="148" class="d-num">2 · 0x3E</text><text x="196" y="148" text-anchor="end" class="d-sub">store</text>
+              <rect x="56" y="164" width="148" height="30" rx="5" class="d-cell"/><text x="70" y="184" class="d-num">3 · 0x40</text><text x="196" y="184" text-anchor="end" class="d-sub">jump</text>
+              <rect x="56" y="200" width="148" height="30" rx="5" class="d-cell"/><text x="70" y="220" class="d-num">…</text><text x="196" y="220" text-anchor="end" class="d-sub">data</text>
+              <!-- PC -->
+              <rect x="40" y="272" width="180" height="20" rx="5" class="d-fill-panel d-violet-s" stroke-width="1.2"/>
+              <text x="130" y="286" text-anchor="middle" class="d-sub d-violet">PC = 1  (the bookmark)</text>
+              <!-- cycle boxes -->
+              <rect x="330" y="46" width="190" height="64" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="425" y="74" text-anchor="middle" class="d-label" style="font-size:14px">1 · Fetch</text>
+              <text x="425" y="94" text-anchor="middle" class="d-sub">read the cell PC points at</text>
+              <rect x="620" y="46" width="190" height="64" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="715" y="74" text-anchor="middle" class="d-label" style="font-size:14px">2 · Decode</text>
+              <text x="715" y="94" text-anchor="middle" class="d-sub">0x2D → &ldquo;add cell 13&rdquo;</text>
+              <rect x="475" y="190" width="190" height="64" rx="10" class="d-fill-panel2 d-amber-s" stroke-width="1.5"/>
+              <text x="570" y="218" text-anchor="middle" class="d-label" style="font-size:14px">3 · Execute</text>
+              <text x="570" y="238" text-anchor="middle" class="d-sub">do it, then PC = PC + 1</text>
+              <!-- arrows around the cycle -->
+              <line x1="520" y1="78" x2="616" y2="78" class="d-axis" stroke-width="1.8" marker-end="url(#m1a)"/>
+              <path d="M 715 110 C 715 160, 690 190, 668 202" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#m1a)"/>
+              <path d="M 472 222 C 400 210, 390 150, 415 114" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#m1a)"/>
+              <text x="415" y="168" class="d-flow">repeat, forever</text>
+              <!-- memory to fetch -->
+              <path d="M 204 107 C 260 107, 270 82, 326 80" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#m1c)"/>
+              <text x="236" y="70" class="d-flow d-cyan">instruction = a number</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The loop that runs the world.</strong> Instructions are ordinary numbers stored in memory. The <span class="term" data-tip="The register holding the address of the next instruction to run.">program counter</span> points at the next one; the CPU fetches it, decodes what the number means, executes it, bumps the PC, and repeats — billions of times a second.</figcaption>
+          </figure>
+
+          <h4>A worked example, by hand</h4>
+          <p>
+            Let's invent the smallest possible machine and run it on paper. Our
+            toy CPU has 16 memory cells (addresses 0–15), one working register
+            called <strong>A</strong> (a register is a scratch value inside the
+            CPU — Module 02 is all about them), and a PC. Each instruction is
+            one byte: the first hex digit says <em>what to do</em> — the
+            <span class="term" data-tip="The part of an instruction's number that names the operation — 'load', 'add', 'store', 'jump'. The rest of the bits are its operands.">opcode</span>
+            — and the second says <em>which cell to do it to</em>. Our whole
+            instruction set is four opcodes: <code>1n</code>&nbsp;=&nbsp;load
+            cell&nbsp;<em>n</em> into A, <code>2n</code>&nbsp;=&nbsp;add
+            cell&nbsp;<em>n</em> to A, <code>3n</code>&nbsp;=&nbsp;store A into
+            cell&nbsp;<em>n</em>, <code>4n</code>&nbsp;=&nbsp;jump to
+            cell&nbsp;<em>n</em>.
+          </p>
+          <p>
+            Now put this five-instruction program in cells 0–4, with data in
+            cells 12–14: <code>1E&nbsp;2D&nbsp;2C&nbsp;3E&nbsp;40</code>. Read
+            it with the table above: <em>load cell 14, add cell 13, add cell
+            12, store cell 14, jump to 0</em>. Cell 13 holds 2 and cell 12
+            holds 1, so each trip round the loop the number in cell 14 grows by
+            3. That's it — a counter, the &ldquo;hello world&rdquo; of
+            hardware. The lab below is this exact machine. Press
+            <strong>Step</strong> and watch each fetch, decode and execute
+            happen with your own eyes; press <strong>Run</strong> and watch it
+            become a program.
+          </p>
+
+          <div class="lab" id="lab-toycpu">
+            <div class="lab-head"><span class="dot"></span><span class="title">Toy-CPU lab — a visible fetch–decode–execute machine</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <div class="tc-cols">
+                <div>
+                  <div class="lab-sub" style="margin-bottom:8px">Memory · 16 cells</div>
+                  <div class="tc-mem" data-tc-mem aria-label="Toy CPU memory cells"></div>
+                </div>
+                <div>
+                  <div class="lab-sub" style="margin-bottom:8px">Registers</div>
+                  <div class="tc-regs" data-tc-regs></div>
+                  <div class="tc-phase" data-tc-phase aria-hidden="true">
+                    <span data-phase="fetch">Fetch</span><span data-phase="decode">Decode</span><span data-phase="execute">Execute</span>
+                  </div>
+                  <div class="tc-narrate" data-tc-narrate aria-live="polite">Press <b>Step</b> to run one phase of the loop, or <b>Run</b> to let it fly.</div>
+                </div>
+              </div>
+              <div class="controls">
+                <button class="play-btn" data-tc-step>Step</button>
+                <button class="play-btn" data-tc-run style="background:linear-gradient(180deg,#a884ff,#7d5cf0);color:#120c22">Run</button>
+                <button class="play-btn" data-tc-reset style="background:linear-gradient(180deg,#3a3357,#2c2542);color:var(--ink)">Reset</button>
+                <span style="font-size:12.5px;color:var(--muted)">Violet = where the PC points · cyan = memory being read · magenta = memory being written.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A CPU repeats one loop forever: fetch an instruction, decode it, execute it.</li>
+              <li>Instructions are ordinary numbers in memory — programs and data share the same pigeonholes.</li>
+              <li>The program counter is the bookmark; a branch is an instruction that rewrites it.</li>
+              <li>An instruction's number splits into an opcode (what to do) and operands (what to do it to).</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of course</span></a>
+            <a class="next" href="#registers"><span class="dir">Next →</span><span class="ttl">02 · Registers, memory &amp; the ISA</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 02 --- -->
+      <section class="doc" id="registers">
+        <div class="mod-head">
+          <span class="eye">Module 02 <span class="part-tag">· Part I</span></span>
+          <h3>Registers, memory &amp; the ISA</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn why CPUs keep a tiny set of super-fast registers, what a load/store machine is, and what &ldquo;PowerPC&rdquo; actually names.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Our toy CPU had one working register, A. Real processors have a few
+            dozen, and the reason is distance — literally. Memory is a huge
+            structure physically far (in chip terms) from the circuits that do
+            arithmetic, so every trip to it costs time. A
+            <strong>register</strong> is a small storage slot built
+            <em>inside</em> the CPU, right next to the arithmetic circuitry. It
+            holds one value — 32 or 64 bits — and reading or writing it costs
+            essentially nothing. Registers are the workbench; memory is the
+            warehouse. There are only a handful of registers precisely
+            <em>because</em> they're so close: you can't fit a warehouse on a
+            workbench.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The workbench and the warehouse</span>
+            <p>
+              A carpenter doesn't walk to the warehouse for every screw. They
+              fetch a tray of parts to the bench, work there — where everything
+              is within arm's reach — and carry results back when done. A
+              <span class="term" data-tip="A small, ultra-fast storage slot inside the CPU itself. Arithmetic happens between registers, not directly on memory.">register</span>
+              is a spot on the bench; a <strong>load</strong> is the walk to the
+              warehouse shelf; a <strong>store</strong> is the walk back. Good
+              code, like a good carpenter, organises the work to stay at the
+              bench as long as possible.
+            </p>
+          </div>
+
+          <p>
+            That analogy is baked into hardware as the <strong>load/store
+            architecture</strong>: arithmetic instructions are only allowed to
+            work register-to-register, and the <em>only</em> instructions that
+            touch memory are explicit loads and stores. Want to add two numbers
+            that live in memory? Load both into registers, add the registers,
+            store the result back. Three-plus instructions instead of one — but
+            each is simple, uniform, and fast, which (Module 04) is exactly
+            what a pipeline wants. This philosophy has a name you've heard:
+            <span class="term" data-tip="Reduced Instruction Set Computer — a design style with simple, uniform, register-to-register instructions and explicit loads/stores. PowerPC is a RISC family.">RISC</span>.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 280" role="img" aria-label="A load/store machine: memory feeds registers, arithmetic happens only between registers">
+              <defs><marker id="m2a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m2c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="m2m" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker></defs>
+              <rect x="36" y="46" width="200" height="196" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="136" y="34" text-anchor="middle" class="d-tag">Memory</text>
+              <text x="136" y="130" text-anchor="middle" class="d-label" style="font-size:13px">millions of cells</text>
+              <text x="136" y="152" text-anchor="middle" class="d-sub">big · far · slow</text>
+              <rect x="380" y="46" width="484" height="96" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="622" y="34" text-anchor="middle" class="d-tag d-cyan">Registers — the workbench</text>
+              <rect x="398" y="82" width="100" height="42" rx="7" class="d-cell"/><text x="448" y="108" text-anchor="middle" class="d-num">r3 = 12</text>
+              <rect x="510" y="82" width="100" height="42" rx="7" class="d-cell"/><text x="560" y="108" text-anchor="middle" class="d-num">r4 = 30</text>
+              <rect x="622" y="82" width="100" height="42" rx="7" class="d-cell"/><text x="672" y="108" text-anchor="middle" class="d-num">r5 = 42</text>
+              <rect x="734" y="82" width="100" height="42" rx="7" class="d-cell"/><text x="784" y="108" text-anchor="middle" class="d-num">… r31</text>
+              <rect x="470" y="186" width="300" height="66" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="620" y="214" text-anchor="middle" class="d-label" style="font-size:14px">ALU</text>
+              <text x="620" y="236" text-anchor="middle" class="d-sub">add · multiply · compare — registers only</text>
+              <path d="M 240 96 C 300 96, 320 90, 376 88" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#m2c)"/>
+              <text x="262" y="76" class="d-flow d-cyan">load — the only way in</text>
+              <path d="M 376 128 C 320 132, 300 176, 242 190" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#m2m)"/>
+              <text x="252" y="176" class="d-flow d-magenta">store — the only way out</text>
+              <path d="M 560 146 C 560 162, 570 172, 580 182" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#m2a)"/>
+              <path d="M 664 182 C 672 172, 680 162, 682 148" fill="none" stroke="#877f9e" stroke-width="1.8" marker-end="url(#m2a)"/>
+              <text x="700" y="170" class="d-flow">results go back to registers</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>A load/store machine.</strong> Arithmetic never touches memory directly. Explicit <span class="term" data-tip="An instruction that copies a value from a memory cell into a register.">load</span> and <span class="term" data-tip="An instruction that copies a register's value out to a memory cell.">store</span> instructions move values between memory and the register file; the <span class="term" data-tip="Arithmetic Logic Unit — the circuitry that does adds, multiplies and comparisons.">ALU</span> works only on registers. PowerPC — and therefore Gekko — is built exactly this way.</figcaption>
+          </figure>
+
+          <h4>What &ldquo;PowerPC&rdquo; actually names</h4>
+          <p>
+            Here's a distinction the whole course leans on. An <strong>instruction
+            set architecture</strong> (<span class="term" data-tip="Instruction Set Architecture — the documented contract of instructions, registers and behaviours a CPU promises to honour. Software targets the ISA, not the silicon.">ISA</span>)
+            is a <em>contract</em>: the documented list of instructions, the
+            registers, and exactly what each instruction must do. An
+            <strong>implementation</strong> is a physical chip that honours the
+            contract. <strong>PowerPC</strong> is an ISA — a RISC design from
+            IBM, Motorola and Apple in the early '90s. The
+            <strong>PowerPC&nbsp;750</strong> is one implementation of it (sold
+            by Apple as the &ldquo;G3&rdquo;), and <strong>Gekko</strong> — our
+            Part II star — is a 750 derivative. Any chip honouring the contract
+            runs the same programs; how fast, with what pipeline and caches, is
+            the implementation's own business. This split is also what makes
+            emulation <em>possible</em>: Dolphin (Part III) implements the
+            PowerPC contract in software.
+          </p>
+          <p>
+            The PowerPC contract that matters to us: 32
+            <strong>general-purpose registers</strong> (<code>r0</code>–<code>r31</code>,
+            32-bit, for integers and addresses), 32 <strong>floating-point
+            registers</strong> (<code>f0</code>–<code>f31</code>, 64-bit — remember that
+            width; Module 08 turns it into Gekko's party trick), and a few
+            special ones:
+          </p>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Registers</th><th>Width</th><th>What they hold</th></tr></thead>
+              <tbody>
+                <tr><td><span class="pill ax">r0 – r31</span></td><td><span class="crc">32-bit</span></td><td>General-purpose: integers, addresses, loop counters — the workbench.</td></tr>
+                <tr><td><span class="pill axwii">f0 – f31</span></td><td><span class="crc">64-bit</span></td><td>Floating-point values (Module 03). On Gekko, each can also hold <em>two</em> 32-bit floats (Module 08).</td></tr>
+                <tr><td><span class="pill zelda">PC</span></td><td><span class="crc">32-bit</span></td><td>The bookmark from Module 01 (PowerPC manuals call it the &ldquo;current instruction address&rdquo;).</td></tr>
+                <tr><td><span class="pill util">LR · CTR · CR</span></td><td><span class="crc">32-bit</span></td><td>Link register (return address for function calls), count register (hardware loop counter), condition register (results of comparisons, read by branches).</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p>
+            And here's what real PowerPC code looks like — the same
+            &ldquo;add two numbers from memory&rdquo; job we described, each
+            line glossed in plain words. Every instruction is exactly 4 bytes,
+            a fixed size that makes fetching and decoding beautifully
+            predictable:
+          </p>
+          <div class="pipe">
+            <div class="stage"><div class="t"><code>lwz r3, 0(r10)</code></div><div class="d">load the word at the address in r10 into r3</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t"><code>lwz r4, 4(r10)</code></div><div class="d">load the next word into r4</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t"><code>add r5, r3, r4</code></div><div class="d">r5 = r3 + r4 — registers only</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t"><code>stw r5, 8(r10)</code></div><div class="d">store r5 back out to memory</div></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Registers are a few dozen ultra-fast slots inside the CPU; memory is the big, slow warehouse.</li>
+              <li>In a load/store (RISC) machine, arithmetic is register-to-register; only loads and stores touch memory.</li>
+              <li>An ISA is a contract; a chip is an implementation of it. PowerPC is the contract, the 750 and Gekko are implementations — and Dolphin is one in software.</li>
+              <li>PowerPC gives you 32 general-purpose registers and 32 double-width floating-point registers.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#loop"><span class="dir">← Prev</span><span class="ttl">01 · The fetch–decode–execute loop</span></a>
+            <a class="next" href="#floats"><span class="dir">Next →</span><span class="ttl">03 · Numbers in silicon</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 03 --- -->
+      <section class="doc" id="floats">
+        <div class="mod-head">
+          <span class="eye">Module 03 <span class="part-tag">· Part I</span></span>
+          <h3>Numbers in silicon</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how bits encode whole numbers, negative numbers, and — via IEEE-754 floating point — fractions. Honestly, including why 0.1 can't be stored exactly.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Everything a CPU touches is stored in <strong>bits</strong> —
+            switches that are either 0 or 1. A row of bits reads as a number in
+            <strong>binary</strong>, exactly like decimal but with columns
+            worth 1, 2, 4, 8, 16… instead of 1, 10, 100. So
+            <code>1011</code> is 8&nbsp;+&nbsp;2&nbsp;+&nbsp;1 = 11. With
+            <em>n</em> bits you get 2<sup>n</sup> patterns: a byte (8 bits)
+            covers 0–255, and the 32-bit registers from Module 02 cover a bit
+            over four billion values. So far, so mechanical.
+          </p>
+          <p>
+            Negative numbers need a convention, and the universal one is
+            <strong>two's complement</strong>: keep counting past the top and
+            let the value wrap around, like a car's odometer rolling over —
+            except we <em>relabel</em> the top half of the patterns as the
+            negatives. In 8 bits, <code>11111111</code> is −1,
+            <code>11111110</code> is −2, down to <code>10000000</code> = −128.
+            The lovely consequence: the same adder circuit adds signed and
+            unsigned numbers correctly without knowing which it's doing.
+            The price: a fixed window (−128…+127 for a byte), and arithmetic
+            that silently wraps when you leave it. Keep two's complement in
+            your pocket — Module 09 stores whole vertex coordinates this way.
+          </p>
+
+          <h4>The hard part: fractions</h4>
+          <p>
+            Whole numbers were easy. But games live on fractions — positions,
+            angles, velocities. The trick every modern CPU uses is
+            <strong>floating point</strong>, and it's precisely scientific
+            notation in binary. In decimal, scientific notation writes 42,500
+            as 4.25&nbsp;×&nbsp;10<sup>4</sup> — a <em>significand</em> (the
+            digits) and an <em>exponent</em> (where the point sits). Binary
+            floating point does the same with 2 as the base. The IEEE-754
+            standard — honoured by PowerPC, by your PC, and (imperfectly, see
+            Module 14) between them — packs a 32-bit
+            <strong>single-precision</strong> float into three fields:
+          </p>
+          <ul>
+            <li>1 <strong>sign</strong> bit — 0 for positive, 1 for negative.</li>
+            <li>8 <strong>exponent</strong> bits — where the binary point sits. Stored with a <span class="term" data-tip="The exponent field stores the true exponent plus 127, so exponents from −126 to +127 fit in an unsigned byte.">bias</span> of 127: the field holds the true exponent + 127.</li>
+            <li>23 <strong>mantissa</strong> bits — the significand's fraction digits. Because a normalised binary significand always starts &ldquo;1.&rdquo;, that leading 1 isn't stored — a free 24th bit of precision.</li>
+          </ul>
+          <p>
+            The decoded value is
+            (−1)<sup>sign</sup>&nbsp;×&nbsp;1.mantissa&nbsp;×&nbsp;2<sup>exponent−127</sup>.
+            A 64-bit <strong>double</strong> is the same idea with an 11-bit
+            exponent and 52-bit mantissa — the format PowerPC's
+            <code>f0</code>–<code>f31</code> registers hold natively. Singles are
+            half the memory and (on most hardware) faster; doubles are far more
+            precise. Games overwhelmingly choose singles — which is exactly the
+            door Gekko's paired singles (Module 08) walk through.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 240" role="img" aria-label="The three bit fields of an IEEE-754 single-precision float, shown encoding 5.75">
+              <text x="68" y="34" class="d-tag d-amber">sign · 1 bit</text>
+              <text x="200" y="34" class="d-tag d-violet">exponent · 8 bits</text>
+              <text x="480" y="34" class="d-tag d-cyan">mantissa · 23 bits</text>
+              <rect x="68" y="52" width="23" height="34" rx="4" class="d-bit-s"/><text x="79.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="95" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="106.5" y="75" text-anchor="middle" class="d-num">1</text>
+              <rect x="119" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="130.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="143" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="154.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="167" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="178.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="191" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="202.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="215" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="226.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="239" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="250.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="263" y="52" width="23" height="34" rx="4" class="d-bit-e"/><text x="274.5" y="75" text-anchor="middle" class="d-num">1</text>
+              <rect x="290" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="301.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="314" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="325.5" y="75" text-anchor="middle" class="d-num">1</text>
+              <rect x="338" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="349.5" y="75" text-anchor="middle" class="d-num">1</text>
+              <rect x="362" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="373.5" y="75" text-anchor="middle" class="d-num">1</text>
+              <rect x="386" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="397.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="410" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="421.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="434" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="445.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="458" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="469.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="482" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="493.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="506" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="517.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="530" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="541.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="554" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="565.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="578" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="589.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="602" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="613.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="626" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="637.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="650" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="661.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="674" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="685.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="698" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="709.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="722" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="733.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="746" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="757.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="770" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="781.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="794" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="805.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <rect x="818" y="52" width="23" height="34" rx="4" class="d-bit-m"/><text x="829.5" y="75" text-anchor="middle" class="d-num">0</text>
+              <line x1="79" y1="98" x2="79" y2="120" class="d-stem"/>
+              <line x1="275" y1="98" x2="275" y2="120" class="d-stem"/>
+              <line x1="565" y1="98" x2="565" y2="120" class="d-stem"/>
+              <text x="68" y="140" class="d-val">sign = 0 → positive</text>
+              <text x="68" y="162" class="d-val">exponent = 10000001₂ = 129 → 129 − 127 = 2</text>
+              <text x="68" y="184" class="d-val">mantissa = .0111₂ → significand 1.0111₂ = 1.4375</text>
+              <text x="68" y="214" class="d-tag d-cyan" style="font-size:14px">value = +1.4375 × 2² = 5.75</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Anatomy of a float.</strong> The 32 bits of an IEEE-754 single split into <span class="term" data-tip="One bit: 0 = positive, 1 = negative.">sign</span>, <span class="term" data-tip="Eight bits storing the power of two, biased by +127 so negative exponents fit in an unsigned field.">exponent</span> and <span class="term" data-tip="The 23 stored fraction bits of the significand; the leading '1.' is implied for free.">mantissa</span> — here encoding 5.75. It's scientific notation, cast in silicon.</figcaption>
+          </figure>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A ruler with sliding tick marks</span>
+            <p>
+              Floating point is a ruler whose tick marks squeeze together near
+              zero and spread apart as numbers grow. Between 1 and 2 there are
+              about eight million representable singles; between 16,777,216 and
+              16,777,218 there are <em>none in between</em> — the ticks are now
+              2 apart. Any real value gets snapped to the nearest tick; that
+              snap is <strong>rounding</strong>, and the tiny gap it introduces
+              is <strong>rounding error</strong>. Almost every float you'll
+              ever meet is a nearest-tick approximation, not the true value.
+            </p>
+          </div>
+
+          <p>
+            And here's the honest part most introductions skip. In decimal,
+            1/3 has no finite representation — 0.333… forever. In binary the
+            same fate hits some very innocent-looking decimals:
+            <strong>0.1</strong> is 1/10, and since 10 has a factor of 5 (not a
+            power of two), 0.1 in binary is
+            0.000110011001100…&nbsp;— repeating forever. A 32-bit float must
+            cut it off after 24 significant bits, so what's actually stored is
+            <code>0.100000001490116…</code>. Close, but not 0.1. Every
+            language, every chip, same story. Special bit patterns round out
+            the format: two zeros (+0 and −0, the sign bit alone differing),
+            infinities, <span class="term" data-tip="Not-a-Number — the pattern produced by invalid operations like 0/0 or the square root of a negative. NaNs compare unequal even to themselves, and their exact bits vary between CPUs — an emulation headache.">NaN</span>
+            for invalid results like 0/0, and tiny
+            <span class="term" data-tip="Denormal (subnormal) numbers — values smaller than the smallest normalised float, stored with a zero exponent field and no implied leading 1. They keep underflow gradual.">denormals</span>
+            that fill the gap next to zero. File all of these away: the exact
+            bits of rounding and NaNs are precisely where emulators bleed
+            (Module 14).
+          </p>
+          <p>
+            Now go poke the format yourself. Every bit below is a button.
+            Start from the presets — see how 1.0 is mostly zeros, why the
+            biggest finite single is ~3.4&nbsp;×&nbsp;10<sup>38</sup>, what −0
+            and NaN look like — then click <strong>0.1</strong> and read the
+            stored value's full decimal expansion. It isn't 0.1. It never was.
+          </p>
+
+          <div class="lab" id="lab-float">
+            <div class="lab-head"><span class="dot"></span><span class="title">Float-anatomy lab — 32 bits you can flip</span><span class="badge">IEEE-754 · live</span></div>
+            <div class="lab-body">
+              <div class="bits" data-float-bits aria-label="The 32 bits of a single-precision float; each is a toggle button"></div>
+              <div class="bit-legend">
+                <span><span class="sw" style="background:var(--amber)"></span>sign</span>
+                <span><span class="sw" style="background:var(--violet)"></span>exponent (bias 127)</span>
+                <span><span class="sw" style="background:var(--cyan)"></span>mantissa (implied leading 1)</span>
+              </div>
+              <div class="float-read">
+                <div class="fr"><span class="k">Sign</span><span class="v" data-f-sign>+</span></div>
+                <div class="fr"><span class="k">Exponent</span><span class="v" data-f-exp>—</span></div>
+                <div class="fr"><span class="k">Significand</span><span class="v" data-f-man>—</span></div>
+                <div class="fr"><span class="k">Stored value</span><span class="v" data-f-val>—</span></div>
+                <div class="fr"><span class="k">Note</span><span class="v" data-f-note>—</span></div>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Presets</label>
+                  <div class="seg-btns" role="group" aria-label="Float presets">
+                    <button class="on" data-preset="one">1.0</button>
+                    <button data-preset="tenth">0.1</button>
+                    <button data-preset="pi">π</button>
+                    <button data-preset="max">biggest</button>
+                    <button data-preset="min">smallest</button>
+                    <button data-preset="nan">NaN</button>
+                    <button data-preset="negzero">−0</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Binary counts in powers of two; two's complement wraps the pattern space so the same adder handles negatives.</li>
+              <li>A float is scientific notation in base 2: sign × 1.mantissa × 2<sup>exponent−127</sup>.</li>
+              <li>Singles (32-bit) trade precision for size and speed; doubles (64-bit) do the reverse. Games live on singles.</li>
+              <li>Most decimals — 0.1 included — cannot be stored exactly; every float is a rounded nearest-tick approximation.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#registers"><span class="dir">← Prev</span><span class="ttl">02 · Registers, memory &amp; the ISA</span></a>
+            <a class="next" href="#pipeline"><span class="dir">Next →</span><span class="ttl">04 · The pipeline</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 04 --- -->
+      <section class="doc" id="pipeline">
+        <div class="mod-head">
+          <span class="eye">Module 04 <span class="part-tag">· Part I</span></span>
+          <h3>The pipeline</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how overlapping the stages of many instructions multiplies speed — and why dependencies and branches keep stalling the works.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            In Module 01 our toy CPU finished one instruction completely before
+            starting the next: fetch, decode, execute, done, repeat. Real
+            hardware noticed something wasteful about that. While an
+            instruction is <em>executing</em>, the fetch circuitry is sitting
+            idle — so why not have it fetch the <em>next</em> instruction at
+            the same time? Push the idea to its conclusion and you get the
+            <strong>pipeline</strong>: chop instruction processing into stages,
+            and keep every stage busy with a different instruction at once.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Laundry night</span>
+            <p>
+              Washing a load takes an hour, drying takes an hour, folding takes
+              an hour. Doing four loads strictly one-after-another takes twelve
+              hours. But while load&nbsp;1 is in the dryer, the washer is free
+              — so start load&nbsp;2. Overlap everything and four loads take
+              six hours, and a new finished load emerges <em>every hour</em>
+              once the pipeline fills. Nothing got faster — the dryer still
+              takes an hour — but the <strong>throughput</strong> tripled.
+              That's a pipeline: same work, staggered, so all the machines run
+              at once.
+            </p>
+          </div>
+
+          <p>
+            The classic textbook pipeline has five stages, and the labels are
+            worth memorising because every architecture book uses them:
+            <strong>IF</strong> (instruction fetch), <strong>ID</strong>
+            (decode and read registers), <strong>EX</strong> (execute in the
+            ALU), <strong>MEM</strong> (touch memory, for loads and stores),
+            <strong>WB</strong> (write the result back to a register). One
+            instruction still takes five clock ticks to travel through — its
+            <span class="term" data-tip="How long one instruction takes end-to-end. A pipeline doesn't shrink latency; it improves throughput.">latency</span>
+            — but a full pipeline <em>completes</em> one instruction every
+            tick. Architects measure this as
+            <span class="term" data-tip="Cycles Per Instruction — the average clock ticks each instruction costs. A perfect simple pipeline achieves 1.0; stalls and flushes push it up.">CPI</span>:
+            cycles per instruction. The dream is 1.0. (Real chips from the
+            750's era ran short pipelines of about four stages; modern desktop
+            chips run fifteen-plus. Same idea, more stages.)
+          </p>
+          <p>
+            The dream dies two ways. First, a <strong>data hazard</strong>: if
+            instruction 2 needs the result of instruction 1, but instruction 1
+            hasn't reached write-back yet, instruction 2 must wait. The
+            pipeline inserts a do-nothing slot — a <strong>bubble</strong> —
+            and the CPI creeps up. (Hardware shortcuts called
+            <span class="term" data-tip="Wires that route a result straight from one stage's output to a younger instruction's input, skipping the trip through the register file.">forwarding paths</span>
+            hand results backwards between stages to shrink these waits.)
+            Second, and worse, a <strong>control hazard</strong>: a
+            <span class="term" data-tip="An instruction that rewrites the program counter, redirecting execution — for ifs, loops and function calls.">branch</span>.
+            When a branch enters the pipe, the fetch stage faces an impossible
+            question: which instruction comes next? The answer isn't known
+            until the branch <em>executes</em>, several stages later — but
+            fetch can't just stop and wait every time.
+          </p>
+          <p>
+            So the hardware gambles. It <strong>predicts</strong> which way the
+            branch will go — even a simple &ldquo;assume the loop repeats&rdquo;
+            heuristic is right most of the time, and real predictors track each
+            branch's recent history — and keeps fetching along the guessed
+            path. Guess right: no time lost at all. Guess wrong: everything
+            fetched after the branch is wrong-path work and must be thrown
+            away. That's a <strong>flush</strong> — the pipeline's contents
+            behind the branch turn into bubbles, and fetch restarts from the
+            correct address. The deeper the pipeline, the more work a flush
+            wastes. This is why branch-heavy code runs slower than
+            straight-line code, and (hold the thought) why Part III's JIT cares
+            so much about chopping programs at branches.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="Five instructions flowing through a five-stage pipeline, with a mispredicted branch flushing two of them">
+              <text x="66" y="26" class="d-sub">cycle →</text>
+              <text x="120" y="26" text-anchor="middle" class="d-num">1</text><text x="205" y="26" text-anchor="middle" class="d-num">2</text><text x="290" y="26" text-anchor="middle" class="d-num">3</text><text x="375" y="26" text-anchor="middle" class="d-num">4</text><text x="460" y="26" text-anchor="middle" class="d-num">5</text><text x="545" y="26" text-anchor="middle" class="d-num">6</text><text x="630" y="26" text-anchor="middle" class="d-num">7</text><text x="715" y="26" text-anchor="middle" class="d-num">8</text><text x="800" y="26" text-anchor="middle" class="d-num">9</text>
+              <text x="66" y="60" class="d-val">i1 add</text>
+              <rect x="82" y="42" width="76" height="26" rx="5" class="d-cell"/><text x="120" y="60" text-anchor="middle" class="d-num">IF</text>
+              <rect x="167" y="42" width="76" height="26" rx="5" class="d-cell"/><text x="205" y="60" text-anchor="middle" class="d-num">ID</text>
+              <rect x="252" y="42" width="76" height="26" rx="5" class="d-cell"/><text x="290" y="60" text-anchor="middle" class="d-num">EX</text>
+              <rect x="337" y="42" width="76" height="26" rx="5" class="d-cell"/><text x="375" y="60" text-anchor="middle" class="d-num">MEM</text>
+              <rect x="422" y="42" width="76" height="26" rx="5" class="d-cell"/><text x="460" y="60" text-anchor="middle" class="d-num">WB</text>
+              <text x="66" y="102" class="d-val">i2 lwz</text>
+              <rect x="167" y="84" width="76" height="26" rx="5" class="d-cell"/><text x="205" y="102" text-anchor="middle" class="d-num">IF</text>
+              <rect x="252" y="84" width="76" height="26" rx="5" class="d-cell"/><text x="290" y="102" text-anchor="middle" class="d-num">ID</text>
+              <rect x="337" y="84" width="76" height="26" rx="5" class="d-cell"/><text x="375" y="102" text-anchor="middle" class="d-num">EX</text>
+              <rect x="422" y="84" width="76" height="26" rx="5" class="d-cell"/><text x="460" y="102" text-anchor="middle" class="d-num">MEM</text>
+              <rect x="507" y="84" width="76" height="26" rx="5" class="d-cell"/><text x="545" y="102" text-anchor="middle" class="d-num">WB</text>
+              <text x="66" y="144" class="d-val d-amber" style="fill:#ffb14e">i3 beq ✈</text>
+              <rect x="252" y="126" width="76" height="26" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.3"/><text x="290" y="144" text-anchor="middle" class="d-num">IF</text>
+              <rect x="337" y="126" width="76" height="26" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.3"/><text x="375" y="144" text-anchor="middle" class="d-num">ID</text>
+              <rect x="422" y="126" width="76" height="26" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.3"/><text x="460" y="144" text-anchor="middle" class="d-num">EX!</text>
+              <rect x="507" y="126" width="76" height="26" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.3"/><text x="545" y="144" text-anchor="middle" class="d-num">MEM</text>
+              <rect x="592" y="126" width="76" height="26" rx="5" class="d-fill-panel d-amber-s" stroke-width="1.3"/><text x="630" y="144" text-anchor="middle" class="d-num">WB</text>
+              <text x="66" y="186" class="d-val" style="fill:#ff6a6a">i4 (wrong)</text>
+              <rect x="337" y="168" width="76" height="26" rx="5" class="d-cell-x"/><text x="375" y="186" text-anchor="middle" class="d-num">IF</text>
+              <rect x="422" y="168" width="76" height="26" rx="5" class="d-cell-x"/><text x="460" y="186" text-anchor="middle" class="d-num">✕</text>
+              <text x="66" y="228" class="d-val" style="fill:#ff6a6a">i5 (wrong)</text>
+              <rect x="422" y="210" width="76" height="26" rx="5" class="d-cell-x"/><text x="460" y="228" text-anchor="middle" class="d-num">✕</text>
+              <text x="66" y="270" class="d-val d-cyan" style="fill:#45e4d1">t1 target</text>
+              <rect x="507" y="252" width="76" height="26" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="545" y="270" text-anchor="middle" class="d-num">IF</text>
+              <rect x="592" y="252" width="76" height="26" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="630" y="270" text-anchor="middle" class="d-num">ID</text>
+              <rect x="677" y="252" width="76" height="26" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="715" y="270" text-anchor="middle" class="d-num">EX</text>
+              <rect x="762" y="252" width="76" height="26" rx="5" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="800" y="270" text-anchor="middle" class="d-num">MEM</text>
+              <line x1="460" y1="156" x2="460" y2="246" class="d-stem"/>
+              <text x="474" y="200" class="d-flow" style="fill:#ff6a6a">branch resolves in EX → i4 &amp; i5 flushed</text>
+              <text x="66" y="312" class="d-sub">two cycles of work thrown away = the misprediction penalty; a correct prediction would have fetched t1 immediately</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>A flush in slow motion.</strong> Instructions march diagonally through the five stages, one stage per cycle. The branch <code>i3</code> (amber) is only <em>resolved</em> at EX in cycle 5 — by then the pipeline has already fetched two wrong-path instructions (red), which become <span class="term" data-tip="A do-nothing pipeline slot inserted when the pipe must wait — the unit of lost time in stalls and flushes.">bubbles</span>. Fetch restarts at the branch target <code>t1</code> (cyan).</figcaption>
+          </figure>
+
+          <p>
+            The lab below is that diagram brought to life. A little program
+            flows through five stages; every fifth instruction is a taken
+            branch. With prediction <strong>off</strong>, each branch flushes
+            the two instructions behind it and the CPI sags. Switch prediction
+            <strong>on</strong> and the fetch stage guesses the target
+            correctly — watch the bubbles vanish and the CPI settle back
+            toward 1.0.
+          </p>
+
+          <div class="lab" id="lab-pipeline">
+            <div class="lab-head"><span class="dot"></span><span class="title">Pipeline lab — bubbles, branches &amp; prediction</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <div class="pl-stages" data-pl-stages aria-label="Five pipeline stages"></div>
+              <div class="stat-row">
+                <span class="stat-chip">cycles <b data-pl-cycles>0</b></span>
+                <span class="stat-chip">completed <b data-pl-done>0</b></span>
+                <span class="stat-chip">CPI <b data-pl-cpi>—</b></span>
+                <span class="stat-chip warn">flushed <b data-pl-flushes>0</b></span>
+              </div>
+              <div class="controls">
+                <button class="play-btn" data-pl-step>Step clock</button>
+                <button class="play-btn" data-pl-run style="background:linear-gradient(180deg,#a884ff,#7d5cf0);color:#120c22">Run</button>
+                <button class="play-btn" data-pl-reset style="background:linear-gradient(180deg,#3a3357,#2c2542);color:var(--ink)">Reset</button>
+                <div class="ctrl">
+                  <label>Branch prediction</label>
+                  <div class="seg-btns" role="group" aria-label="Branch prediction">
+                    <button data-pred="off" class="on">off — flush on every branch</button>
+                    <button data-pred="on">on — guess the target</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A pipeline overlaps the stages of many instructions: same latency each, far higher throughput.</li>
+              <li>CPI (cycles per instruction) measures pipeline health; 1.0 is the simple-pipeline ideal.</li>
+              <li>Data hazards insert bubbles; branches are worse — the next fetch address isn't known yet.</li>
+              <li>Branch prediction keeps fetch busy on a guess; a wrong guess flushes the pipe and wastes the work.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#floats"><span class="dir">← Prev</span><span class="ttl">03 · Numbers in silicon</span></a>
+            <a class="next" href="#superscalar"><span class="dir">Next →</span><span class="ttl">05 · Superscalar</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 05 --- -->
+      <section class="doc" id="superscalar">
+        <div class="mod-head">
+          <span class="eye">Module 05 <span class="part-tag">· Part I</span></span>
+          <h3>Superscalar — more than one at a time</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand how a CPU issues two or more instructions per cycle to parallel execution units, and where the 750 family sits on the in-order/out-of-order spectrum.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The pipeline got us to one instruction per cycle. The next question
+            is greedy and obvious: why not <em>two</em>? A
+            <strong>superscalar</strong> processor fetches and decodes several
+            instructions per cycle and — when they don't step on each other —
+            <span class="term" data-tip="To hand a decoded instruction to an execution unit to begin work. A 2-wide superscalar can issue two per cycle.">issues</span>
+            them simultaneously to different <strong>execution units</strong>.
+            An execution unit is a specialist circuit: an integer ALU, a
+            floating-point unit, a load/store unit that talks to memory, a
+            branch unit. They were always physically separate; superscalar
+            design simply stops making them take turns.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The supermarket checkout</span>
+            <p>
+              One cashier, one queue: one customer per minute, however fast the
+              cashier. Open a second till and — provided two customers are
+              <em>ready and independent</em> — two leave per minute. But if
+              customer B is paying with money customer A is about to hand them,
+              B must wait whatever the till count. Superscalar issue is the
+              second till; a <span class="term" data-tip="When one instruction needs the result of another that hasn't finished — the fundamental limit on issuing instructions in parallel.">data dependency</span>
+              is B waiting on A's change.
+            </p>
+          </div>
+
+          <p>
+            The catch is the same hazard logic from Module 04, multiplied.
+            <code>add r5,&nbsp;r3,&nbsp;r4</code> and
+            <code>mulli r6,&nbsp;r5,&nbsp;3</code> cannot issue together — the
+            multiply needs <code>r5</code> first. Real code is a braid of such
+            dependencies, so a 2-wide machine rarely sustains 2.0 instructions
+            per cycle. How hard the hardware fights back defines a spectrum:
+          </p>
+          <ul>
+            <li><strong>In-order</strong> machines issue instructions strictly in program order; if the next one must wait, everything behind it waits too. Simple, small, power-efficient.</li>
+            <li><strong>Out-of-order</strong> machines keep a window of dozens (today, hundreds) of decoded instructions and issue <em>whichever</em> are ready, then use a re-order buffer to make the results appear in program order. Enormously effective, enormously expensive in silicon and watts.</li>
+          </ul>
+          <p>
+            The PowerPC 750 line — Gekko's ancestry — is a <em>modest</em>
+            superscalar: it dispatches up to <strong>two</strong> instructions
+            per cycle to <strong>six execution units</strong> (two integer
+            units, a floating-point unit, a load/store unit, a system-register
+            unit, and a branch unit), with only small out-of-order freedoms —
+            a completion queue keeps retirement in program order. Its bet, a
+            very deliberate one, was that a <em>short</em> pipeline plus good
+            caches beats a deep, wide one for the branchy integer code real
+            programs are made of: mispredictions (Module 04) cost only a few
+            cycles instead of dozens. For 2001-era game code, it was a fine
+            bet — and it kept the chip small, cool and cheap, which (Module 07)
+            is exactly what Nintendo was shopping for.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 320" role="img" aria-label="A two-wide superscalar front end dispatching to six execution units, retiring in order">
+              <defs><marker id="m5a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m5v" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>
+              <rect x="280" y="20" width="340" height="58" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="450" y="46" text-anchor="middle" class="d-label" style="font-size:14px">Fetch &amp; decode</text>
+              <text x="450" y="66" text-anchor="middle" class="d-sub">up to 2 instructions per cycle</text>
+              <line x1="400" y1="78" x2="330" y2="122" class="d-axis" stroke-width="1.8" marker-end="url(#m5v)"/>
+              <line x1="500" y1="78" x2="570" y2="122" class="d-axis" stroke-width="1.8" marker-end="url(#m5v)"/>
+              <text x="450" y="108" text-anchor="middle" class="d-flow d-violet">dispatch — if independent</text>
+              <rect x="30"  y="126" width="128" height="70" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="94"  y="156" text-anchor="middle" class="d-label" style="font-size:13px">IU1</text><text x="94"  y="176" text-anchor="middle" class="d-sub">integer</text>
+              <rect x="172" y="126" width="128" height="70" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="236" y="156" text-anchor="middle" class="d-label" style="font-size:13px">IU2</text><text x="236" y="176" text-anchor="middle" class="d-sub">integer</text>
+              <rect x="314" y="126" width="128" height="70" rx="9" class="d-fill-panel d-magenta-s" stroke-width="1.4"/><text x="378" y="156" text-anchor="middle" class="d-label" style="font-size:13px">FPU</text><text x="378" y="176" text-anchor="middle" class="d-sub">floats · Mod 08</text>
+              <rect x="456" y="126" width="128" height="70" rx="9" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="520" y="156" text-anchor="middle" class="d-label" style="font-size:13px">LSU</text><text x="520" y="176" text-anchor="middle" class="d-sub">load / store</text>
+              <rect x="598" y="126" width="128" height="70" rx="9" class="d-fill-panel d-stroke-line" stroke-width="1.4"/><text x="662" y="156" text-anchor="middle" class="d-label" style="font-size:13px">SRU</text><text x="662" y="176" text-anchor="middle" class="d-sub">system regs</text>
+              <rect x="740" y="126" width="128" height="70" rx="9" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="804" y="156" text-anchor="middle" class="d-label" style="font-size:13px">BPU</text><text x="804" y="176" text-anchor="middle" class="d-sub">branches · Mod 04</text>
+              <line x1="94"  y1="196" x2="360" y2="242" class="d-grid"/>
+              <line x1="236" y1="196" x2="400" y2="242" class="d-grid"/>
+              <line x1="378" y1="196" x2="430" y2="242" class="d-grid"/>
+              <line x1="520" y1="196" x2="470" y2="242" class="d-grid"/>
+              <line x1="662" y1="196" x2="500" y2="242" class="d-grid"/>
+              <line x1="804" y1="196" x2="540" y2="242" class="d-grid"/>
+              <rect x="280" y="244" width="340" height="56" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="269" text-anchor="middle" class="d-label" style="font-size:13px">Completion queue</text>
+              <text x="450" y="288" text-anchor="middle" class="d-sub">results retire in program order</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The 750's shape.</strong> A 2-wide front end dispatches independent instructions to six specialist <span class="term" data-tip="A circuit that executes one class of instruction: integer ALU, floating-point unit, load/store unit, branch unit…">execution units</span>; a completion queue retires everything in program order, keeping the illusion of one-at-a-time execution intact.</figcaption>
+          </figure>
+
+          <p>
+            One consequence matters enough to flag now: because issue width is
+            precious, <em>how you arrange instructions matters</em>. Compilers
+            interleave independent work so pairs can issue together. And if one
+            instruction could do the work of two — say, operate on two floats
+            at once — you'd effectively double your width for that code without
+            adding a single issue slot. Hold that thought for exactly three
+            modules.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Superscalar = fetch, decode and issue 2+ instructions per cycle to parallel execution units.</li>
+              <li>Data dependencies, not unit count, are the real ceiling on parallelism.</li>
+              <li>In-order machines stall politely; out-of-order machines hunt for ready work at great silicon cost.</li>
+              <li>The 750 line is a modest 2-wide, mostly in-order design with six units — small, cool, short-pipelined.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#pipeline"><span class="dir">← Prev</span><span class="ttl">04 · The pipeline</span></a>
+            <a class="next" href="#caches"><span class="dir">Next →</span><span class="ttl">06 · Caches</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 06 --- -->
+      <section class="doc" id="caches">
+        <div class="mod-head">
+          <span class="eye">Module 06 <span class="part-tag">· Part I</span></span>
+          <h3>Caches — hiding the memory wall</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See why memory is the real bottleneck, and how caches exploit locality — lines, sets and ways — to hide it most of the time.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Here's the dirty secret of the last five modules: we've been
+            pretending memory keeps up. It doesn't — not remotely. While CPUs
+            got faster at a giddy rate through the '90s, memory latency barely
+            moved; by the GameCube's day a processor could execute dozens of
+            instructions in the time one read from main memory took to come
+            back. This widening gap has a name — the <strong>memory
+            wall</strong> — and without a fix, our beautiful pipeline would
+            spend most of its life stalled at the load/store unit, waiting.
+          </p>
+          <p>
+            The fix rests on a lucky truth about programs, called
+            <strong>locality</strong>, and it comes in two flavours.
+            <strong>Temporal locality</strong>: if you touched a value
+            recently, you'll probably touch it again soon (think of a loop
+            counter). <strong>Spatial locality</strong>: if you touched an
+            address, you'll probably touch its <em>neighbours</em> soon (think
+            of walking an array). So the hardware keeps a small, fast copy of
+            recently-used memory close to the CPU: a <strong>cache</strong>.
+            Every load first checks the cache. Found there — a
+            <strong>hit</strong> — the value arrives in a cycle or two. Not
+            found — a <strong>miss</strong> — the hardware fetches it from main
+            memory, keeps a copy, and the pipeline eats a stall of dozens of
+            cycles.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The librarian's desk</span>
+            <p>
+              A librarian doesn't run to the stacks for every request. Books
+              asked for recently stay in a small pile on the desk
+              (<span class="term" data-tip="Re-using recently used data. Caches bet on it by keeping recent values close.">temporal locality</span>),
+              and when a trip to the stacks does happen, the librarian brings
+              back the <em>whole shelf-section</em>, because the next request
+              is usually the book beside the last one
+              (<span class="term" data-tip="Using data near recently used data. Caches bet on it by fetching whole lines, not single bytes.">spatial locality</span>).
+              The desk is the cache. The pile's fixed size means keeping a new
+              book evicts an old one — deciding <em>which</em> is the cache's
+              whole art.
+            </p>
+          </div>
+
+          <h4>Lines, sets and ways</h4>
+          <p>
+            Three mechanisms turn that idea into hardware. First, caches move
+            memory in fixed-size chunks called <strong>cache lines</strong> —
+            32 bytes on the 750 family — never single bytes. Miss on one byte
+            and its 31 neighbours ride along free, which is spatial locality
+            made mechanical. Second, each line can live in only a small number
+            of places: the middle bits of its address pick a <strong>set</strong>
+            (a slot group), and the top bits are stored alongside as a
+            <strong>tag</strong> so the hardware can tell <em>which</em> line
+            currently occupies the slot. A lookup is: index by the middle bits,
+            compare the tag, hit or miss. Third, to soften the bad luck of two
+            hot lines fighting over one slot — a <strong>conflict miss</strong>
+            — real caches make each set hold several lines side by side; the
+            number of side-by-side slots is the cache's <strong>ways</strong>.
+            A cache where every set holds one line is <em>direct-mapped</em>;
+            the 750's L1 caches are 8-way, meaning eight lines share each set
+            and an <span class="term" data-tip="Least-Recently-Used — an eviction policy: when a set is full, throw out the line that has gone unused longest.">LRU</span>-style
+            policy picks the victim on eviction.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="An address split into tag, index and offset, indexing a small cache">
+              <defs><marker id="m6a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m6c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker></defs>
+              <text x="60" y="30" class="d-tag">A memory address, as the cache reads it</text>
+              <rect x="60"  y="44" width="330" height="40" rx="7" class="d-fill-panel d-violet-s" stroke-width="1.4"/><text x="225" y="69" text-anchor="middle" class="d-num">tag — which line is this?</text>
+              <rect x="394" y="44" width="220" height="40" rx="7" class="d-fill-panel d-cyan-s" stroke-width="1.4"/><text x="504" y="69" text-anchor="middle" class="d-num">index — which set?</text>
+              <rect x="618" y="44" width="150" height="40" rx="7" class="d-fill-panel d-amber-s" stroke-width="1.4"/><text x="693" y="69" text-anchor="middle" class="d-num">offset — which byte?</text>
+              <path d="M 504 84 C 504 120, 420 128, 380 140" fill="none" stroke="#45e4d1" stroke-width="1.8" marker-end="url(#m6c)"/>
+              <text x="508" y="116" class="d-flow d-cyan">middle bits pick the set</text>
+              <rect x="60" y="140" width="560" height="140" rx="10" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="76" y="164" class="d-sub">the cache — 4 sets × 2 ways shown</text>
+              <rect x="76"  y="176" width="60" height="40" rx="6" class="d-cell"/><text x="106" y="201" text-anchor="middle" class="d-sub">set 0</text>
+              <rect x="146" y="176" width="220" height="40" rx="6" class="d-cell"/><text x="256" y="201" text-anchor="middle" class="d-num">way 0 · tag + 32-byte line</text>
+              <rect x="376" y="176" width="220" height="40" rx="6" class="d-cell"/><text x="486" y="201" text-anchor="middle" class="d-num">way 1 · tag + 32-byte line</text>
+              <rect x="76"  y="226" width="60" height="40" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="106" y="251" text-anchor="middle" class="d-sub">set 1</text>
+              <rect x="146" y="226" width="220" height="40" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="256" y="251" text-anchor="middle" class="d-num">compare tag → hit?</text>
+              <rect x="376" y="226" width="220" height="40" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="486" y="251" text-anchor="middle" class="d-num">compare tag → hit?</text>
+              <rect x="672" y="140" width="196" height="140" rx="10" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="770" y="196" text-anchor="middle" class="d-label" style="font-size:13px">Main memory</text>
+              <text x="770" y="218" text-anchor="middle" class="d-sub">on a miss: fetch the</text>
+              <text x="770" y="234" text-anchor="middle" class="d-sub">whole 32-byte line</text>
+              <path d="M 668 246 C 640 260, 630 260, 602 252" fill="none" stroke="#ff5f9e" stroke-width="1.8" marker-end="url(#m6a)"/>
+              <text x="608" y="292" class="d-flow d-magenta">miss → dozens of cycles</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>How a lookup works.</strong> The address's middle bits pick a <span class="term" data-tip="A group of cache slots an address is allowed to live in, chosen by the address's index bits.">set</span>, the stored <span class="term" data-tip="The upper address bits kept beside each cached line, checked to confirm the slot holds the line you wanted.">tags</span> in that set are compared, and either it's a hit (a cycle or two) or a whole 32-byte <span class="term" data-tip="The fixed-size chunk (32 bytes on the 750 line) that caches transfer — never lone bytes.">line</span> is fetched from main memory while the pipeline stalls. More <span class="term" data-tip="How many lines share each set. More ways = fewer conflict misses, costlier lookups.">ways</span> per set means fewer conflict evictions.</figcaption>
+          </figure>
+
+          <p>
+            Two last vocabulary items and you have the full kit. Caches
+            themselves come in layers: a small, split <strong>L1</strong> (one
+            for instructions, one for data — so fetch and load never queue for
+            the same door) and a larger, slower <strong>L2</strong> behind it.
+            And a <strong>miss</strong> isn't one thing: <em>compulsory</em>
+            (first touch — nobody's seen this line yet), <em>capacity</em> (the
+            working set is simply bigger than the cache), and <em>conflict</em>
+            (two lines fighting over a set). The lab below makes all three
+            visible: pick an access pattern, watch hits flash green and misses
+            red, and — the key experiment — drag the line size up while running
+            the sequential pattern and watch the hit rate soar as each miss
+            drags more neighbours in. Then try <em>strided</em> and watch a
+            pattern that defeats the cache entirely.
+          </p>
+
+          <div class="lab" id="lab-cache">
+            <div class="lab-head"><span class="dot"></span><span class="title">Cache lab — hits, misses &amp; locality</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <div>
+                <div class="lab-sub" style="margin-bottom:8px">Memory · 64 line-sized blocks</div>
+                <div class="cache-mem" data-cache-mem aria-label="Memory blocks; green flash = cache hit, red = miss"></div>
+              </div>
+              <div>
+                <div class="lab-sub" style="margin:4px 0 8px">Cache · 8 lines, direct-mapped</div>
+                <div class="cache-rows" data-cache-rows aria-label="Cache line slots"></div>
+              </div>
+              <div class="stat-row">
+                <span class="stat-chip">hits <b data-c-hits>0</b></span>
+                <span class="stat-chip warn">misses <b data-c-miss>0</b></span>
+                <span class="stat-chip">hit rate <b data-c-rate>—</b></span>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Access pattern</label>
+                  <div class="seg-btns" role="group" aria-label="Access pattern">
+                    <button class="on" data-pattern="seq">sequential</button>
+                    <button data-pattern="stride">strided</button>
+                    <button data-pattern="random">random</button>
+                  </div>
+                </div>
+                <div class="ctrl">
+                  <label>Line size — <span class="val" data-line-val>8 bytes</span></label>
+                  <input type="range" min="0" max="3" value="1" step="1" data-line aria-label="Cache line size">
+                </div>
+                <button class="play-btn" data-c-run>Run</button>
+                <button class="play-btn" data-c-reset style="background:linear-gradient(180deg,#3a3357,#2c2542);color:var(--ink)">Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <p>
+            And with that, the Part I toolkit is complete: the loop, registers,
+            number formats, the pipeline, superscalar issue, and caches.
+            Everything in Part II is these six ideas — plus a handful of very
+            deliberate Nintendo-flavoured modifications. Time to meet the chip.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Main memory is dozens of CPU cycles away — the memory wall is the bottleneck that shapes everything.</li>
+              <li>Caches exploit temporal and spatial locality to answer most accesses in a cycle or two.</li>
+              <li>Data moves in 32-byte lines; sets and ways decide where a line may live and what gets evicted.</li>
+              <li>A hit is nearly free; a miss stalls the pipeline for dozens of cycles — hit <em>rate</em> is everything.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#superscalar"><span class="dir">← Prev</span><span class="ttl">05 · Superscalar</span></a>
+            <a class="next" href="#gekko"><span class="dir">Next → Part II</span><span class="ttl">07 · Meet Gekko</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART II ============= -->
+      <section class="part" id="part-2">
+        <div class="part-inner">
+          <div class="kicker">Part II</div>
+          <h3>Gekko</h3>
+          <p>
+            Now we put the Part&nbsp;I toolkit into real silicon. Nintendo
+            didn't design a CPU from scratch — it took a proven IBM desktop
+            core and asked for a handful of surgical modifications aimed at one
+            job: feeding a 3D game, sixty times a second. These six modules
+            cover the chip itself and each modification in turn — paired
+            singles, quantised loads, the write-gather pipe, the locked cache —
+            then the unusual memory system the whole console hangs from. Every
+            piece maps back to a fundamental you already know.
+          </p>
+          <div class="part-meta"><span>Modules <b>07–12</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>3 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 07 --- -->
+      <section class="doc" id="gekko">
+        <div class="mod-head">
+          <span class="eye">Module 07 <span class="part-tag">· Part II</span></span>
+          <h3>Meet Gekko</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet the actual chip — where it came from, its caches and clocks, and its place in the console next to Flipper.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            <strong>Gekko</strong> is the GameCube's CPU: a custom IBM design
+            derived from the <strong>PowerPC 750CXe</strong> — the same family
+            Apple was shipping in Macs as the G3. It runs at
+            <strong>486&nbsp;MHz</strong> (three times the 162&nbsp;MHz system
+            bus; Nintendo's own literature quotes 485), was
+            fabricated on IBM's then-cutting-edge <strong>0.18&nbsp;µm</strong>
+            process with <strong>copper interconnects</strong> — IBM's
+            signature manufacturing advantage of that era, copper wiring
+            between transistors instead of aluminium for lower resistance —
+            and it embodies every Part&nbsp;I idea: the 4-ish-stage short
+            pipeline (Module 04), 2-wide in-order superscalar issue to six
+            units (Module 05), and a proper cache hierarchy (Module 06):
+            <strong>32&nbsp;KB + 32&nbsp;KB</strong> of split 8-way L1, with
+            <strong>256&nbsp;KB</strong> of L2 <em>on the die itself</em> —
+            a genuine luxury in 2001, when many CPUs still bolted L2 onto the
+            motherboard.
+          </p>
+          <p>
+            Why start from an off-the-shelf desktop core at all? Because it's
+            the sane engineering move. The 750 was proven, well-understood by
+            compilers, cheap to manufacture, and — crucially for a small,
+            fanless-quiet console box — small and cool: a short-pipeline,
+            in-order design sips power compared to the deep, hungry designs of
+            its contemporaries. What a desktop core <em>lacked</em> was
+            game-specific muscle: 3D games spend their CPU time on streams of
+            small floating-point vectors, and stock PowerPC processes those one
+            float at a time. So Nintendo and IBM added a targeted set of
+            roughly fifty new instructions — the paired-single family you'll
+            meet in Modules 08 and 09 — plus the write-gather pipe (Module 10)
+            and the locked cache (Module 11). Gekko is best understood as
+            <em>a sensible commuter car with a racing kit bolted on in exactly
+            four places</em>.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The town around the station</span>
+            <p>
+              Think of the console as a small town. Gekko is the workshop where
+              all general thinking happens — but it is <em>not</em> the centre
+              of town. The centre is <strong>Flipper</strong>, the companion
+              chip: every road — to main memory, to the graphics hardware, to
+              the audio DSP, to the disc drive and controllers — runs through
+              it, like a central railway station. In PC terms Flipper is the
+              <span class="term" data-tip="The hub chip that connects the CPU to memory and peripherals. In the GameCube, Flipper plays this role — and also contains the GPU, audio DSP and I/O.">northbridge</span>
+              (and the GPU, and more, all in one). When Gekko wants anything
+              beyond its own caches, it asks Flipper.
+            </p>
+          </div>
+
+          <figure class="dsp-diagram">
+            <svg viewBox="0 0 940 470" role="img" aria-labelledby="sysdiag-title sysdiag-desc">
+              <title id="sysdiag-title">GameCube system architecture around Gekko</title>
+              <desc id="sysdiag-desc">Gekko, with its L1 and L2 caches and paired-single FPU, connects over a 162 MHz front-side bus to Flipper. Flipper contains the graphics processor, memory controller, audio DSP and I/O, and connects outward to 24 MB of 1T-SRAM main memory, 16 MB of ARAM, and the video output.</desc>
+              <defs><marker id="m7a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m7c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="m7m" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker></defs>
+
+              <!-- Gekko -->
+              <rect x="20" y="80" width="256" height="310" rx="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="40" y="110" class="d-tag">Gekko</text>
+              <text x="40" y="128" class="d-sub">PowerPC 750CXe core · 486 MHz</text>
+              <rect x="40" y="144" width="100" height="54" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="90" y="167" text-anchor="middle" class="d-label" style="font-size:12px">L1 I</text>
+              <text x="90" y="185" text-anchor="middle" class="d-sub">32 KB</text>
+              <rect x="152" y="144" width="100" height="54" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="202" y="167" text-anchor="middle" class="d-label" style="font-size:12px">L1 D</text>
+              <text x="202" y="185" text-anchor="middle" class="d-sub">32 KB · Mod 11</text>
+              <rect x="40" y="212" width="212" height="54" rx="8" class="d-fill-panel d-violet-s" stroke-width="1.4"/>
+              <text x="146" y="235" text-anchor="middle" class="d-label" style="font-size:12px">L2 · 256 KB on-die</text>
+              <text x="146" y="253" text-anchor="middle" class="d-sub">2nd chance before the bus</text>
+              <rect x="40" y="280" width="212" height="54" rx="8" class="d-fill-panel d-magenta-s" stroke-width="1.4"/>
+              <text x="146" y="303" text-anchor="middle" class="d-label" style="font-size:12px">FPU + paired singles</text>
+              <text x="146" y="321" text-anchor="middle" class="d-sub">2 floats per op · Mod 08</text>
+              <text x="40" y="366" class="d-sub">0.18 µm · copper interconnect</text>
+
+              <!-- FSB -->
+              <line x1="276" y1="220" x2="356" y2="220" class="d-axis" stroke-width="2.2" marker-end="url(#m7a)"/>
+              <line x1="356" y1="248" x2="276" y2="248" class="d-axis" stroke-width="2.2" marker-end="url(#m7a)"/>
+              <text x="316" y="204" text-anchor="middle" class="d-flow d-cyan">front-side bus</text>
+              <text x="316" y="272" text-anchor="middle" class="d-flow">162 MHz · 64-bit · ~1.3 GB/s</text>
+
+              <!-- Flipper -->
+              <rect x="360" y="60" width="320" height="350" rx="16" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="380" y="90" class="d-tag">Flipper</text>
+              <text x="380" y="108" class="d-sub">the northbridge — and much more</text>
+              <rect x="380" y="124" width="136" height="60" rx="8" class="d-fill-panel d-magenta-s" stroke-width="1.4"/>
+              <text x="448" y="149" text-anchor="middle" class="d-label" style="font-size:12px">GX</text>
+              <text x="448" y="167" text-anchor="middle" class="d-sub">graphics</text>
+              <rect x="526" y="124" width="136" height="60" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="594" y="149" text-anchor="middle" class="d-label" style="font-size:12px">Memory ctrl</text>
+              <text x="594" y="167" text-anchor="middle" class="d-sub">all RAM traffic</text>
+              <rect x="380" y="198" width="136" height="60" rx="8" class="d-fill-panel d-violet-s" stroke-width="1.4"/>
+              <text x="448" y="223" text-anchor="middle" class="d-label" style="font-size:12px">Audio DSP</text>
+              <text x="448" y="241" text-anchor="middle" class="d-sub">see the audio course</text>
+              <rect x="526" y="198" width="136" height="60" rx="8" class="d-fill-panel d-stroke-line" stroke-width="1.4"/>
+              <text x="594" y="223" text-anchor="middle" class="d-label" style="font-size:12px">I/O</text>
+              <text x="594" y="241" text-anchor="middle" class="d-sub">disc · pads · cards</text>
+              <rect x="380" y="272" width="282" height="60" rx="8" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="521" y="297" text-anchor="middle" class="d-label" style="font-size:12px">Embedded 1T-SRAM</text>
+              <text x="521" y="315" text-anchor="middle" class="d-sub">framebuffer + texture cache, ~3 MB</text>
+              <text x="380" y="366" class="d-sub">GX FIFO commands arrive here — Mod 10</text>
+
+              <!-- right column -->
+              <rect x="740" y="70" width="180" height="76" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="830" y="100" text-anchor="middle" class="d-label" style="font-size:13px">Main RAM</text>
+              <text x="830" y="120" text-anchor="middle" class="d-sub">24 MB 1T-SRAM · ~10 ns</text>
+              <text x="830" y="136" text-anchor="middle" class="d-sub">&ldquo;Splash&rdquo; · Mod 12</text>
+              <rect x="740" y="190" width="180" height="70" rx="10" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="830" y="220" text-anchor="middle" class="d-label" style="font-size:13px">ARAM</text>
+              <text x="830" y="240" text-anchor="middle" class="d-sub">16 MB · slower · DMA only</text>
+              <rect x="740" y="304" width="180" height="60" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="830" y="330" text-anchor="middle" class="d-label" style="font-size:13px">Video out</text>
+              <text x="830" y="348" text-anchor="middle" class="d-sub">to the TV</text>
+
+              <line x1="680" y1="106" x2="736" y2="106" class="d-axis" stroke-width="1.8" marker-end="url(#m7c)"/>
+              <line x1="680" y1="224" x2="736" y2="224" class="d-axis" stroke-width="1.8" marker-end="url(#m7m)"/>
+              <line x1="680" y1="332" x2="736" y2="332" class="d-axis" stroke-width="1.8" marker-end="url(#m7a)"/>
+            </svg>
+            <figcaption class="fig-cap">
+              <strong>The whole system at a glance.</strong> Gekko talks to the
+              world through one 64-bit, 162&nbsp;MHz
+              <span class="term" data-tip="The bus connecting the CPU to the system hub — here, Gekko to Flipper. Everything the CPU can't answer from cache crosses it.">front-side bus</span>
+              into Flipper, which owns main memory, graphics, audio and I/O.
+              Note what this means: every single cache miss from Module 06
+              crosses that bus. The
+              <span class="term" data-tip="Nintendo/Macronix audio chip inside Flipper — covered start-to-finish by this site's companion audio course.">audio DSP</span>
+              block has a whole companion course of its own.
+            </figcaption>
+          </figure>
+
+          <div class="specs">
+            <div class="spec"><div class="k">Core</div><div class="v">750CXe<small> derivative</small></div><div class="d">IBM PowerPC, custom-modified</div></div>
+            <div class="spec"><div class="k">Clock</div><div class="v">486<small> MHz</small></div><div class="d">3 × the 162 MHz bus clock</div></div>
+            <div class="spec"><div class="k">L1 caches</div><div class="v">32+32<small> KB</small></div><div class="d">Split I/D · 8-way · 32-byte lines</div></div>
+            <div class="spec"><div class="k">L2 cache</div><div class="v">256<small> KB</small></div><div class="d">On-die</div></div>
+            <div class="spec"><div class="k">Issue width</div><div class="v">2<small>/cycle</small></div><div class="d">Six execution units, in-order retire</div></div>
+            <div class="spec"><div class="k">Process</div><div class="v">0.18<small> µm</small></div><div class="d">IBM copper interconnect</div></div>
+          </div>
+
+          <p>
+            One number in that grid deserves a beat of silence:
+            <strong>486&nbsp;MHz</strong>. The PlayStation&nbsp;2's CPU clocked
+            lower, the original Xbox's Pentium&nbsp;III higher — but raw clocks
+            mislead. What made Gekko effective was the <em>system</em> around
+            it: unusually low-latency main memory (Module 12) meant its cache
+            misses hurt less, and the four custom modifications meant the hot
+            loops of a 3D game — transform the vertices, build the command
+            stream, keep the data flowing — each got a dedicated fast path.
+            The next four modules take those four modifications one at a time.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Gekko is an IBM PowerPC 750CXe derivative at 486 MHz — 0.18 µm, copper interconnects, small and cool.</li>
+              <li>Caches: 32 KB + 32 KB split 8-way L1, 256 KB on-die L2.</li>
+              <li>It reaches everything through a 162 MHz front-side bus into Flipper — the northbridge, GPU, DSP and I/O hub in one.</li>
+              <li>Nintendo chose a proven off-the-shelf core and added ~50 game-oriented instructions rather than design from scratch.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#caches"><span class="dir">← Prev · Part I</span><span class="ttl">06 · Caches</span></a>
+            <a class="next" href="#paired-singles"><span class="dir">Next →</span><span class="ttl">08 · Paired singles</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 08 --- -->
+      <section class="doc" id="paired-singles">
+        <div class="mod-head">
+          <span class="eye">Module 08 <span class="part-tag">· Part II</span></span>
+          <h3>Paired singles — two floats per instruction</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand Gekko's headline modification: splitting each 64-bit float register into two 32-bit singles and operating on both at once.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Time for the racing kit. Recall two facts you already own: PowerPC's
+            floating-point registers <code>f0</code>–<code>f31</code> are
+            <strong>64 bits</strong> wide, sized for doubles (Module 02) — and
+            games overwhelmingly compute in <strong>32-bit singles</strong>
+            (Module 03). Which means that when a game uses those registers,
+            <em>half of every register is dead weight</em>. Gekko's designers
+            looked at that wasted half and asked the obvious question: what if
+            each 64-bit register could instead hold <em>two</em> singles, and
+            one instruction could operate on <em>both at once</em>?
+          </p>
+          <p>
+            That's <strong>paired singles</strong>. In paired-single mode a
+            register like <code>f1</code> is treated as two independent lanes,
+            called <strong>ps0</strong> (the top half) and <strong>ps1</strong>
+            (the bottom half). A new family of instructions — <code>ps_add</code>,
+            <code>ps_sub</code>, <code>ps_mul</code>, <code>ps_madd</code>
+            (multiply-add), <code>ps_sum0</code>, <code>ps_merge</code> and
+            friends — performs the same arithmetic on both lanes
+            simultaneously: <code>ps_add f3, f1, f2</code> computes
+            <em>two</em> sums, lane by lane, in the time the plain FPU computes
+            one. One instruction, two results. This idea has a general name —
+            <span class="term" data-tip="Single Instruction, Multiple Data — one instruction applying the same operation to several values at once. Paired singles are 2-wide SIMD; modern CPUs go 4-, 8- or 16-wide.">SIMD</span>
+            — and Gekko's 2-wide version is often called
+            <strong>SIMD-lite</strong>: narrower than the 4-wide SSE its PC
+            contemporaries were growing, but cheap in silicon and aimed with a
+            sniper's precision, as we're about to see.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The double-bladed pasta cutter</span>
+            <p>
+              A chef slicing pasta one cut at a time is the plain FPU. Gekko
+              hands the chef a two-bladed cutter: one stroke, two parallel
+              cuts. It only helps when you <em>want</em> two identical cuts —
+              but pasta, like game maths, is nothing but identical cuts in a
+              row. And note what didn't change: the chef, the arm, the speed of
+              the stroke. Same clock, same pipeline —
+              <span class="term" data-tip="Gekko's two-floats-per-instruction mode: each 64-bit FPR holds two 32-bit singles (lanes ps0 and ps1) processed together.">paired singles</span>
+              simply do twice the work per stroke.
+            </p>
+          </div>
+
+          <p>
+            Why is this a sniper shot and not a gimmick? Because of what 3D
+            game code <em>is</em>. A frame of gameplay is thousands of small
+            vector operations: every position, velocity and surface direction
+            is a <strong>vec3</strong> — an (x,&nbsp;y,&nbsp;z) triple of
+            singles — and the engine's inner loops transform, add, scale and
+            dot-product armies of them, identically, every frame. Skinning a
+            character, animating particles, culling objects against the camera
+            — all vec3 streams. Pair x and y in one register (z rides in
+            another lane, or pairs with the next vertex's x) and a transform
+            loop's multiply-adds — <code>ps_madd</code>, one multiply plus one
+            add per lane, the fundamental atom of matrix maths — halve in
+            count. In hot loops that approaches a clean 2× — an entire second
+            issue slot's worth of width (Module 05), bought for a fraction of
+            the silicon.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="A 64-bit register split into two 32-bit lanes, and a ps_add operating on both lanes at once">
+              <defs><marker id="m8a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <text x="120" y="30" class="d-tag">One 64-bit floating-point register, two personalities</text>
+              <rect x="120" y="44" width="660" height="50" rx="9" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <line x1="450" y1="44" x2="450" y2="94" class="d-stem"/>
+              <text x="285" y="74" text-anchor="middle" class="d-num" style="fill:#45e4d1">ps0 — a 32-bit single</text>
+              <text x="615" y="74" text-anchor="middle" class="d-num" style="fill:#ff5f9e">ps1 — another 32-bit single</text>
+              <text x="120" y="116" class="d-sub">f1 as a double: one 64-bit value ·  f1 as paired singles: two independent lanes</text>
+
+              <text x="120" y="156" class="d-tag d-cyan">ps_add f3, f1, f2 — one instruction, two additions</text>
+              <rect x="150" y="170" width="240" height="40" rx="7" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="270" y="195" text-anchor="middle" class="d-num">f1.ps0 = 1.5</text>
+              <rect x="470" y="170" width="240" height="40" rx="7" class="d-fill-panel d-magenta-s" stroke-width="1.3"/><text x="590" y="195" text-anchor="middle" class="d-num">f1.ps1 = 10.0</text>
+              <rect x="150" y="222" width="240" height="40" rx="7" class="d-fill-panel d-cyan-s" stroke-width="1.3"/><text x="270" y="247" text-anchor="middle" class="d-num">f2.ps0 = 2.25</text>
+              <rect x="470" y="222" width="240" height="40" rx="7" class="d-fill-panel d-magenta-s" stroke-width="1.3"/><text x="590" y="247" text-anchor="middle" class="d-num">f2.ps1 = −4.0</text>
+              <text x="130" y="248" class="d-label" style="font-size:16px">+</text>
+              <text x="450" y="248" class="d-label" style="font-size:16px">+</text>
+              <line x1="270" y1="262" x2="270" y2="282" class="d-axis" stroke-width="1.8" marker-end="url(#m8a)"/>
+              <line x1="590" y1="262" x2="590" y2="282" class="d-axis" stroke-width="1.8" marker-end="url(#m8a)"/>
+              <rect x="150" y="284" width="240" height="40" rx="7" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/><text x="270" y="309" text-anchor="middle" class="d-num">f3.ps0 = 3.75</text>
+              <rect x="470" y="284" width="240" height="40" rx="7" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/><text x="590" y="309" text-anchor="middle" class="d-num">f3.ps1 = 6.0</text>
+              <text x="740" y="252" class="d-flow">lanes never mix</text>
+              <text x="740" y="268" class="d-flow">(unless you ask —</text>
+              <text x="740" y="284" class="d-flow">ps_merge, ps_sum0)</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The register split.</strong> In paired-single mode each 64-bit FPR carries two 32-bit lanes, <span class="term" data-tip="The first of the two 32-bit lanes in a paired-single register.">ps0</span> and <span class="term" data-tip="The second 32-bit lane in a paired-single register.">ps1</span>. <code>ps_add</code> adds lane-to-lane in parallel; cross-lane instructions like <code>ps_merge</code> and <code>ps_sum0</code> shuffle and combine lanes when a dot product needs to fold them together.</figcaption>
+          </figure>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Instruction family</th><th>Effect (per lane)</th><th>Typical use</th></tr></thead>
+              <tbody>
+                <tr><td><span class="pill ax">ps_add · ps_sub · ps_mul</span></td><td>arithmetic on ps0 and ps1 in parallel</td><td>vector add/scale — particles, velocities</td></tr>
+                <tr><td><span class="pill axwii">ps_madd family</span></td><td>multiply-add, both lanes at once</td><td>matrix × vertex — the transform loop's atom</td></tr>
+                <tr><td><span class="pill zelda">ps_sum0 · ps_merge</span></td><td>fold or shuffle lanes across registers</td><td>finishing dot products; repacking x/y/z streams</td></tr>
+                <tr><td><span class="pill hb">psq_l · psq_st</span></td><td>quantised load/store into both lanes</td><td>Module 09 — this one gets a whole module</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:13px;color:var(--muted)">
+            Instruction names as used in Dolphin and the homebrew toolchains;
+            we won't reproduce encodings here — the shapes are what matter.
+          </p>
+
+          <p>
+            The lab makes the width visible. A cloud of points spins on
+            screen, but the simulated CPU only has a fixed budget of
+            float operations per frame — never enough for every point. In
+            <strong>scalar</strong> mode each operation updates one value and
+            the budget runs dry halfway through the cloud; stale points lag
+            behind and the motion smears. Switch to <strong>paired</strong>
+            and every operation moves two values: same budget, twice the
+            points per frame, and the cloud snaps into smooth, coherent
+            rotation. That difference is exactly what Gekko bought.
+          </p>
+
+          <div class="lab" id="lab-ps">
+            <div class="lab-head"><span class="dot"></span><span class="title">Paired-singles lab — one op budget, two widths</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <canvas class="ps-canvas" aria-label="A rotating cloud of points, updated within a per-frame operation budget"></canvas>
+              <div class="stat-row">
+                <span class="stat-chip">op budget/frame <b data-ps-ops>—</b></span>
+                <span class="stat-chip">points updated/frame <b data-ps-pts>—</b></span>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Execution mode</label>
+                  <div class="seg-btns" role="group" aria-label="Execution mode">
+                    <button class="on" data-ps-mode="scalar">scalar FPU — 1 float/op</button>
+                    <button data-ps-mode="paired">paired singles — 2 floats/op</button>
+                  </div>
+                </div>
+                <div class="ctrl">
+                  <label>Op budget — <span class="val" data-ps-budget-val>600 ops</span></label>
+                  <input type="range" min="200" max="1200" value="600" step="50" data-ps-budget aria-label="Float operations per frame">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Games compute in 32-bit singles, so PowerPC's 64-bit FPRs were half-empty — Gekko fills them with two lanes, ps0 and ps1.</li>
+              <li>ps_* instructions (ps_add, ps_mul, ps_madd…) operate on both lanes at once: 2-wide SIMD, &ldquo;SIMD-lite&rdquo;.</li>
+              <li>3D games are streams of vec3 maths, so the doubling lands exactly on the hottest loops.</li>
+              <li>Same clock, same pipeline — the win is pure width, like a second issue slot for float code.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#gekko"><span class="dir">← Prev</span><span class="ttl">07 · Meet Gekko</span></a>
+            <a class="next" href="#quantised"><span class="dir">Next →</span><span class="ttl">09 · Quantised loads &amp; stores</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 09 --- -->
+      <section class="doc" id="quantised">
+        <div class="mod-head">
+          <span class="eye">Module 09 <span class="part-tag">· Part II</span></span>
+          <h3>Quantised loads &amp; stores</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See how psq_l and the Graphics Quantisation Registers stream compressed 8/16-bit fixed-point data straight into paired singles, scaling on the fly.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Paired singles doubled the arithmetic. But Module 06 taught you to
+            ask the next question reflexively: <em>can memory keep up?</em> A
+            vertex position is three singles — 12 bytes. A detailed character
+            mesh has tens of thousands of vertices, each with positions,
+            normals, texture coordinates… stored naively as floats, that's
+            megabytes of vertex data marching through a 32&nbsp;KB data cache
+            and a 162&nbsp;MHz bus, every frame. The arithmetic is no longer
+            the bottleneck; the <em>bytes</em> are.
+          </p>
+          <p>
+            The fix comes straight from Module 03. A float's luxury is its
+            enormous range — but a vertex coordinate doesn't need range. A
+            character model fits in a box a few units wide; a texture
+            coordinate lives between 0 and 1. Within a known, small range you
+            can store a value as a small integer with an agreed scale — a
+            <span class="term" data-tip="Storing fractions as plain integers with an agreed power-of-two scale: value = integer ÷ 2^s. All range decisions are made up front, unlike floating point.">fixed-point</span>
+            number. Pick a scale of 2<sup>6</sup>&nbsp;=&nbsp;64: then the
+            byte 36 means 36/64&nbsp;=&nbsp;0.5625. An 8-bit integer plus an
+            implicit scale replaces a 4-byte float — a 4× saving; 16-bit
+            halves it instead, with 256× finer steps. The mesh's precision
+            drops, but within a small range, 8 or 16 bits of steps is
+            routinely below what your eye could ever notice.
+          </p>
+          <p>
+            Any CPU can decompress such data — load byte, convert to float,
+            multiply by 1/64 — but that's three-plus instructions per value,
+            burning the very cycles paired singles just saved. Gekko instead
+            does it <em>in the load itself</em>. The instruction
+            <code>psq_l</code> (<em>paired-single quantised load</em>) reads
+            <strong>two</strong> small integers from memory, converts both to
+            floats, scales both by a power of two, and lands them in ps0 and
+            ps1 of a register — one instruction, two decompressed values.
+            Its mirror <code>psq_st</code> quantises and packs on the way out.
+          </p>
+          <p>
+            Where do the format and scale live? Not in the instruction — in
+            eight dedicated <strong>Graphics Quantisation Registers</strong>
+            (<span class="term" data-tip="Eight Gekko registers (GQR0–GQR7), each holding a data type (8/16-bit signed/unsigned, or float) and a power-of-two scale for quantised loads and stores.">GQRs</span>),
+            each holding a type (signed/unsigned 8- or 16-bit, or plain float)
+            and a scale exponent, for loads and stores separately. A
+            <code>psq_l</code> names which GQR to obey. Eight of them means a
+            game can leave them parked on its favourite formats — positions in
+            one, normals in another, texture coordinates in a third — and
+            stream everything through the right converter with zero setup in
+            the hot loop.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Flat-pack furniture</span>
+            <p>
+              Shipping assembled wardrobes wastes the lorry — you're paying to
+              transport air. Flat-pack them and one lorry carries four times as
+              many; you assemble at the door. Quantised vertex data is
+              flat-packed: compact in memory and across the bus (the lorry),
+              expanded to full floats only on arrival at the register file.
+              The <span class="term" data-tip="Graphics Quantisation Register — holds the 'assembly instructions': what type the packed data is and what power-of-two scale restores it.">GQR</span>
+              is the assembly sheet taped to the box: what this is, and how to
+              unfold it.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="psq_l reading two bytes from memory, dequantising them under GQR control, into both lanes of a register">
+              <defs><marker id="m9a" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="m9c" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="m9v" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>
+              <rect x="30" y="70" width="220" height="110" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="140" y="58" text-anchor="middle" class="d-tag">Main memory</text>
+              <rect x="50" y="92" width="84" height="38" rx="6" class="d-cell"/><text x="92" y="116" text-anchor="middle" class="d-num">0x24</text>
+              <rect x="146" y="92" width="84" height="38" rx="6" class="d-cell"/><text x="188" y="116" text-anchor="middle" class="d-num">0x1B</text>
+              <text x="140" y="158" text-anchor="middle" class="d-sub">two s8 integers — 2 bytes total</text>
+              <line x1="250" y1="125" x2="316" y2="125" class="d-axis" stroke-width="2" marker-end="url(#m9c)"/>
+              <text x="283" y="108" text-anchor="middle" class="d-flow d-cyan">psq_l</text>
+              <rect x="320" y="70" width="280" height="110" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="460" y="104" text-anchor="middle" class="d-label" style="font-size:13px">Dequantise — in hardware</text>
+              <text x="460" y="128" text-anchor="middle" class="d-sub">integer → float, then × 1 / 2⁶</text>
+              <text x="460" y="146" text-anchor="middle" class="d-sub">both values, same cycle-cost as a load</text>
+              <rect x="320" y="216" width="280" height="60" rx="10" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="460" y="241" text-anchor="middle" class="d-label" style="font-size:12.5px">GQR2 · type = s8 · scale = 6</text>
+              <text x="460" y="260" text-anchor="middle" class="d-sub">one of 8 — the assembly sheet</text>
+              <line x1="460" y1="214" x2="460" y2="184" class="d-axis" stroke-width="1.8" marker-end="url(#m9v)"/>
+              <line x1="600" y1="125" x2="666" y2="125" class="d-axis" stroke-width="2" marker-end="url(#m9a)"/>
+              <rect x="670" y="70" width="204" height="110" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="772" y="58" text-anchor="middle" class="d-tag d-cyan">Register f1</text>
+              <rect x="686" y="92" width="82" height="38" rx="6" class="d-fill-panel d-cyan-s" stroke-width="1.2"/><text x="727" y="116" text-anchor="middle" class="d-num">0.5625</text>
+              <rect x="778" y="92" width="82" height="38" rx="6" class="d-fill-panel d-magenta-s" stroke-width="1.2"/><text x="819" y="116" text-anchor="middle" class="d-num">0.4219</text>
+              <text x="727" y="158" text-anchor="middle" class="d-sub">ps0</text>
+              <text x="819" y="158" text-anchor="middle" class="d-sub">ps1</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>One instruction, two decompressions.</strong> <code>psq_l</code> pulls two packed integers from memory, and the <span class="term" data-tip="Converting a stored integer back to a float by dividing by the agreed power-of-two scale.">dequantise</span> hardware — steered by a GQR's type and scale — delivers ready-to-use singles into ps0/ps1. Here: 0x24 = 36 → 36/64 = 0.5625, 0x1B = 27 → 27/64 ≈ 0.4219. The reverse trip is <code>psq_st</code>.</figcaption>
+          </figure>
+
+          <p>
+            The cost of all this is the one Module 03 taught you: the stored
+            steps are coarse, so every value snaps to the nearest
+            representable tick. The lab lets you feel exactly how coarse. Pick
+            a coordinate value and watch its stored bits, reconstructed value
+            and error change as you switch 8↔16 bits and slide the scale. The
+            curve below it is a whole strip of vertices quantised with your
+            settings — at 8 bits and a low scale you can <em>see</em> the
+            wobble that quantisation injects into geometry; at 16 bits it
+            vanishes below the pixel grid. Notice the trade the GQR scale
+            makes: more scale = finer steps but a smaller representable range,
+            the fixed-point bargain in one slider.
+          </p>
+
+          <div class="lab" id="lab-quant">
+            <div class="lab-head"><span class="dot"></span><span class="title">Quantisation lab — a vertex through the GQR</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <div class="float-read">
+                <div class="fr"><span class="k">Stored bits</span><span class="v" data-q-bits>—</span></div>
+                <div class="fr"><span class="k">Stored integer</span><span class="v" data-q-stored>—</span></div>
+                <div class="fr"><span class="k">Reconstructed</span><span class="v" data-q-recon>—</span></div>
+                <div class="fr"><span class="k">Error</span><span class="v" data-q-err>—</span></div>
+                <div class="fr"><span class="k">Memory</span><span class="v" data-q-mem>—</span></div>
+              </div>
+              <canvas class="quant-canvas" aria-label="A smooth curve of vertices and its quantised reconstruction"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Coordinate — <span class="val" data-q-val-lbl>0.700</span></label>
+                  <input type="range" min="-200" max="200" value="70" step="1" data-q-val aria-label="Vertex coordinate value">
+                </div>
+                <div class="ctrl">
+                  <label>Stored as</label>
+                  <div class="seg-btns" role="group" aria-label="Storage format">
+                    <button class="on" data-q-fmt="8">8-bit</button>
+                    <button data-q-fmt="16">16-bit</button>
+                  </div>
+                </div>
+                <div class="ctrl">
+                  <label>GQR scale — <span class="val" data-q-scale-val>2⁶ = 64</span></label>
+                  <input type="range" min="0" max="14" value="6" step="1" data-q-scale aria-label="Quantisation scale exponent">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Vertex data lives compressed — 8/16-bit fixed point — because bus bytes and cache lines are scarcer than arithmetic.</li>
+              <li>psq_l / psq_st convert and scale during the load/store itself: two values per instruction, free decompression.</li>
+              <li>Eight GQRs hold the recipes (type + power-of-two scale), so hot loops never stop to reconfigure.</li>
+              <li>The price is quantisation error — the Module 03 rounding story, now applied to geometry.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#paired-singles"><span class="dir">← Prev</span><span class="ttl">08 · Paired singles</span></a>
+            <a class="next" href="#write-gather"><span class="dir">Next →</span><span class="ttl">10 · Feeding Flipper</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 10 --- -->
+      <section class="doc" id="write-gather">
+        <div class="mod-head">
+          <span class="eye">Module 10 <span class="part-tag">· Part II</span></span>
+          <h3>Feeding Flipper — the write-gather pipe</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow the draw commands from CPU to GPU: why ordinary stores are the wrong tool, and how the write-gather pipe turns a dribble of writes into 32-byte bursts.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The vertices are transformed (Module 08) and unpacked (Module 09).
+            Now Gekko has to <em>tell Flipper what to draw</em>, and it does so
+            the way all GPUs are fed: by writing a long stream of small
+            commands — &ldquo;set this state, here's a vertex, here's another&rdquo;
+            — into a queue in memory called the <strong>GX FIFO</strong>
+            (<span class="term" data-tip="First-In-First-Out — a queue. The GX FIFO is the command queue Flipper's graphics processor consumes from, in order.">FIFO</span>
+            = first in, first out; GX is the GameCube's graphics API). Flipper's
+            command processor chews through the queue at its own pace while the
+            CPU races ahead. Simple. Except: <em>how</em> should the CPU write
+            it?
+          </p>
+          <p>
+            Both obvious answers are wrong. Write through the data cache and
+            you poison it — the command stream is thousands of bytes you will
+            <em>never read back</em>, evicting the game's actual working set
+            (Module 06), and the bytes only reach Flipper when lines happen to
+            flush. Mark the region
+            <span class="term" data-tip="Memory the cache is told to bypass: every access goes straight to the bus. Correct for device queues, painfully slow one small write at a time.">uncached</span>
+            and each little 4-byte store becomes its own lonely trip across the
+            162&nbsp;MHz bus — correct, but a hundred dribbles where one pour
+            would do.
+          </p>
+          <p>
+            Gekko's third way is the <strong>write-gather pipe</strong>. The
+            game points a special register — the write-gather pipe address
+            register, <span class="term" data-tip="Write Pipe Address Register — tells Gekko which single address is the mouth of the write-gather pipe. Uncached writes there are collected into 32-byte bursts.">WPAR</span>
+            — at one magic, uncached address. Every store the program makes to
+            that <em>same single address</em> doesn't go to memory at all: the
+            pipe swallows it into a small on-chip gather buffer, and each time
+            32 bytes accumulate — one full cache line's worth, no coincidence —
+            the whole block leaves as a single burst
+            transaction to the FIFO. The programming model is almost comic:
+            the entire graphics stream of a GameCube frame is written to
+            <em>one address</em>, over and over, and the hardware turns that
+            dribble into a firehose running at close to the bus's full
+            bandwidth.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The postal crate</span>
+            <p>
+              Driving to the depot with every single letter is madness — the
+              journey costs the same whether the van carries one letter or a
+              crate. So you drop letters in a crate by the door and the van
+              leaves only when the crate is full. The
+              <span class="term" data-tip="Gekko's on-chip buffer that collects small writes to one magic address and emits them as full 32-byte burst transactions.">write-gather pipe</span>
+              is the crate; the 32-byte burst is the full van; the bus makes
+              one trip instead of eight.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 260" role="img" aria-label="Small CPU writes gathering into a 32-byte buffer that bursts into the GX FIFO for Flipper to consume">
+              <defs><marker id="mAa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="mAc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="mAm" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker></defs>
+              <rect x="30" y="66" width="150" height="90" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="105" y="104" text-anchor="middle" class="d-label" style="font-size:13px">Gekko</text>
+              <text x="105" y="124" text-anchor="middle" class="d-sub">stores to WPAR's</text>
+              <text x="105" y="138" text-anchor="middle" class="d-sub">one magic address</text>
+              <line x1="180" y1="96" x2="240" y2="96" class="d-axis" stroke-width="1.6" marker-end="url(#mAc)"/>
+              <line x1="180" y1="112" x2="240" y2="112" class="d-axis" stroke-width="1.6" marker-end="url(#mAc)"/>
+              <line x1="180" y1="128" x2="240" y2="128" class="d-axis" stroke-width="1.6" marker-end="url(#mAc)"/>
+              <text x="210" y="82" text-anchor="middle" class="d-flow d-cyan">4-byte writes</text>
+              <rect x="244" y="60" width="300" height="100" rx="10" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="394" y="50" text-anchor="middle" class="d-tag">gather buffer — 32 bytes</text>
+              <rect x="258" y="88" width="30" height="44" rx="4" class="d-fill-panel d-cyan-s" stroke-width="1.2"/>
+              <rect x="292" y="88" width="30" height="44" rx="4" class="d-fill-panel d-cyan-s" stroke-width="1.2"/>
+              <rect x="326" y="88" width="30" height="44" rx="4" class="d-fill-panel d-cyan-s" stroke-width="1.2"/>
+              <rect x="360" y="88" width="30" height="44" rx="4" class="d-fill-panel d-cyan-s" stroke-width="1.2"/>
+              <rect x="394" y="88" width="30" height="44" rx="4" class="d-fill-panel d-cyan-s" stroke-width="1.2"/>
+              <rect x="428" y="88" width="30" height="44" rx="4" class="d-cell"/>
+              <rect x="462" y="88" width="30" height="44" rx="4" class="d-cell"/>
+              <rect x="496" y="88" width="30" height="44" rx="4" class="d-cell"/>
+              <text x="394" y="176" text-anchor="middle" class="d-sub">fills left to right · leaves only when full</text>
+              <line x1="544" y1="110" x2="614" y2="110" class="d-axis" stroke-width="3" marker-end="url(#mAm)"/>
+              <text x="580" y="94" text-anchor="middle" class="d-flow d-magenta">32-byte burst</text>
+              <rect x="618" y="60" width="150" height="100" rx="10" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="693" y="98" text-anchor="middle" class="d-label" style="font-size:13px">GX FIFO</text>
+              <text x="693" y="118" text-anchor="middle" class="d-sub">command queue</text>
+              <text x="693" y="134" text-anchor="middle" class="d-sub">in main memory</text>
+              <line x1="768" y1="110" x2="826" y2="110" class="d-axis" stroke-width="1.8" marker-end="url(#mAa)"/>
+              <rect x="700" y="190" width="180" height="54" rx="10" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="790" y="213" text-anchor="middle" class="d-label" style="font-size:12.5px">Flipper CP</text>
+              <text x="790" y="231" text-anchor="middle" class="d-sub">consumes at its own pace</text>
+              <path d="M 760 162 C 750 176, 748 180, 758 188" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#mAa)"/>
+            </svg>
+            <figcaption class="fig-cap"><strong>Dribble in, firehose out.</strong> The program stores 4-byte commands to a single uncached address; the gather buffer packs them into 32-byte lines and bursts each full line into the <span class="term" data-tip="The graphics command queue in main memory that Flipper's command processor reads from.">GX FIFO</span>, which Flipper drains asynchronously. CPU and GPU run decoupled, at full bus efficiency.</figcaption>
+          </figure>
+
+          <h4>The rest of the cache-control toolbox</h4>
+          <p>
+            The write-gather pipe has cousins — ordinary PowerPC
+            cache-control instructions that GameCube games leaned on unusually
+            hard, because a console lets you schedule memory like a freight
+            line:
+          </p>
+          <ul>
+            <li><code>dcbz</code> — <em>data cache block zero</em>: claim a 32-byte line in the cache and fill it with zeros, <strong>without reading memory first</strong>. About to overwrite a whole line anyway? This skips the pointless fetch-before-write — a favourite for clearing and building buffers at cache speed.</li>
+            <li><code>dcbt</code> — <em>touch</em>: a polite hint to start fetching a line now because you'll want it soon — software prefetching for loops that know their future.</li>
+            <li><code>dcbf</code> / <code>dcbst</code> — flush or write back a line, used when handing a buffer to hardware (like that FIFO) that reads real memory, not your cache.</li>
+            <li><code>icbi</code> — invalidate an <em>instruction</em>-cache line, mandatory after writing new code into memory. File this one away carefully: it is a load-bearing plot point in Module 14.</li>
+          </ul>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The CPU feeds Flipper by writing a command stream into the GX FIFO — a queue in main memory.</li>
+              <li>Cached writes poison the cache; plain uncached writes waste the bus one dribble at a time.</li>
+              <li>The write-gather pipe collects stores to one magic address (via WPAR) into 32-byte bursts — near-full bus efficiency with a trivial programming model.</li>
+              <li>dcbz, dcbt, dcbf and icbi give games manual control over cache traffic — and icbi returns in Part III.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#quantised"><span class="dir">← Prev</span><span class="ttl">09 · Quantised loads &amp; stores</span></a>
+            <a class="next" href="#locked-cache"><span class="dir">Next →</span><span class="ttl">11 · The locked cache &amp; DMA</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 11 --- -->
+      <section class="doc" id="locked-cache">
+        <div class="mod-head">
+          <span class="eye">Module 11 <span class="part-tag">· Part II</span></span>
+          <h3>The locked cache &amp; DMA</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand Gekko's fourth trick: turning half the data cache into a private scratchpad with its own DMA engine — and why predictable beats fast-on-average.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Module 06 sold you the cache as a marvel, so here's its dark side:
+            a cache is fast <em>on average</em> and unpredictable in the
+            particular. Any individual load might hit (a couple of cycles) or
+            miss (dozens), and which one you get depends on everything that
+            touched memory before — including hardware you don't control.
+            For most software, who cares; the average is what matters. But a
+            game is a <strong>real-time</strong> system: it must finish
+            <em>every</em> frame in 16.7&nbsp;ms, and a physics routine that
+            usually takes 1&nbsp;ms but occasionally takes 3 is a stutter your
+            thumbs can feel. For the innermost loops, engine programmers would
+            happily trade a brilliant average for a boring, dependable
+            worst case.
+          </p>
+          <p>
+            Gekko sells exactly that trade. Flip a bit in a hardware
+            configuration register and the 32&nbsp;KB data cache splits in
+            half: 16&nbsp;KB keeps being a normal cache, and the other
+            <strong>16&nbsp;KB becomes a locked cache</strong> — a
+            <span class="term" data-tip="A small fast memory the program addresses directly, with no tags, no misses and no evictions — every access takes the same short time.">scratchpad</span>
+            mapped at a fixed address range. &ldquo;Locked&rdquo; means the
+            cache machinery keeps its hands off: nothing is ever evicted,
+            nothing ever misses, because it isn't <em>caching</em> anything —
+            it's simply 16&nbsp;KB of guaranteed-fast memory that belongs
+            entirely to the program. Every access, every time, costs the same
+            couple of cycles. (A dedicated <code>dcbz_l</code> instruction
+            zero-claims lines inside it, cousin of Module 10's
+            <code>dcbz</code>.)
+          </p>
+          <p>
+            Of course, 16&nbsp;KB is tiny — the point is to <em>stream</em>
+            work through it, and that's the second half of the design: a
+            dedicated <span class="term" data-tip="Direct Memory Access — a copy engine that moves blocks of data by itself, in the background, without the CPU executing load/store instructions.">DMA</span>
+            engine that copies blocks between the locked cache and main memory
+            <em>by itself, in the background</em>, while the CPU computes.
+            The rhythm it enables is double-buffering: while the CPU crunches
+            batch&nbsp;N in one half of the scratchpad, the DMA engine is
+            simultaneously writing out batch&nbsp;N−1's results and pulling in
+            batch&nbsp;N+1. Done right, the CPU <em>never touches main memory
+            at all</em> in the hot loop — no misses, no stalls, no variance.
+            Animation skinning, particle systems, sound mixing on the CPU:
+            classic locked-cache customers.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Mise en place</span>
+            <p>
+              A chef mid-service never walks to the cellar. An assistant
+              stages the next dish's ingredients at the counter while the
+              current dish is cooking, and clears the finished plates away.
+              The counter is the locked cache — small, close, always
+              two-seconds away; the assistant is the
+              <span class="term" data-tip="The background copy engine between locked cache and main RAM — Gekko's 'assistant' that stages data while the CPU computes.">DMA engine</span>;
+              the cellar is main memory. The chef's pace becomes perfectly
+              steady — not because the cellar got closer, but because someone
+              else now does the walking, <em>during</em> the cooking.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="The data cache split into a normal half and a locked scratchpad half with a DMA engine to main memory">
+              <defs><marker id="mBa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="mBc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="mBm" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker></defs>
+              <rect x="330" y="20" width="240" height="52" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="52" text-anchor="middle" class="d-label" style="font-size:13px">Gekko core</text>
+              <rect x="140" y="118" width="620" height="92" rx="12" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="150" y="108" class="d-tag">the 32 KB data cache, split by one HID2 bit</text>
+              <rect x="156" y="132" width="290" height="64" rx="8" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="301" y="158" text-anchor="middle" class="d-label" style="font-size:12.5px">16 KB · normal cache</text>
+              <text x="301" y="178" text-anchor="middle" class="d-sub">tags, sets, misses — Module 06 as usual</text>
+              <rect x="456" y="132" width="290" height="64" rx="8" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="601" y="158" text-anchor="middle" class="d-label" style="font-size:12.5px">16 KB · locked scratchpad</text>
+              <text x="601" y="178" text-anchor="middle" class="d-sub">no tags, no misses — always ~2 cycles</text>
+              <line x1="390" y1="72" x2="310" y2="128" class="d-axis" stroke-width="1.8" marker-end="url(#mBa)"/>
+              <line x1="510" y1="72" x2="590" y2="128" class="d-axis" stroke-width="1.8" marker-end="url(#mBc)"/>
+              <text x="330" y="94" class="d-flow">normal loads/stores</text>
+              <text x="560" y="94" class="d-flow d-cyan">fixed-address loads/stores</text>
+              <rect x="480" y="234" width="242" height="52" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="601" y="256" text-anchor="middle" class="d-label" style="font-size:12.5px">locked-cache DMA engine</text>
+              <text x="601" y="274" text-anchor="middle" class="d-sub">block copies, in the background</text>
+              <line x1="601" y1="196" x2="601" y2="230" class="d-axis" stroke-width="1.8" marker-end="url(#mBm)"/>
+              <line x1="620" y1="230" x2="620" y2="198" class="d-axis" stroke-width="1.8" marker-end="url(#mBm)"/>
+              <rect x="120" y="234" width="240" height="52" rx="10" class="d-fill-panel2 d-magenta-s" stroke-width="1.5"/>
+              <text x="240" y="256" text-anchor="middle" class="d-label" style="font-size:12.5px">Main RAM (via Flipper)</text>
+              <text x="240" y="274" text-anchor="middle" class="d-sub">batches staged in · results out</text>
+              <line x1="476" y1="260" x2="364" y2="260" class="d-axis" stroke-width="2" marker-end="url(#mBm)"/>
+              <text x="420" y="248" text-anchor="middle" class="d-flow d-magenta">while the CPU computes</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Half cache, half counter-top.</strong> One configuration bit re-purposes 16&nbsp;KB of the D-cache as a directly-addressed <span class="term" data-tip="Program-managed fast memory with a constant access time — no cache machinery involved.">scratchpad</span>; a private DMA engine streams batches between it and main memory in the background. The CPU's inner loop touches only guaranteed-fast memory.</figcaption>
+          </figure>
+
+          <p>
+            The lab races the two philosophies over one frame's worth of work,
+            eight batches long. The top lane computes straight from the normal
+            cache: every batch gets interrupted by whatever misses fate deals
+            out (slide the miss-chance to change fate). The bottom lane
+            computes from the scratchpad while DMA prefetches the next batch
+            underneath. Watch the red stall slices — and notice something
+            subtler than the finish time: replay it a few times. The top
+            lane's finish <em>moves</em>; the bottom one lands on the same
+            spot, every single run. That repeatability is the real product.
+          </p>
+
+          <div class="lab" id="lab-dma">
+            <div class="lab-head"><span class="dot"></span><span class="title">Locked-cache lab — cache luck vs DMA rhythm</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <canvas class="dma-canvas" aria-label="Timeline comparing cached execution with stalls against scratchpad execution with background DMA"></canvas>
+              <div class="stat-row">
+                <span class="stat-chip">through cache <b data-dma-a>—</b></span>
+                <span class="stat-chip">locked + DMA <b data-dma-b>—</b></span>
+                <span class="stat-chip warn">time lost to stalls <b data-dma-stall>—</b></span>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Cache miss chance — <span class="val" data-dma-miss-val>30%</span></label>
+                  <input type="range" min="5" max="60" value="30" step="5" data-dma-miss aria-label="Cache miss chance">
+                </div>
+                <button class="play-btn" data-dma-run>Replay frame</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Caches are fast on average but unpredictable per-access; real-time frames care about the worst case.</li>
+              <li>Gekko can lock half the 32 KB D-cache as a 16 KB scratchpad: fixed addresses, constant latency, zero misses.</li>
+              <li>A dedicated DMA engine streams batches between scratchpad and main RAM while the CPU computes.</li>
+              <li>The prize isn't just speed — it's determinism: the same loop takes the same time, every frame.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#write-gather"><span class="dir">← Prev</span><span class="ttl">10 · Feeding Flipper</span></a>
+            <a class="next" href="#memory"><span class="dir">Next →</span><span class="ttl">12 · The memory system</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 12 --- -->
+      <section class="doc" id="memory">
+        <div class="mod-head">
+          <span class="eye">Module 12 <span class="part-tag">· Part II</span></span>
+          <h3>The memory system</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Map the memory the whole console shares: 24 MB of unusually fast 1T-SRAM, 16 MB of slower ARAM, and how everything hangs off Flipper.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            We've spent five modules teaching Gekko to avoid memory. Time to
+            be fair to the memory — because the GameCube's is genuinely
+            unusual. Its 24&nbsp;MB of main RAM, code-named
+            <strong>&ldquo;Splash&rdquo;</strong>, is
+            <span class="term" data-tip="MoSys's 'one-transistor SRAM': DRAM-style density wrapped in circuitry that presents SRAM-like, roughly 10 ns access latency.">1T-SRAM</span>
+            from a company called MoSys — a clever hybrid that stores bits in
+            dense DRAM-style cells but hides all the usual DRAM ceremony
+            (row opens, refresh pauses) behind SRAM-like interface circuitry.
+            The result is main memory with about <strong>10&nbsp;ns</strong>
+            latency — roughly five Gekko clocks — where contemporary PC DRAM
+            of the era, with its row and bank management, could keep a CPU
+            waiting several times longer, and less predictably. Sound
+            familiar? It's the Module 11 value again: Nintendo consistently
+            bought <em>low, boring latency</em> over headline bandwidth.
+            A cache miss on GameCube simply hurts less than it did on its
+            rivals.
+          </p>
+          <p>
+            Beside it sits an oddity: <strong>16&nbsp;MB of ARAM</strong>
+            (auxiliary RAM) — plain, cheaper, slower DRAM hanging off
+            Flipper on its own narrow interface. Gekko cannot address it
+            directly: no load or store ever touches ARAM. Instead, blocks
+            move between ARAM and main memory by DMA through Flipper, and
+            the audio DSP streams instrument samples from it (that story is
+            told properly in <a href="../audio/">the companion audio
+            course</a>). Games treat it as a staging attic: audio banks live
+            there, and clever engines park level chunks, animation data and
+            pre-loaded assets in it — anything worth keeping closer than the
+            optical disc but not worth precious Splash space. The disc, for
+            scale, streams in at a few MB/s with seek times measured in tens
+            of milliseconds: a different world, which is why ARAM earns its
+            keep.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Pantry, cellar, market</span>
+            <p>
+              The kitchen's pantry (main RAM) is small but two steps away —
+              anything in it is essentially at hand. The cellar
+              (<span class="term" data-tip="The GameCube's 16 MB auxiliary RAM: not CPU-addressable, reached only by DMA through Flipper; home to audio samples and staged assets.">ARAM</span>)
+              holds more, but fetching from it is a planned trip — you send
+              someone (DMA) and keep cooking meanwhile. And the market (the
+              disc) has everything, once a day, if you queue. A good kitchen —
+              and a good game engine — is mostly logistics between the three.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="The memory hierarchy from registers to disc, with size growing and speed falling at each step">
+              <text x="60" y="30" class="d-tag">The full ladder — every step ~bigger and slower</text>
+              <text x="838" y="30" text-anchor="end" class="d-sub">bar length ≈ how long one access keeps the CPU waiting</text>
+              <text x="60" y="70" class="d-val">registers</text>
+              <rect x="230" y="54" width="12" height="22" rx="4" class="d-cyan"/>
+              <text x="256" y="70" class="d-sub">0 cycles · 32+32 slots · Module 02</text>
+              <text x="60" y="112" class="d-val">L1 · 64 KB</text>
+              <rect x="230" y="96" width="26" height="22" rx="4" class="d-cyan"/>
+              <text x="270" y="112" class="d-sub">a couple of cycles · split I/D (± 16 KB locked — Module 11)</text>
+              <text x="60" y="154" class="d-val">L2 · 256 KB</text>
+              <rect x="230" y="138" width="70" height="22" rx="4" class="d-violet"/>
+              <text x="314" y="154" class="d-sub">~a dozen cycles · on-die</text>
+              <text x="60" y="196" class="d-val">Splash · 24 MB</text>
+              <rect x="230" y="180" width="180" height="22" rx="4" class="d-amber"/>
+              <text x="424" y="196" class="d-sub">1T-SRAM · ~10 ns — a few dozen cycles round-trip over the bus</text>
+              <text x="60" y="238" class="d-val">ARAM · 16 MB</text>
+              <rect x="230" y="222" width="330" height="22" rx="4" class="d-magenta"/>
+              <text x="574" y="238" class="d-sub">DMA only — plan the trip, overlap the wait</text>
+              <text x="60" y="280" class="d-val">disc · 1.5 GB</text>
+              <rect x="230" y="264" width="560" height="22" rx="4" class="d-red"/>
+              <text x="60" y="312" class="d-sub" style="font-size:10.5px">tens of milliseconds to seek — millions of CPU cycles; everything above exists to keep the CPU from ever waiting on it</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The memory ladder.</strong> Each rung trades speed for size. Gekko's four custom tricks are all rung-management: paired singles and quantised loads shrink traffic on the middle rungs, the write-gather pipe batches trips across the bus, and the locked cache turns the top rung's luck into a guarantee. Note the scale is mercifully <em>not</em> linear — the disc bar would otherwise be several kilometres long.</figcaption>
+          </figure>
+
+          <div class="specs">
+            <div class="spec"><div class="k">Main RAM</div><div class="v">24<small> MB</small></div><div class="d">&ldquo;Splash&rdquo; · MoSys 1T-SRAM · ~10 ns</div></div>
+            <div class="spec"><div class="k">ARAM</div><div class="v">16<small> MB</small></div><div class="d">Auxiliary DRAM · DMA access only</div></div>
+            <div class="spec"><div class="k">In Flipper</div><div class="v">~3<small> MB</small></div><div class="d">Embedded 1T-SRAM: framebuffer + texture cache</div></div>
+            <div class="spec"><div class="k">Bus to CPU</div><div class="v">162<small> MHz</small></div><div class="d">64-bit FSB · ~1.3 GB/s peak</div></div>
+          </div>
+
+          <p>
+            Step back and admire the whole Part II machine at once. A frame of
+            a GameCube game is: <code>psq_l</code> streams compressed vertices
+            from Splash through the cache (09), paired singles transform them
+            two floats at a time (08), the write-gather pipe fires the results
+            into the GX FIFO for Flipper (10), the locked cache keeps physics
+            and animation running on rails (11), DMA shuttles the next second
+            of audio out of ARAM (12) — and underneath it all, the plain old
+            fetch–decode–execute loop from Module 01 is just… running,
+            486 million times a second. Nothing mystical was added; every
+            trick is a Part I idea, sharpened. Which sets up Part III's
+            question perfectly: if it's all just the PowerPC contract plus
+            four tricks — <em>can a PC pretend to be it?</em>
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Main memory is 24 MB of MoSys 1T-SRAM (&ldquo;Splash&rdquo;) at ~10 ns — unusually low, predictable latency for its day.</li>
+              <li>16 MB of slower ARAM hangs off Flipper, reachable only by DMA — audio samples and staged assets live there.</li>
+              <li>Flipper is the hub: memory controller, GPU, DSP and I/O; all of Gekko's traffic crosses one 162 MHz bus.</li>
+              <li>Every Gekko modification is memory-ladder logistics — the console's consistent bet was predictability over peak numbers.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#locked-cache"><span class="dir">← Prev</span><span class="ttl">11 · The locked cache &amp; DMA</span></a>
+            <a class="next" href="#jit"><span class="dir">Next → Part III</span><span class="ttl">13 · Interpreters vs JITs</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART III ============ -->
+      <section class="part" id="part-3">
+        <div class="part-inner">
+          <div class="kicker">Part III</div>
+          <h3>Emulating it in Dolphin</h3>
+          <p>
+            Finally: how does software on your PC stand in for that chip? Your
+            processor speaks x86-64 or ARM64 — it cannot run a single PowerPC
+            instruction. Dolphin's answer is to translate, and the way it
+            translates — an interpreter for correctness, a just-in-time
+            compiler for speed — is one of emulation's great stories. These
+            three modules cover the machinery, the traps where &ldquo;fast&rdquo;
+            and &ldquo;accurate&rdquo; part company, and the actual settings
+            that map to everything you've learned.
+          </p>
+          <div class="part-meta"><span>Modules <b>13–15</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>1 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 13 --- -->
+      <section class="doc" id="jit">
+        <div class="mod-head">
+          <span class="eye">Module 13 <span class="part-tag">· Part III</span></span>
+          <h3>Interpreters vs JITs</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand the two ways to run one CPU's code on another — re-decode every instruction forever, or translate each block once — and why the JIT wins by amortisation.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Strip the problem to its core: Dolphin holds the game's memory in a
+            big array, and in that array sit PowerPC instructions — numbers,
+            as Module 01 taught you. Your CPU can't execute them. The direct
+            solution is an <strong>interpreter</strong>: a software re-enactment
+            of the fetch–decode–execute loop. Keep a variable for the PC and
+            one for each of Gekko's registers; loop forever: read the word at
+            PC, look at its opcode bits, jump to the matching handler
+            (&ldquo;this is an <code>add</code>: sum these two array slots&rdquo;),
+            bump PC, repeat. It's Module 01's toy lab, scaled up — Dolphin
+            genuinely contains one, and it is the <em>reference</em>: nearly
+            perfectly faithful, easy to reason about… and brutally slow.
+          </p>
+          <p>
+            How slow? Count what one emulated <code>add</code> costs: fetch the
+            word from the memory array, mask out the opcode bits, branch
+            through a dispatch table (a branch your host's predictor hates —
+            Module 04 again, one level up!), load two virtual registers, add,
+            store the result, update the virtual PC, check for interrupts, loop.
+            Ten to fifty host instructions for one guest instruction — and
+            here's the crime — <em>the same ten to fifty again the next
+            million times that same add runs</em>. A game loop is the same few
+            hundred instructions repeated all frame. An interpreter re-derives
+            the same conclusions about the same bytes, forever.
+          </p>
+          <p>
+            The fix is to stop re-deriving: translate once, remember, reuse.
+            That's a <strong>JIT</strong> — a <em>just-in-time compiler</em>.
+            The natural unit of translation is the
+            <span class="term" data-tip="A straight-line run of instructions with one entry at the top and one exit at the bottom — ended by a branch. The unit JIT compilers translate.">basic block</span>:
+            a straight run of guest code from one branch target to the next
+            branch (Module 04 taught you why branches are the natural seams —
+            they're the only places control can leave). First time execution
+            reaches a block, Dolphin translates its PowerPC instructions into
+            equivalent x86-64 (or ARM64) machine code, writes that into a
+            buffer, and stashes a pointer in the
+            <span class="term" data-tip="The JIT's table mapping guest addresses to already-compiled native code, so each block is translated once and reused forever after.">block cache</span>,
+            keyed by guest address. Every later visit is a lookup and a jump:
+            the loop that cost 50× interpreter overhead now runs as a handful
+            of native instructions — often just 2–5× slower than truly native
+            code, hundreds of times faster than interpreting.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The two translators</span>
+            <p>
+              An <span class="term" data-tip="An emulator core that re-decodes and re-executes every guest instruction, every time — the slow, faithful reference.">interpreter</span>
+              is a live translator at a speech that's read out every night:
+              each night they translate the same sentences again, from
+              scratch, at speaking pace. A
+              <span class="term" data-tip="Just-In-Time compiler — translates guest code to host machine code at runtime, the first time it's needed, then reuses the translation.">JIT</span>
+              writes the translation down the first night. Night one is
+              actually <em>slower</em> — translating and writing carefully
+              takes longer than just speaking — but every night after, they
+              simply read. By night three they've won; by night ten thousand
+              (a game loop's real repeat count) it's no contest.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 330" role="img" aria-label="The JIT's flow: look up a block in the cache; on a miss translate and store it; then execute natively">
+              <defs><marker id="mCa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="mCc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="mCv" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>
+              <rect x="330" y="18" width="240" height="52" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="41" text-anchor="middle" class="d-label" style="font-size:13px">PC arrives at a guest address</text>
+              <text x="450" y="59" text-anchor="middle" class="d-sub">say 0x80003100 — top of a loop</text>
+              <line x1="450" y1="70" x2="450" y2="96" class="d-axis" stroke-width="1.8" marker-end="url(#mCa)"/>
+              <rect x="330" y="100" width="240" height="54" rx="10" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="450" y="124" text-anchor="middle" class="d-label" style="font-size:13px">Block cache lookup</text>
+              <text x="450" y="142" text-anchor="middle" class="d-sub">seen this address before?</text>
+              <line x1="570" y1="127" x2="672" y2="127" class="d-axis" stroke-width="1.8" marker-end="url(#mCc)"/>
+              <text x="622" y="116" text-anchor="middle" class="d-flow d-cyan">hit — usual case</text>
+              <rect x="676" y="100" width="200" height="54" rx="10" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="776" y="124" text-anchor="middle" class="d-label" style="font-size:13px">Jump into native code</text>
+              <text x="776" y="142" text-anchor="middle" class="d-sub">runs at host speed</text>
+              <line x1="450" y1="154" x2="450" y2="182" class="d-axis" stroke-width="1.8" marker-end="url(#mCv)"/>
+              <text x="466" y="174" class="d-flow d-violet">miss — first visit only</text>
+              <rect x="330" y="186" width="240" height="56" rx="10" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="450" y="208" text-anchor="middle" class="d-label" style="font-size:12.5px">Translate the basic block</text>
+              <text x="450" y="228" text-anchor="middle" class="d-sub">PPC → x86-64 / ARM64, to the next branch</text>
+              <line x1="450" y1="242" x2="450" y2="268" class="d-axis" stroke-width="1.8" marker-end="url(#mCv)"/>
+              <rect x="330" y="272" width="240" height="50" rx="10" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="450" y="293" text-anchor="middle" class="d-label" style="font-size:12.5px">Store in block cache</text>
+              <text x="450" y="311" text-anchor="middle" class="d-sub">translated exactly once</text>
+              <path d="M 570 297 C 680 297, 760 220, 772 158" fill="none" stroke="#a884ff" stroke-width="1.8" marker-end="url(#mCv)"/>
+              <path d="M 776 100 C 760 60, 640 44, 574 44" fill="none" stroke="#877f9e" stroke-width="1.6" marker-end="url(#mCa)"/>
+              <text x="700" y="40" class="d-flow">block ends at a branch → next address</text>
+              <rect x="30" y="100" width="240" height="140" rx="10" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="150" y="128" text-anchor="middle" class="d-tag">the interpreter, for contrast</text>
+              <text x="150" y="156" text-anchor="middle" class="d-sub">fetch → mask → dispatch →</text>
+              <text x="150" y="174" text-anchor="middle" class="d-sub">execute handler → bump PC →</text>
+              <text x="150" y="192" text-anchor="middle" class="d-sub">check interrupts → repeat</text>
+              <text x="150" y="222" text-anchor="middle" class="d-sub" style="fill:#ff6a6a">every instruction, every time</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Translate once, run forever.</strong> The JIT's steady state is the cyan path: look up, jump, run native, repeat. The violet compile path runs once per <span class="term" data-tip="A straight-line run of guest instructions ending at a branch — the JIT's unit of translation.">basic block</span> — a one-off toll amortised over millions of executions. The interpreter (left) pays full price on every single instruction.</figcaption>
+          </figure>
+
+          <p>
+            Two refinements complete the picture. First, there's a middle
+            rung: a <strong>cached interpreter</strong>, which decodes each
+            block once into a friendly internal list (skipping the re-decode
+            cost) but still executes it by dispatching — faster than plain
+            interpretation, far slower than a true JIT, and useful when the
+            JIT itself is the thing you're debugging. Second, the block cache
+            is only valid <em>while the guest code doesn't change</em>. Games
+            load code overlays from disc, decompress engines into RAM, even
+            patch themselves — and the moment those bytes change, a cached
+            translation of the old bytes is a lie. The JIT must detect writes
+            to translated code and <strong>invalidate</strong> the affected
+            blocks — remember <code>icbi</code> from Module 10? That
+            instruction is the guest politely announcing &ldquo;I changed the
+            code here&rdquo; — and the next visit recompiles. Getting this
+            wrong doesn't slow the emulator; it makes it <em>wrong</em>, which
+            is Module 14's whole subject.
+          </p>
+          <p>
+            The lab races the two strategies over a hot loop. Watch the
+            JIT lane pay its violet compile toll up front — at low repeat
+            counts it actually <em>loses</em> — then drag the run-count slider
+            up and watch amortisation do its work. The block-cache chip lights
+            up the moment the translation exists.
+          </p>
+
+          <div class="lab" id="lab-jit">
+            <div class="lab-head"><span class="dot"></span><span class="title">JIT lab — one hot loop, two strategies</span><span class="badge">simulated · live</span></div>
+            <div class="lab-body">
+              <div class="race">
+                <div class="race-lane">
+                  <div class="head"><span class="nm">Interpreter</span><span class="ips" data-int-ips>0 inst/s</span></div>
+                  <div class="bar-track"><div class="bar-fill" data-int-fill></div></div>
+                  <div class="sub"><span data-int-n>0</span> instructions executed · re-decodes every one, every pass</div>
+                </div>
+                <div class="race-lane">
+                  <div class="head"><span class="nm">JIT recompiler</span><span class="chip" data-block-chip>block cache · empty</span><span class="ips" data-jit-ips>0 inst/s</span></div>
+                  <div class="bar-track"><div class="bar-fill jit" data-jit-fill></div></div>
+                  <div class="sub"><span data-jit-n>0</span> instructions executed · compiles the block once, then runs native</div>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Loop runs — <span class="val" data-jit-runs-val>300</span></label>
+                  <input type="range" min="10" max="3000" value="300" step="10" data-jit-runs aria-label="How many times the loop repeats">
+                </div>
+                <button class="play-btn" data-jit-go>Race</button>
+                <button class="play-btn" data-jit-reset style="background:linear-gradient(180deg,#3a3357,#2c2542);color:var(--ink)">Reset</button>
+                <span style="font-size:12.5px;color:var(--muted)">Striped violet = one-off compile cost. Try 10 runs, then 3000.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>An interpreter re-runs fetch–decode–execute in software: faithful, simple, 10–50 host instructions per guest one.</li>
+              <li>A JIT translates each basic block to native code once, caches it, and reuses it — amortisation is the whole trick.</li>
+              <li>Basic blocks end at branches; the block cache maps guest addresses to translations.</li>
+              <li>When guest code changes (overlays, self-patching, icbi), stale blocks must be invalidated or the emulator lies.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#memory"><span class="dir">← Prev · Part II</span><span class="ttl">12 · The memory system</span></a>
+            <a class="next" href="#accuracy"><span class="dir">Next →</span><span class="ttl">14 · The accuracy traps</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 14 --- -->
+      <section class="doc" id="accuracy">
+        <div class="mod-head">
+          <span class="eye">Module 14 <span class="part-tag">· Part III</span></span>
+          <h3>The accuracy traps</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Tour the places where a fast emulator and a truthful one pull apart: floating-point bits, timing, self-modifying code, and the MMU.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            If Module 13 made JITs sound like a solved problem, this module is
+            the cold shower. Translating an <code>add</code> is easy. The hard
+            part is everything a real Gekko does <em>implicitly</em> — the
+            exact float bits, the passage of time, the caches, the address
+            translation — which software must now reproduce <em>explicitly</em>,
+            and every explicit check costs cycles in the hottest loop on the
+            machine. Accuracy isn't one dial; it's a series of specific traps,
+            and each one is a place where Dolphin's developers had to choose
+            speed, truth, or some painstaking third path that buys both.
+          </p>
+
+          <h4>Trap 1 · Floating point is a bit-exact contract</h4>
+          <p>
+            Module 03 warned that every float is a rounded approximation.
+            Here's the sting: <em>which</em> approximation is part of the ISA
+            contract, down to the last bit — and Gekko's paired singles are a
+            custom extension with their own personality. Their operations
+            round to single precision at each step, while a straight x86
+            translation might compute in double and round once — same maths,
+            different final bit. <code>ps_madd</code>'s
+            fused-or-not rounding behaviour, the exact bit pattern a NaN
+            propagates, denormal handling, the guest's rounding-mode flags:
+            each can differ subtly from the host's native habits. Does one
+            wrong low bit matter? In a screenshot, never. In a physics engine
+            run 60 times a second for an hour — where this frame's output is
+            next frame's input — divergence compounds: speedrun replays
+            desync, and a famously fragile few games misbehave. Dolphin's JIT
+            therefore massages float code with extra host instructions to
+            force Gekko-truthful rounding — a real, measured cost paid for
+            invisible correctness.
+          </p>
+
+          <h4>Trap 2 · Time is part of the machine</h4>
+          <p>
+            A real Gekko takes real time: 486 million cycles per second, no
+            more, no less, and games are written against that meter. Consider
+            the <span class="term" data-tip="A loop where the game spins doing nothing while waiting for an event (like the next video frame) — real hardware wastes real time in it; an emulator can detect and skip it.">idle loop</span>:
+            when a frame's work is done early, the game literally spins —
+            branch-to-self — until the video hardware signals the next frame.
+            Run that &ldquo;as fast as possible&rdquo; and the emulator melts a
+            host core doing nothing; so Dolphin detects idle spins and skips
+            ahead in virtual time. But virtual time must stay coherent:
+            game logic paced against the CPU clock, video interrupts, DMA
+            completion, the audio DSP — all advance on one shared timeline,
+            and code that finishes &ldquo;too fast&rdquo; relative to it can
+            break assumptions the original developers never knew they were
+            making. This is why an emulator can't simply hand the game more
+            speed: correctness is <em>keeping the clocks in step</em>, and
+            speed is only welcome where no one can observe it.
+          </p>
+
+          <h4>Trap 3 · Code that rewrites itself</h4>
+          <p>
+            Module 13 flagged it; here's why it's treacherous. On real
+            hardware, writing to code memory just works — the game flushes
+            with <code>dcbf</code>/<code>icbi</code> (Module 10) and the
+            icache refills. The hardware doesn't need to <em>notice</em>
+            writes; the JIT does, or it keeps executing a ghost. Dolphin
+            leans on the guest's own <code>icbi</code> etiquette and on
+            tracking writes to pages holding translated code — but games load
+            overlays, unpack compressed code, and a few scribble over
+            themselves with abandon. Miss one write and the symptom appears
+            minutes later, somewhere else entirely: the classic
+            hardest-bug-in-emulation.
+          </p>
+
+          <h4>Trap 4 · The MMU, or: which memory is that, exactly?</h4>
+          <p>
+            One piece of real hardware we've politely ignored: the
+            <span class="term" data-tip="Memory Management Unit — hardware that translates the addresses a program uses into physical memory locations, and faults when a mapping doesn't exist.">MMU</span>,
+            which sits between every address a program uses and the physical
+            RAM it lands in. Most GameCube games use PowerPC's simple
+            block-mapping mode — a handful of big fixed windows onto the
+            24&nbsp;MB — which an emulator can translate with one fast mask.
+            Dolphin's fast path builds on that, backed by clever use of host
+            page-fault machinery to catch the exceptions. But a minority of
+            titles genuinely exercise page-granular mappings and expect
+            precise <em>page faults</em> — memory exceptions delivered at
+            exactly the right instruction — and for those, Dolphin offers a
+            per-game full-MMU mode: more checks on every memory access,
+            slower, and for a stubborn shortlist of games, the difference
+            between booting and not.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The flight simulator's checkride</span>
+            <p>
+              A flight simulator that only looks right is a video game; one
+              that a licensing examiner accepts must match the aircraft's
+              numbers — fuel burn, stall speed, instrument lag — because
+              pilots build reflexes against the real machine's behaviour,
+              not its appearance. Games are the same pilots: a million
+              accidental dependencies on the exact float bits, the exact
+              cycle counts, the exact fault timing. <strong>Fast</strong>
+              gets the plane in the air; <strong>accurate</strong> is what
+              keeps two decades of software from noticing it ever changed
+              aircraft.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="A game writing new code into RAM while the block cache still holds a translation of the old bytes">
+              <defs><marker id="mDa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="mDm" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff5f9e"/></marker><marker id="mDr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#ff6a6a"/></marker></defs>
+              <rect x="30" y="90" width="200" height="80" rx="10" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="130" y="122" text-anchor="middle" class="d-label" style="font-size:13px">Game code runs</text>
+              <text x="130" y="142" text-anchor="middle" class="d-sub">loads a new level's engine</text>
+              <line x1="230" y1="130" x2="316" y2="130" class="d-axis" stroke-width="1.8" marker-end="url(#mDm)"/>
+              <text x="273" y="114" text-anchor="middle" class="d-flow d-magenta">writes new code</text>
+              <rect x="320" y="60" width="240" height="150" rx="10" class="d-fill-ground d-stroke-line" stroke-width="1.5"/>
+              <text x="440" y="50" text-anchor="middle" class="d-tag">guest RAM at 0x80280000</text>
+              <rect x="336" y="78" width="208" height="36" rx="6" class="d-cell"/><text x="440" y="101" text-anchor="middle" class="d-num">old bytes (dead)</text>
+              <rect x="336" y="122" width="208" height="36" rx="6" class="d-fill-panel d-magenta-s" stroke-width="1.3"/><text x="440" y="145" text-anchor="middle" class="d-num">NEW code — just written</text>
+              <text x="440" y="192" text-anchor="middle" class="d-sub">the guest runs icbi to flush its icache</text>
+              <rect x="640" y="60" width="230" height="150" rx="10" class="d-fill-ground d-amber-s" stroke-width="1.5"/>
+              <text x="755" y="50" text-anchor="middle" class="d-tag d-amber">Dolphin's block cache</text>
+              <rect x="656" y="84" width="198" height="52" rx="6" class="d-cell-x"/>
+              <text x="755" y="106" text-anchor="middle" class="d-num">0x80280000 → x86 blob</text>
+              <text x="755" y="124" text-anchor="middle" class="d-sub" style="fill:#ff6a6a">translation of the OLD bytes</text>
+              <rect x="656" y="146" width="198" height="42" rx="6" class="d-cell"/>
+              <text x="755" y="172" text-anchor="middle" class="d-sub">…thousands of live blocks…</text>
+              <line x1="560" y1="140" x2="636" y2="118" class="d-axis" stroke-width="1.8" marker-end="url(#mDr)"/>
+              <text x="598" y="108" text-anchor="middle" class="d-flow" style="fill:#ff6a6a">stale!</text>
+              <rect x="320" y="240" width="550" height="46" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.4"/>
+              <text x="595" y="260" text-anchor="middle" class="d-label" style="font-size:12.5px">the fix: detect the write (icbi + write tracking) → invalidate → recompile on next visit</text>
+              <text x="595" y="278" text-anchor="middle" class="d-sub">miss it, and the emulator keeps running code the game already replaced</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The stale-block hazard.</strong> The guest replaced its own code, but the block cache still maps that address to a translation of the <em>old</em> bytes. Real hardware can't make this mistake — its icache is hardware-coherent-enough with the <code>icbi</code> etiquette. A JIT must reproduce that vigilance in software, on every write, forever.</figcaption>
+          </figure>
+
+          <div class="note warn">
+            <div class="ico">▲</div>
+            <div><p><strong>Why not just always be maximally accurate?</strong>
+            Because every trap above taxes the innermost loop. Bit-true float
+            rounding adds host instructions to every ps_* op; full MMU adds
+            checks to every load and store; paranoid write-tracking taxes every
+            store. Each is a few percent — together they can halve the frame
+            rate. Dolphin's art is defaults that are truthful where games can
+            tell and fast where they can't, with per-game overrides for the
+            stubborn exceptions. That's the exact trade you'll set with your
+            own hands in the final module.</p></div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Float accuracy is bit-exactness: paired-single rounding, NaN bits and mode flags must match, or divergence compounds frame over frame.</li>
+              <li>Time is architectural: idle loops can be skipped, but all virtual clocks must advance in step.</li>
+              <li>Self-modifying code makes cached translations lie; icbi etiquette plus write tracking is the JIT's lifeline.</li>
+              <li>Most games live happily on fast block-mapped memory; a few demand full MMU emulation with precise faults.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#jit"><span class="dir">← Prev</span><span class="ttl">13 · Interpreters vs JITs</span></a>
+            <a class="next" href="#try"><span class="dir">Next →</span><span class="ttl">15 · Try it in Dolphin</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 15 --- -->
+      <section class="doc" id="try">
+        <div class="mod-head">
+          <span class="eye">Module 15 <span class="part-tag">· Part III</span></span>
+          <h3>Try it in Dolphin</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Turn the whole course into settings you can toggle and A/B for yourself — then close the loop back to Module 01.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            You now have the full picture, so let's make it hands-on. Dolphin's
+            CPU-related options live in its general and advanced configuration
+            (plus per-game property overrides); names shift slightly between
+            versions, so we'll describe each control by what it <em>does</em> —
+            which, pleasantly, you can now explain from first principles:
+          </p>
+          <ul>
+            <li><strong>CPU emulation engine → JIT recompiler</strong> — the default, and Module 13's whole argument: translate each basic block once, run native ever after. There's one per host architecture (x86-64, ARM64). Leave it here unless you have a reason.</li>
+            <li><strong>→ Cached interpreter</strong> — the middle rung: decode once, dispatch forever. A handy A/B point when you suspect the JIT itself of a bug — same timing model, none of the code generation.</li>
+            <li><strong>→ Interpreter</strong> — the reference re-enactment. Wonderful for developers bisecting a miscompiled instruction; unplayably slow for actual games. Running it once, briefly, is the best visceral proof of Module 13 you'll ever get.</li>
+            <li><strong>Clock override</strong> — a slider that changes the <em>virtual</em> CPU clock away from 486&nbsp;MHz. Underclock and honest games drop frames; overclock and games whose logic is paced by frame interrupts stay identical while ones that busy-wait or self-pace can speed up, glitch — or fix a slowdown the real console always had. It's Module 14's &ldquo;time is architectural&rdquo; lesson with a physical handle.</li>
+            <li><strong>MMU emulation</strong> (per-game) — full page-granular address translation with precise faults, for the short list of titles that demand it. Costs speed on every access; games that need it won't boot honestly without it.</li>
+            <li><strong>Dual core / synchronise-GPU-style options</strong> — run the emulated CPU and GPU on separate host threads (fast, slightly loose timing) or tightly synchronised (slower, deterministic). Exactly the Module 14 trade: speed where games can't observe it, truth where they can.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Behind the mixing desk</span>
+            <p>
+              Before this course, Dolphin's settings panel was a wall of
+              unlabelled faders — you moved one and hoped. Now you've been
+              behind the desk and traced every wire: the engine dropdown is
+              Module 13's interpreter-to-JIT ladder, the clock slider is
+              Module 14's virtual time, the MMU box is trap four. Settings
+              stop being superstition the moment you know what each fader is
+              soldered to — the diagram below is simply that wiring, read in
+              the order a real troubleshooting session walks it.
+            </p>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 320" role="img" aria-label="A decision tree for choosing Dolphin's CPU settings">
+              <defs><marker id="mEa" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="mEc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="mEv" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>
+              <rect x="330" y="16" width="240" height="46" rx="9" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="44" text-anchor="middle" class="d-label" style="font-size:13px">Pick a CPU engine</text>
+              <line x1="450" y1="62" x2="450" y2="88" class="d-axis" stroke-width="1.8" marker-end="url(#mEa)"/>
+              <rect x="300" y="90" width="300" height="54" rx="9" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="450" y="114" text-anchor="middle" class="d-label" style="font-size:13px">Game runs correctly &amp; fast?</text>
+              <text x="450" y="131" text-anchor="middle" class="d-sub">the overwhelmingly common case</text>
+              <line x1="600" y1="117" x2="712" y2="117" class="d-axis" stroke-width="1.8" marker-end="url(#mEc)"/>
+              <text x="656" y="108" text-anchor="middle" class="d-flow d-cyan">yes</text>
+              <rect x="714" y="92" width="168" height="50" rx="9" class="d-fill-panel2 d-cyan-s" stroke-width="1.5"/>
+              <text x="798" y="114" text-anchor="middle" class="d-label" style="font-size:13px">JIT recompiler</text>
+              <text x="798" y="131" text-anchor="middle" class="d-sub">the default — done</text>
+              <line x1="450" y1="144" x2="450" y2="170" class="d-axis" stroke-width="1.8" marker-end="url(#mEa)"/>
+              <text x="466" y="162" text-anchor="middle" class="d-flow">no</text>
+              <rect x="300" y="172" width="300" height="54" rx="9" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="450" y="196" text-anchor="middle" class="d-label" style="font-size:13px">Won't boot / corrupts memory?</text>
+              <text x="450" y="213" text-anchor="middle" class="d-sub">check the wiki: MMU list, per-game INI</text>
+              <line x1="600" y1="199" x2="712" y2="199" class="d-axis" stroke-width="1.8" marker-end="url(#mEv)"/>
+              <text x="656" y="190" text-anchor="middle" class="d-flow d-violet">try</text>
+              <rect x="714" y="174" width="168" height="54" rx="9" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="798" y="198" text-anchor="middle" class="d-label" style="font-size:13px">Enable MMU</text>
+              <text x="798" y="215" text-anchor="middle" class="d-sub">slower · precise faults</text>
+              <line x1="450" y1="226" x2="450" y2="252" class="d-axis" stroke-width="1.8" marker-end="url(#mEa)"/>
+              <text x="474" y="244" text-anchor="start" class="d-flow">hunting an emulator bug?</text>
+              <rect x="300" y="254" width="300" height="48" rx="9" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="450" y="274" text-anchor="middle" class="d-label" style="font-size:12px">Cached interpreter → interpreter</text>
+              <text x="450" y="291" text-anchor="middle" class="d-sub">slower and more faithful, one rung at a time</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Which engine?</strong> Stay on the <span class="term" data-tip="Dolphin's just-in-time recompiler — translates PowerPC basic blocks to native code; the fast default.">JIT</span> unless something's wrong. Misbehaving titles may need per-game <span class="term" data-tip="Full page-granular memory translation with precise faults — needed by a small list of games.">MMU</span> emulation; emulator debugging walks down the accuracy ladder to the <span class="term" data-tip="The slow, reference re-enactment of fetch–decode–execute in software.">interpreter</span>.</figcaption>
+          </figure>
+
+          <h4>Three experiments worth actually running</h4>
+          <ul>
+            <li><strong>Feel the interpreter.</strong> Take any game, switch the engine to interpreter, and watch the frame rate collapse — then flip back to JIT. That difference <em>is</em> Module 13: you just toggled amortisation on and off.</li>
+            <li><strong>Bend time.</strong> Set the clock override to 150%, then 60%, in a game with a busy pause menu. Some things speed up, some don't — sorting <em>which</em> is a live lesson in what's paced by the CPU clock versus the frame interrupt (Module 14).</li>
+            <li><strong>Read a JIT block for real.</strong> Dolphin ships a debugger with a JIT view showing guest PowerPC beside emitted host code. Find a loop, and you'll recognise everything: the basic block, the boundary branch, even ps_madd sequences from Module 08 — the whole course, on one screen.</li>
+          </ul>
+
+          <p>
+            And that's the course. You began with a cook and a stack of
+            numbered cards; you end able to read a Gekko datasheet, explain
+            why half a cache became a scratchpad, and predict which Dolphin
+            checkbox fixes which symptom. The fetch–decode–execute loop is
+            still down there, under everything, turning — on a 2001 games
+            console, on the machine you're reading this with, and in the
+            emulator faithfully pretending to be one on the other.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Course complete ✦</div>
+            <ul>
+              <li>You can trace a frame end-to-end: quantised loads → paired-single maths → write-gather pipe → Flipper — with the locked cache keeping time.</li>
+              <li>You know what a JIT actually does, why it's fast, and the four traps where accuracy costs real speed.</li>
+              <li>You can map every CPU setting in Dolphin to a mechanism you understand — and predict what toggling it will do.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#accuracy"><span class="dir">← Prev</span><span class="ttl">14 · The accuracy traps</span></a>
+            <a class="next" href="#loop"><span class="dir">↺ Restart</span><span class="ttl">01 · The fetch–decode–execute loop</span></a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          An interactive course built for the Dolphin project, companion to the
+          <a href="../audio/">GameCube audio course</a>. Every lab on this page
+          is a from-scratch simulation written for teaching — no game code, no
+          copyrighted material, nothing emulated for real. Hardware and
+          emulation details are grounded in public documentation and Dolphin's
+          own source; figures we couldn't pin down precisely are marked
+          &ldquo;about&rdquo; on purpose.
+        </p>
+        <p class="src">
+          Source of truth · <code>Source/Core/Core/PowerPC/</code> ·
+          <code>Source/Core/Core/PowerPC/Jit64/</code> ·
+          <code>Source/Core/Core/HW/</code>
+        </p>
+      </footer>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /app -->
+
+<script src="app.js"></script>
+</body>
+</html>
