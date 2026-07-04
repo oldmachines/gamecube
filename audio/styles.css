@@ -561,7 +561,12 @@ td .crc { font: 600 12.5px/1 var(--mono); color: var(--cyan); }
 .lab .lab-head .badge { margin-left: auto; font: 600 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .lab .lab-body { padding: 18px; display: grid; gap: 16px; }
 
-.scope, .spectrum {
+/* All lab canvases MUST have a fixed CSS height. Their draw() routines set
+   canvas.height = getBoundingClientRect().height * dpr; without a CSS height
+   the element's displayed height derives from the bitmap, so every resize
+   (iOS Safari fires one on each scroll as the URL bar toggles) doubles it —
+   ballooning the canvas until it blanks out and shoves the controls away. */
+.scope, .spectrum, .env-canvas {
   width: 100%;
   height: 150px;
   border-radius: var(--radius-s);
@@ -570,6 +575,7 @@ td .crc { font: 600 12.5px/1 var(--mono); color: var(--cyan); }
   border: 1px solid var(--line);
   display: block;
 }
+.env-canvas { height: 210px; }
 .spectrum-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .spectrum-grid > canvas { min-width: 0; }
 @media (max-width: 560px) { .spectrum-grid { grid-template-columns: 1fr; } }
