@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GameCube Audio — a course on the DSP, ucodes & Pro Logic II</title>
 <meta name="description" content="A hands-on course in three parts: digital signal processing fundamentals from scratch, how the GameCube DSP makes sound (including Dolby Pro Logic II), and how Dolphin emulates it — with a built-in synthesiser so you can hear every concept.">
-<link rel="stylesheet" href="styles.css?v=20260704a">
+<link rel="stylesheet" href="styles.css?v=20260704b">
 </head>
 <body>
 
@@ -2159,7 +2159,7 @@ tap_done:
             resampling mixer to your speakers. These four modules connect the whole
             course to the actual settings you'll toggle in the emulator.
           </p>
-          <div class="part-meta"><span>Modules <b>13–16</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>3 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>13–16</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>7 interactive</b></span></div>
         </div>
       </section>
 
@@ -2273,6 +2273,34 @@ tap_done:
             </div>
           </div>
 
+          <p>
+            Reading about &ldquo;executing the real instructions&rdquo; is one
+            thing; doing it is another. Below is a tiny slice of DSP program —
+            the inner loop of one voice being scaled by its volume, written in
+            the chip&rsquo;s real style of instructions. Press
+            <strong>Step</strong> and you are performing LLE by hand: fetch one
+            instruction, execute it, update the registers. What Dolphin&rsquo;s
+            LLE core does millions of times per second, you do at one press per
+            instruction.
+          </p>
+
+          <div class="lab" id="lab-dspexec">
+            <div class="lab-head"><span class="dot"></span><span class="title">Be the emulator — run 4 samples through the DSP, one instruction at a time</span><span class="badge">interactive</span></div>
+            <div class="lab-body">
+              <div class="sim-grid">
+                <div class="sim-code" data-sim-code aria-label="Program listing"></div>
+                <div class="sim-regs" data-sim-regs aria-label="Registers"></div>
+              </div>
+              <div class="sim-mem" data-sim-mem></div>
+              <div class="controls">
+                <button class="play-btn" data-sim-step>Step ➜</button>
+                <button class="surr-btn" data-sim-run>▶ Run</button>
+                <button class="surr-btn" data-sim-reset>Reset</button>
+                <span style="font-size:12.5px;color:var(--muted)" data-sim-note>Press Step to fetch the first instruction.</span>
+              </div>
+            </div>
+          </div>
+
           <div class="note">
             <div class="ico">◆</div>
             <div><p>In Dolphin the combo box maps to two flags — <code>DSP&nbsp;HLE</code>
@@ -2291,6 +2319,19 @@ tap_done:
             a Factor&nbsp;5 game booting to total silence. Under LLE those bugs
             are impossible by construction: there is no reimplementation to get
             wrong.</p></div>
+          </div>
+
+          <h4>How Dolphin got its sound</h4>
+          <p>
+            The LLE/HLE fork isn&rsquo;t an abstract design choice — it is
+            twenty years of hard-won history:
+          </p>
+          <div class="timeline">
+            <div class="tl-item"><div class="tl-year">2003</div><div class="tl-body"><strong>Silence.</strong> Dolphin begins life as a closed-source experiment. Audio is an afterthought — many games boot mute, and getting <em>any</em> sound often means a hack for that one game.</div></div>
+            <div class="tl-item"><div class="tl-year">2008</div><div class="tl-body"><strong>Open source.</strong> The code is released and the DSP finally gets serious attention: the instruction set is reverse-engineered and an LLE <em>interpreter</em> runs genuine ucodes — accurate, but it devours an entire CPU core.</div></div>
+            <div class="tl-item"><div class="tl-year">~2010</div><div class="tl-body"><strong>LLE goes fast.</strong> The DSP recompiler (the <span class="term" data-tip="Just-In-Time compiler — translates the DSP's code into fast native x64 code as it runs.">JIT</span> in Module 13&rsquo;s dropdown) translates DSP code into native x64 on the fly: the same bit-exact accuracy at playable speed.</div></div>
+            <div class="tl-item"><div class="tl-year">2012</div><div class="tl-body"><strong>HLE done right.</strong> The &ldquo;new-AX-HLE&rdquo; effort rewrites HLE&rsquo;s guesswork: instead of patching one game at a time, faithfully reimplement each ucode <em>family</em> — and whole libraries of titles get correct music, reverb and streaming at once.</div></div>
+            <div class="tl-item"><div class="tl-year">today</div><div class="tl-body"><strong>Two engines, one answer.</strong> HLE is accurate enough to be the default; LLE remains the bit-exact reference — and the Pro Logic II path. They mostly agree, which is exactly how you know the reverse engineering is done.</div></div>
           </div>
 
           <div class="takeaway">
@@ -2361,6 +2402,31 @@ tap_done:
             homebrew&rdquo;) and a best-effort fallback to AX. Under
             <span class="term" data-tip="Low-Level Emulation — running the DSP's real instructions directly.">LLE</span>
             there's no lookup at all — it just runs whatever code arrived.</p></div>
+          </div>
+
+          <p>
+            That fingerprint deserves a closer look, because HLE&rsquo;s whole
+            strength <em>and</em> fragility hide inside it. Below are the first
+            32 bytes of a make-believe ucode, freshly DMA&rsquo;d into IRAM.
+            Dolphin hashes the image and looks the result up in its table of
+            known ucodes. Try corrupting a single byte — then imagine you are a
+            developer who merely <em>recompiled</em> your audio engine.
+          </p>
+
+          <div class="lab" id="lab-crc">
+            <div class="lab-head"><span class="dot"></span><span class="title">The fingerprint — one byte between music and silence</span><span class="badge">interactive</span></div>
+            <div class="lab-body">
+              <div class="hexdump" data-crc-hex aria-label="The ucode's bytes in hexadecimal"></div>
+              <div class="fp-hash">hash of IRAM image → <code data-crc-val></code></div>
+              <div class="fp-cards">
+                <div class="fp-card" data-crc-hle></div>
+                <div class="fp-card" data-crc-lle></div>
+              </div>
+              <div class="controls">
+                <button class="play-btn" data-crc-corrupt>Corrupt one byte</button>
+                <button class="surr-btn" data-crc-restore>Restore</button>
+              </div>
+            </div>
           </div>
 
           <p>
@@ -2473,6 +2539,32 @@ tap_done:
                 <button class="play-btn" data-resample="nearest" style="background:linear-gradient(180deg,#ff6a6a,#c23b3b);color:#200">nearest</button>
                 <button class="play-btn" data-resample="linear" style="background:linear-gradient(180deg,#ffb14e,#c9832b);color:#200">linear</button>
                 <button class="play-btn" data-resample="hermite">Hermite</button>
+              </div>
+            </div>
+          </div>
+
+          <h4>Hear the deadline being missed</h4>
+          <p>
+            One more thing deserves ears: the top row of Module&nbsp;16&rsquo;s
+            troubleshooting table. When the emulated console can&rsquo;t keep
+            up, the Mixer&rsquo;s buffer runs dry and the sound card gets handed
+            silence — over and over, dozens of times a second. Play the same
+            melody three ways: at <strong>full speed</strong>; from an emulator
+            running at <strong>70&nbsp;%</strong>, where every gap is a
+            <span class="term" data-tip="The output buffer emptied before new samples arrived, so the sound card played silence — heard as a crackle or stutter.">buffer under-run</span>;
+            and rescued by <strong>audio stretching</strong>, which slows the
+            sound itself down to match — continuous and pitch-correct, at the
+            price of a slightly warbly texture.
+          </p>
+
+          <div class="lab" id="lab-starve">
+            <div class="lab-head"><span class="dot"></span><span class="title">Buffer starvation — full speed vs 70&nbsp;% vs audio stretching</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope of the melody"></canvas>
+              <div class="controls">
+                <button class="play-btn" data-starve="clean">full speed</button>
+                <button class="play-btn" data-starve="starved" style="background:linear-gradient(180deg,#ff6a6a,#c23b3b);color:#200">70&nbsp;% · starved</button>
+                <button class="play-btn" data-starve="stretch" style="background:linear-gradient(180deg,#ffb14e,#c9832b);color:#200">70&nbsp;% + stretching</button>
               </div>
             </div>
           </div>
@@ -2600,6 +2692,21 @@ tap_done:
             audible in a single A/B test.
           </p>
 
+          <h4>Final exam — six broken consoles</h4>
+          <p>
+            Six situations, straight out of real bug reports. You&rsquo;re the
+            one at the keyboard: pick the setting you&rsquo;d reach for. Every
+            answer points back at the module that taught it.
+          </p>
+
+          <div class="lab" id="lab-quiz">
+            <div class="lab-head"><span class="dot"></span><span class="title">Diagnose it — what do you change?</span><span class="badge">quiz · <span data-quiz-score>0 / 6</span></span></div>
+            <div class="lab-body">
+              <div class="quiz" data-quiz></div>
+              <div class="q-verdict" data-quiz-verdict hidden></div>
+            </div>
+          </div>
+
           <div class="takeaway">
             <div class="th">Course complete ✦</div>
             <ul>
@@ -2655,6 +2762,6 @@ tap_done:
   </div>
 </div>
 
-<script src="app.js?v=20260704a"></script>
+<script src="app.js?v=20260704b"></script>
 </body>
 </html>

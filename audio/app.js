@@ -1373,6 +1373,18 @@ document.addEventListener('DOMContentLoaded', () => {
       Engine.play(`Mixer · ${b.dataset.resample} interpolation`, buildResampled(b.dataset.resample))));
   }
 
+  /* DSP interpreter, fingerprint, starvation + quiz labs (Part III) */
+  const dxl = document.getElementById('lab-dspexec'); if (dxl) DspExecLab(dxl);
+  const crl = document.getElementById('lab-crc'); if (crl) CrcLab(crl);
+  const stl = document.getElementById('lab-starve');
+  if (stl) {
+    Scope(stl.querySelector('.scope'), { color: '#ff6a6a' });
+    const NAMES = { clean: 'full speed', starved: '70% · buffer starvation', stretch: '70% + audio stretching' };
+    stl.querySelectorAll('[data-starve]').forEach(b => b.addEventListener('click', () =>
+      Engine.play(`Melody · ${NAMES[b.dataset.starve]}`, buildStarved(b.dataset.starve))));
+  }
+  const qzl = document.getElementById('lab-quiz'); if (qzl) QuizLab(qzl);
+
   /* mixer + panner labs */
   const ml = document.getElementById('lab-mixer'); if (ml) MixerLab(ml);
   const pl = document.getElementById('lab-panner'); if (pl) PanLab(pl);
@@ -1545,3 +1557,279 @@ function heroAmbient(canvas) {
 
 const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 const ICON_STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+/* -------------------------------------------------------- DSP exec lab     */
+/* LLE by hand: a nine-instruction voice-scaling loop, executed one Step at a
+   time with live registers — the fetch/decode/execute cycle made visible.   */
+function DspExecLab(root) {
+  const codeEl = root.querySelector('[data-sim-code]');
+  const regsEl = root.querySelector('[data-sim-regs]');
+  const memEl = root.querySelector('[data-sim-mem]');
+  const note = root.querySelector('[data-sim-note]');
+  const stepBtn = root.querySelector('[data-sim-step]');
+  const runBtn = root.querySelector('[data-sim-run]');
+  const resetBtn = root.querySelector('[data-sim-reset]');
+
+  const IN = [0x2000, 0x6000, 0xE000, 0x4000];          // 0.25, 0.75, −0.25, 0.5
+  const hx = (v, w = 4) => '0x' + (v & (w === 4 ? 0xFFFF : 0xFFF)).toString(16).toUpperCase().padStart(w, '0');
+  const q15 = v => { const s = (v & 0x8000) ? v - 0x10000 : v; return (s / 32768).toFixed(4).replace(/0+$/, '').replace(/\.$/, '.0'); };
+
+  let R, out, pc, halted, lastChanged;
+  function reset() {
+    R = { AR0: 0x0400, AR1: 0x0500, 'AX0.H': 0, 'AX1.H': 0, PROD: 0, 'AC0.M': 0, LC: null };
+    out = [null, null, null, null];
+    pc = 0; halted = false; lastChanged = [];
+    note.textContent = 'Press Step to fetch the first instruction.';
+    render();
+  }
+
+  const PROG = [
+    { a: 0x000, k: 'LRI', o: '$AR0, #0x0400', c: 'point AR0 at the input samples',
+      x() { R.AR0 = 0x0400; return ['AR0 ← 0x0400 — the address register now points at the voice’s samples.', ['AR0']]; } },
+    { a: 0x001, k: 'LRI', o: '$AR1, #0x0500', c: 'point AR1 at the output buffer',
+      x() { R.AR1 = 0x0500; return ['AR1 ← 0x0500 — where the scaled samples will be written.', ['AR1']]; } },
+    { a: 0x002, k: 'LRI', o: '$AX0.H, #0x4000', c: 'volume = 0.5 (Q15 fraction)',
+      x() { R['AX0.H'] = 0x4000; return ['AX0.H ← 0x4000. As a Q15 fraction that is 0.5 — this voice plays at half volume.', ['AX0.H']]; } },
+    { a: 0x003, k: 'BLOOP', o: '#4, 0x0007', c: 'hardware loop: to 0x007, ×4',
+      x() { R.LC = 4; return ['Hardware loop armed: run through address 0x007 four times — no compare-and-branch needed, the chip counts for free.', ['LC']]; } },
+    { a: 0x004, k: 'LRRI', o: '$AX1.H, @$AR0', c: 'sample ← RAM[AR0], AR0++',
+      x() { const i = R.AR0 - 0x0400; R['AX1.H'] = IN[i]; R.AR0++;
+            return ['Fetch sample ' + (i + 1) + ': AX1.H ← ' + hx(IN[i]) + ' (' + q15(IN[i]) + '), and AR0 auto-increments.', ['AX1.H', 'AR0']]; } },
+    { a: 0x005, k: 'MULX', o: '$AX0.H, $AX1.H', c: 'PROD ← volume × sample',
+      x() { const a = R['AX0.H'], b = R['AX1.H'];
+            const sa = (a & 0x8000) ? a - 0x10000 : a, sb = (b & 0x8000) ? b - 0x10000 : b;
+            R.PROD = ((sa * sb) >> 15) & 0xFFFF;
+            return ['Multiply: ' + q15(a) + ' × ' + q15(b) + ' = ' + q15(R.PROD) + ' — one cycle, into the product register.', ['PROD']]; } },
+    { a: 0x006, k: 'MOVP', o: '$ACC0', c: 'accumulator ← PROD',
+      x() { R['AC0.M'] = R.PROD; return ['Move the product into accumulator 0 (a real mixer would ADD many voices here — ours has just one).', ['AC0.M']]; } },
+    { a: 0x007, k: 'SRRI', o: '@$AR1, $AC0.M', c: 'RAM[AR1] ← AC0.M, AR1++ · loop end',
+      x() { const i = R.AR1 - 0x0500; out[i] = R['AC0.M']; R.AR1++;
+            let t = 'Store result ' + (i + 1) + ': RAM[' + hx(0x0500 + i) + '] ← ' + hx(out[i]) + '.';
+            if (R.LC > 1) t += ' End of loop body — the loop counter drops to ' + (R.LC - 1) + ' and the chip jumps back to 0x004.';
+            else t += ' Loop counter hits 0 — fall through.';
+            return [t, ['AR1', 'LC']]; } },
+    { a: 0x008, k: 'HALT', o: '', c: 'frame done',
+      x() { halted = true; return ['Done: 4 samples fetched, scaled and stored. Dolphin’s LLE core does exactly this — millions of instructions per emulated second.', []]; } },
+  ];
+
+  function step() {
+    if (halted) return;
+    const ins = PROG[pc];
+    const [txt, chg] = ins.x();
+    lastChanged = chg;
+    // advance PC (BLOOP end-of-body handling)
+    if (ins.a === 0x007) { R.LC--; pc = R.LC > 0 ? 4 : 8; }
+    else if (!halted) pc++;
+    note.textContent = txt;
+    render(ins.a);
+    if (halted) stopRun();
+  }
+
+  let timer = null;
+  function stopRun() { if (timer) { clearInterval(timer); timer = null; runBtn.textContent = '▶ Run'; } }
+  runBtn.addEventListener('click', () => {
+    if (timer) { stopRun(); return; }
+    if (halted) reset();
+    runBtn.textContent = '⏸ Pause';
+    timer = setInterval(step, 480);
+  });
+  stepBtn.addEventListener('click', () => { stopRun(); if (halted) reset(); else step(); });
+  resetBtn.addEventListener('click', () => { stopRun(); reset(); });
+
+  function render(justRan) {
+    codeEl.innerHTML = PROG.map((p, i) =>
+      '<div class="srow' + (i === pc && !halted ? ' cur' : '') + (p.a === justRan ? ' ran' : '') + '">'
+      + '<span class="sa">' + hx(p.a, 3) + '</span><span class="sk">' + p.k + '</span>'
+      + '<span class="so">' + p.o + '</span><span class="sc">; ' + p.c + '</span></div>').join('');
+    const regs = [['PC', halted ? '—' : hx(PROG[pc].a, 3), ''], ['AR0', hx(R.AR0), ''], ['AR1', hx(R.AR1), ''],
+      ['AX0.H', hx(R['AX0.H']), q15(R['AX0.H'])], ['AX1.H', hx(R['AX1.H']), q15(R['AX1.H'])],
+      ['PROD', hx(R.PROD), q15(R.PROD)], ['AC0.M', hx(R['AC0.M']), q15(R['AC0.M'])],
+      ['loop', R.LC === null ? '—' : String(R.LC), '']];
+    regsEl.innerHTML = regs.map(([k, v, f]) =>
+      '<div class="reg' + (lastChanged.indexOf(k === 'loop' ? 'LC' : k) >= 0 ? ' chg' : '') + '">'
+      + '<span class="rk">' + k + '</span><span class="rv">' + v + '</span>'
+      + (f ? '<span class="rf">' + f + '</span>' : '') + '</div>').join('');
+    memEl.innerHTML =
+      '<div class="mem-row"><span class="mk">RAM 0x0400 · input</span>' + IN.map((v, i) =>
+        '<span class="mc' + (i < R.AR0 - 0x0400 ? ' used' : '') + '">' + hx(v).slice(2) + '</span>').join('') + '</div>'
+      + '<div class="mem-row"><span class="mk">RAM 0x0500 · output</span>' + out.map((v, i) =>
+        '<span class="mc' + (v !== null ? ' wrote' : '') + '">' + (v === null ? '····' : hx(v).slice(2)) + '</span>').join('') + '</div>';
+  }
+  reset();
+}
+
+/* -------------------------------------------------------- fingerprint lab  */
+/* Why HLE is fragile by construction: hash the IRAM image, look it up.
+   Corrupt one byte and the lookup misses — while LLE doesn't even look.     */
+function CrcLab(root) {
+  const hexEl = root.querySelector('[data-crc-hex]');
+  const valEl = root.querySelector('[data-crc-val]');
+  const hleEl = root.querySelector('[data-crc-hle]');
+  const lleEl = root.querySelector('[data-crc-lle]');
+  const corruptBtn = root.querySelector('[data-crc-corrupt]');
+  const restoreBtn = root.querySelector('[data-crc-restore]');
+
+  // a make-believe ucode image (values chosen to look like DSP opcode pairs)
+  const pristine = [
+    0x02, 0x9F, 0x0C, 0xDE, 0x02, 0xBF, 0x00, 0x63, 0x16, 0xFC, 0xDC, 0xD1,
+    0x00, 0x80, 0x80, 0x71, 0x00, 0x81, 0xFE, 0xED, 0x8E, 0x00, 0x00, 0x21,
+    0x02, 0x40, 0x0F, 0xFF, 0x02, 0x9D, 0x00, 0x04,
+  ];
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+      c ^= bytes[i];
+      for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+    }
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  const hex8 = v => '0x' + v.toString(16).toUpperCase().padStart(8, '0');
+  const KNOWN = crc32(pristine);
+  const TABLE = [[KNOWN, 'AXUCode'], [0x86840740, 'ZeldaUCode'], [0xDD7E72D5, 'CARD ucode']];
+
+  let bytes = pristine.slice();
+  let broken = new Set();
+  function render() {
+    hexEl.innerHTML = bytes.map((b, i) =>
+      '<span class="hb' + (broken.has(i) ? ' bad' : '') + '">' + b.toString(16).toUpperCase().padStart(2, '0') + '</span>').join('');
+    const h = crc32(bytes);
+    const hit = TABLE.find(([c]) => c === h);
+    valEl.textContent = hex8(h);
+    valEl.classList.toggle('bad', !hit);
+    if (hit) {
+      hleEl.className = 'fp-card ok';
+      hleEl.innerHTML = '<span class="fp-tag">HLE</span> table hit → instantiate <code>' + hit[1] + '</code>. Music plays. But the match is <em>exact</em>: this C++ was written for precisely these bytes.';
+    } else {
+      hleEl.className = 'fp-card bad';
+      hleEl.innerHTML = '<span class="fp-tag">HLE</span> no table entry → <em>&ldquo;Unknown ucode (CRC ' + hex8(h) + ') — this game may be incompatible. Try LLE if this is homebrew.&rdquo;</em> Best-effort fallback to AX; likely silence.';
+    }
+    lleEl.className = 'fp-card ok';
+    lleEl.innerHTML = '<span class="fp-tag lle">LLE</span> no lookup at all. The DSP core executes whatever bytes arrived — original, corrupted or brand-new — exactly like silicon would.';
+  }
+  corruptBtn.addEventListener('click', () => {
+    const i = Math.floor(Math.random() * bytes.length);
+    bytes[i] = (bytes[i] ^ (1 + Math.floor(Math.random() * 255))) & 0xFF;
+    broken.add(i);
+    render();
+  });
+  restoreBtn.addEventListener('click', () => { bytes = pristine.slice(); broken.clear(); render(); });
+  render();
+}
+
+/* -------------------------------------------------------- starvation lab   */
+/* The same melody at full speed, starved (an emulator at 70% leaves the
+   buffer dry 30% of the time), and rescued by granular time-stretching.     */
+function buildMelody(sr) {
+  const NOTES = [329.63, 392.0, 493.88, 659.25, 587.33, 493.88, 392.0, 329.63]; // E4 G4 B4 E5 D5 B4 G4 E4
+  const nd = 0.34, dur = NOTES.length * nd;
+  const n = Math.floor(sr * dur), s = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, ni = Math.min(NOTES.length - 1, Math.floor(t / nd)), tn = t - ni * nd;
+    const f = NOTES[ni];
+    const env = Math.min(1, tn / 0.012) * Math.exp(-3.2 * tn);
+    s[i] = env * 0.55 * (Math.sin(2 * Math.PI * f * tn) + 0.35 * Math.sin(4 * Math.PI * f * tn) + 0.12 * Math.sin(6 * Math.PI * f * tn));
+  }
+  return s;
+}
+function buildStarved(mode) {
+  return (ctx, dest) => {
+    const sr = ctx.sampleRate;
+    const src = buildMelody(sr);
+    let out;
+    if (mode === 'clean') {
+      out = src;
+    } else if (mode === 'starved') {
+      // every 33 ms the sound card wants a block, but only 70% of it is ready
+      const block = Math.round(0.033 * sr), have = Math.round(block * 0.7);
+      out = new Float32Array(Math.ceil(src.length / have) * block);
+      let ip = 0, op = 0;
+      while (ip < src.length) {
+        for (let i = 0; i < have && ip < src.length; i++) out[op + i] = src[ip++];
+        op += block;                                    // the remaining 30%: silence
+      }
+    } else {
+      // granular time-stretch to 1/0.7× length: overlap-add 45 ms grains
+      const grain = Math.round(0.045 * sr), xf = Math.round(0.012 * sr), hop = grain - xf;
+      const outLen = Math.ceil(src.length / 0.7) + grain;
+      out = new Float32Array(outLen);
+      const norm = new Float32Array(outLen);
+      for (let p = 0; p + grain < outLen; p += hop) {
+        const s0 = Math.round(p * 0.7);
+        if (s0 >= src.length) break;
+        for (let i = 0; i < grain; i++) {
+          const w = i < xf ? i / xf : (i >= grain - xf ? (grain - i) / xf : 1);
+          const v = s0 + i < src.length ? src[s0 + i] : 0;
+          out[p + i] += v * w; norm[p + i] += w;
+        }
+      }
+      for (let i = 0; i < outLen; i++) if (norm[i] > 0) out[i] /= norm[i];
+    }
+    const buf = ctx.createBuffer(1, out.length, sr);
+    buf.getChannelData(0).set(out);
+    const g = ctx.createGain(); g.gain.value = 0.9; g.connect(dest);
+    const node = ctx.createBufferSource(); node.buffer = buf; node.connect(g);
+    node.start(ctx.currentTime + 0.02);
+    return { duration: out.length / sr + 0.05, stop() { try { node.stop(); } catch (e) {} } };
+  };
+}
+
+/* -------------------------------------------------------- final quiz       */
+function QuizLab(root) {
+  const wrap = root.querySelector('[data-quiz]');
+  const scoreEl = root.querySelector('[data-quiz-score]');
+  const verdictEl = root.querySelector('[data-quiz-verdict]');
+  const Q = [
+    { s: 'Sound effects are crystal-clear, but the music never starts.',
+      o: ['Enable Audio Stretching', 'Switch to LLE Recompiler', 'Change the audio backend'], a: 1,
+      e: 'Classic HLE symptom (Module 13): one command list reimplemented, another not. LLE runs the real ucode, so nothing can be “not yet written”.' },
+    { s: 'You want real Dolby Pro Logic II surround out of Dolphin.',
+      o: ['HLE + any backend', 'LLE Recompiler + a supported backend', 'Stereo speakers + luck'], a: 1,
+      e: 'DPL2 is only offered under LLE (Modules 12 & 16), and the backend must deliver multi-channel — e.g. Cubeb or WASAPI.' },
+    { s: 'The game runs at half speed and the audio crackles and stutters.',
+      o: ['Enable Audio Stretching', 'Switch to LLE Interpreter', 'Turn the volume up'], a: 0,
+      e: 'The buffer is starving — Module 15’s lab, live. Stretching slows the audio to match the emulation speed: warbly but continuous. (Better still, lower settings until the game runs full speed.)' },
+    { s: 'A homebrew demo pops up “unknown ucode” and plays nothing.',
+      o: ['Switch to LLE Recompiler', 'Report a bug to the demo’s author', 'Enable DSP HLE thread'], a: 0,
+      e: 'HLE only knows the ucodes it was taught — a fingerprint miss panics (Module 14’s lab). LLE has no lookup; it just executes what arrived.' },
+    { s: 'You switched to LLE and now the game itself drops frames.',
+      o: ['Go back to HLE and give up DPL2', 'Enable “DSP LLE on dedicated thread”', 'Buy a faster disc drive'], a: 1,
+      e: 'LLE costs real instruction-level work (Module 13). On its own thread, the emulated DSP stops fighting the CPU thread for time.' },
+    { s: 'You pick LLE but have never dumped a DSP ROM. What happens?',
+      o: ['Dolphin refuses to start the game', 'Silence until you dump one', 'It falls back to a built-in clean-room ROM'], a: 2,
+      e: 'Dolphin ships a legally clean reimplementation of the boot ROM and coefficients (Modules 09 & 16) — audio still works, with minor differences in a few titles.' },
+  ];
+  let score = 0, answered = 0;
+  Q.forEach((q, qi) => {
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = '<div class="q-s"><span class="q-n">' + (qi + 1) + '</span>' + q.s + '</div>'
+      + '<div class="q-opts">' + q.o.map((o, i) => '<button data-i="' + i + '">' + o + '</button>').join('') + '</div>'
+      + '<div class="q-exp" hidden></div>';
+    const btns = card.querySelectorAll('button');
+    btns.forEach(b => b.addEventListener('click', () => {
+      if (card.classList.contains('done')) return;
+      card.classList.add('done');
+      const pick = parseInt(b.dataset.i);
+      btns.forEach((x, i) => {
+        x.disabled = true;
+        if (i === q.a) x.classList.add('good');
+        else if (i === pick) x.classList.add('bad');
+      });
+      const exp = card.querySelector('.q-exp');
+      exp.hidden = false;
+      exp.innerHTML = (pick === q.a ? '<strong class="yes">Exactly.</strong> ' : '<strong class="no">Not quite.</strong> ') + q.e;
+      if (pick === q.a) score++;
+      answered++;
+      scoreEl.textContent = score + ' / ' + Q.length;
+      if (answered === Q.length) {
+        verdictEl.hidden = false;
+        verdictEl.textContent = score === Q.length
+          ? '6 / 6 — flawless. You are officially ready to argue about DSP emulation on the Dolphin forums.'
+          : score >= 4
+            ? score + ' / 6 — solid. The explanations above point at the modules worth a second read.'
+            : score + ' / 6 — the course is right there above you, and now you know exactly which modules to revisit.';
+      }
+    }));
+    wrap.appendChild(card);
+  });
+}
