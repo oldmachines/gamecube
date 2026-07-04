@@ -21,29 +21,32 @@
       <div class="logo" aria-hidden="true"></div>
       <div>
         <h1>GameCube Audio</h1>
-        <span class="sub">A course · 13 modules</span>
+        <span class="sub">A course · 16 modules</span>
       </div>
     </div>
 
     <nav class="toc" aria-label="Course contents">
       <div class="toc-group">Part I · Signal processing</div>
       <a href="#signals"><span class="n">01</span><span>Sound as numbers</span></a>
-      <a href="#sampling"><span class="n">02</span><span>Sampling &amp; Nyquist</span></a>
-      <a href="#quantization"><span class="n">03</span><span>Quantisation &amp; ADPCM</span></a>
-      <a href="#mixing"><span class="n">04</span><span>Mixing, gain &amp; panning</span></a>
-      <a href="#filters"><span class="n">05</span><span>Filters &amp; resampling</span></a>
+      <a href="#spectrum"><span class="n">02</span><span>The frequency domain</span></a>
+      <a href="#sampling"><span class="n">03</span><span>Sampling &amp; Nyquist</span></a>
+      <a href="#quantization"><span class="n">04</span><span>Quantisation &amp; ADPCM</span></a>
+      <a href="#mixing"><span class="n">05</span><span>Mixing, gain &amp; panning</span></a>
+      <a href="#envelopes"><span class="n">06</span><span>Envelopes (ADSR)</span></a>
+      <a href="#headroom"><span class="n">07</span><span>Loudness &amp; clipping</span></a>
+      <a href="#filters"><span class="n">08</span><span>Filters &amp; resampling</span></a>
 
       <div class="toc-group">Part II · The GameCube DSP</div>
-      <a href="#dsp"><span class="n">06</span><span>The audio DSP</span></a>
-      <a href="#ucodes"><span class="n">07</span><span>One chip, many ucodes</span></a>
-      <a href="#ax"><span class="n">08</span><span>AX: the voice pipeline</span></a>
-      <a href="#dpl2"><span class="n">09</span><span>Dolby Pro Logic II</span></a>
+      <a href="#dsp"><span class="n">09</span><span>The audio DSP</span></a>
+      <a href="#ucodes"><span class="n">10</span><span>One chip, many ucodes</span></a>
+      <a href="#ax"><span class="n">11</span><span>AX: the voice pipeline</span></a>
+      <a href="#dpl2"><span class="n">12</span><span>Dolby Pro Logic II</span></a>
 
       <div class="toc-group">Part III · Emulating in Dolphin</div>
-      <a href="#lle-hle"><span class="n">10</span><span>LLE vs HLE</span></a>
-      <a href="#pipeline"><span class="n">11</span><span>Boot, mail &amp; dispatch</span></a>
-      <a href="#output"><span class="n">12</span><span>The output path</span></a>
-      <a href="#try"><span class="n">13</span><span>Try it in Dolphin</span></a>
+      <a href="#lle-hle"><span class="n">13</span><span>LLE vs HLE</span></a>
+      <a href="#pipeline"><span class="n">14</span><span>Boot, mail &amp; dispatch</span></a>
+      <a href="#output"><span class="n">15</span><span>The output path</span></a>
+      <a href="#try"><span class="n">16</span><span>Try it in Dolphin</span></a>
 
       <div class="progress-note">Progress · <b id="pct">0%</b></div>
     </nav>
@@ -63,7 +66,7 @@
             We start from the very beginning — what a digital sound signal even
             <em>is</em> — assuming you know nothing about audio engineering. Once
             the vocabulary is solid, we follow the signal through Nintendo's tiny
-            audio chip and out through Dolphin's emulator. Thirteen modules, each
+            audio chip and out through Dolphin's emulator. Sixteen modules, each
             with a <strong>live synthesiser</strong> so you can hear every idea,
             not just read it. No game audio ships with this page; every sound is
             generated in your browser.
@@ -81,7 +84,7 @@
               <div class="an">PART I</div>
               <h4>Signal processing</h4>
               <p>Samples, sample rate, bit depth, compression, mixing and filters — the universal vocabulary of digital audio, explained from zero.</p>
-              <div class="cnt">5 modules · with labs</div>
+              <div class="cnt">8 modules · with labs</div>
             </a>
             <a class="arc" href="#part-2">
               <div class="an">PART II</div>
@@ -118,7 +121,7 @@
             us. Everything in Parts II and III is just these five ideas wired
             together.
           </p>
-          <div class="part-meta"><span>Modules <b>01–05</b></span><span>Difficulty <b>Absolute beginner</b></span><span>Labs <b>4 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>01–08</b></span><span>Difficulty <b>Absolute beginner</b></span><span>Labs <b>7 interactive</b></span></div>
         </div>
       </section>
 
@@ -160,16 +163,16 @@
               playing the photos back quickly recreates smooth sound. Take too few
               photos per second and, just like a choppy movie, the result looks —
               or here, <em>sounds</em> — wrong. That &ldquo;how many per second&rdquo;
-              question is Module 02.
+              question is Module 03.
             </p>
           </div>
 
           <p>
             Two numbers describe this whole scheme, and they're the backbone of the
             next two modules. The first is how <em>often</em> we take a sample — the
-            <strong>sample rate</strong> (Module 02). The second is how
+            <strong>sample rate</strong> (Module 03). The second is how
             <em>precisely</em> we record each measurement — the <strong>bit
-            depth</strong> (Module 03). Get comfortable with those two words; you'll
+            depth</strong> (Module 04). Get comfortable with those two words; you'll
             see them constantly.
           </p>
 
@@ -319,15 +322,146 @@
 
           <div class="mod-nav">
             <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of course</span></a>
-            <a class="next" href="#sampling"><span class="dir">Next →</span><span class="ttl">02 · Sampling &amp; Nyquist</span></a>
+            <a class="next" href="#spectrum"><span class="dir">Next →</span><span class="ttl">02 · The frequency domain</span></a>
           </div>
         </div>
       </section>
 
       <!-- --- Module 02 --- -->
-      <section class="doc" id="sampling">
+      <section class="doc" id="spectrum">
         <div class="mod-head">
           <span class="eye">Module 02 <span class="part-tag">· Part I</span></span>
+          <h3>The frequency domain</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">See that every sound is really a stack of pure sine waves, and learn to read a spectrum — the picture used by filters and aliasing later.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Back in Module 01 we said a square or saw wave is &ldquo;secretly a sine
+            plus a stack of higher tones.&rdquo; That wasn&rsquo;t a metaphor — it&rsquo;s
+            one of the most important facts in all of audio, and this module makes it
+            concrete. The insight (we owe it to the mathematician Fourier) is this:
+            <strong>any sound, however complicated, is just a sum of simple sine waves
+            at different frequencies and volumes.</strong> Add the right sines together
+            and you can build <em>any</em> waveform; pull a sound apart and you always
+            find sines underneath.
+          </p>
+          <p>
+            That gives you two different ways to look at the very same sound. The first
+            is the one you already know: the <strong>time domain</strong> — amplitude
+            wobbling up and down over time, the wiggly line on an oscilloscope. The
+            second is the <strong>frequency domain</strong> — a picture of <em>which
+            pitches are present and how strong each one is</em>. That picture is called
+            the <strong>spectrum</strong>, and it&rsquo;s drawn as a bar chart: frequency
+            runs left (low) to right (high), and each bar&rsquo;s height is how much of
+            that frequency the sound contains.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · A recipe</span>
+            <p>
+              The <span class="term" data-tip="The amplitude-over-time view of a sound — the wiggly oscilloscope line.">time domain</span>
+              is like tasting a finished cake — the whole thing at once, moment by
+              moment. The <span class="term" data-tip="The view of a sound broken into how much of each frequency it contains — its spectrum.">frequency domain</span>
+              is the <em>recipe</em>: how much flour, sugar, and egg went in. Both
+              describe the same cake; the recipe just lists the ingredients — here,
+              the pure sine tones.
+            </p>
+          </div>
+
+          <p>
+            Reading a spectrum quickly becomes second nature:
+          </p>
+          <ul>
+            <li>A pure <strong>sine</strong> is a single bar — one frequency, nothing else.</li>
+            <li>A <strong>square</strong> or <strong>saw</strong> is a tall bar at its base pitch — the <strong>fundamental</strong>, the note you actually hear — plus a row of shorter bars at whole-number multiples of it. Those multiples are the <span class="term" data-tip="Whole-number multiples of the fundamental (2×, 3×, 4×…). More/stronger harmonics = a brighter, buzzier tone.">harmonics</span>, and they&rsquo;re exactly what makes those shapes sound bright.</li>
+            <li><strong>Noise</strong> fills the whole chart — every frequency at once, which is why it has no pitch.</li>
+          </ul>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 200" role="img" aria-label="A sawtooth wave shown in the time domain and as a frequency spectrum">
+              <line x1="60" y1="95" x2="430" y2="95" class="d-grid"/>
+              <polyline class="d-wave-c" points="60.0,143.0 61.5,142.2 63.1,141.4 64.6,140.6 66.2,139.8 67.7,139.0 69.2,138.2 70.8,137.4 72.3,136.6 73.9,135.8 75.4,135.0 77.0,134.2 78.5,133.4 80.0,132.6 81.6,131.8 83.1,131.0 84.7,130.2 86.2,129.4 87.8,128.6 89.3,127.8 90.8,127.0 92.4,126.2 93.9,125.4 95.5,124.6 97.0,123.8 98.5,123.0 100.1,122.2 101.6,121.4 103.2,120.6 104.7,119.8 106.2,119.0 107.8,118.2 109.3,117.4 110.9,116.6 112.4,115.8 114.0,115.0 115.5,114.2 117.0,113.4 118.6,112.6 120.1,111.8 121.7,111.0 123.2,110.2 124.8,109.4 126.3,108.6 127.8,107.8 129.4,107.0 130.9,106.2 132.5,105.4 134.0,104.6 135.5,103.8 137.1,103.0 138.6,102.2 140.2,101.4 141.7,100.6 143.2,99.8 144.8,99.0 146.3,98.2 147.9,97.4 149.4,96.6 151.0,95.8 152.5,95.0 154.0,94.2 155.6,93.4 157.1,92.6 158.7,91.8 160.2,91.0 161.8,90.2 163.3,89.4 164.8,88.6 166.4,87.8 167.9,87.0 169.5,86.2 171.0,85.4 172.5,84.6 174.1,83.8 175.6,83.0 177.2,82.2 178.7,81.4 180.2,80.6 181.8,79.8 183.3,79.0 184.9,78.2 186.4,77.4 188.0,76.6 189.5,75.8 191.0,75.0 192.6,74.2 194.1,73.4 195.7,72.6 197.2,71.8 198.8,71.0 200.3,70.2 201.8,69.4 203.4,68.6 204.9,67.8 206.5,67.0 208.0,66.2 209.5,65.4 211.1,64.6 212.6,63.8 214.2,63.0 215.7,62.2 217.2,61.4 218.8,60.6 220.3,59.8 221.9,59.0 223.4,58.2 225.0,57.4 226.5,56.6 228.0,55.8 229.6,55.0 231.1,54.2 232.7,53.4 234.2,52.6 235.8,51.8 237.3,51.0 238.8,50.2 240.4,49.4 241.9,48.6 243.5,47.8 245.0,143.0 246.5,142.2 248.1,141.4 249.6,140.6 251.2,139.8 252.7,139.0 254.2,138.2 255.8,137.4 257.3,136.6 258.9,135.8 260.4,135.0 262.0,134.2 263.5,133.4 265.0,132.6 266.6,131.8 268.1,131.0 269.7,130.2 271.2,129.4 272.8,128.6 274.3,127.8 275.8,127.0 277.4,126.2 278.9,125.4 280.5,124.6 282.0,123.8 283.5,123.0 285.1,122.2 286.6,121.4 288.2,120.6 289.7,119.8 291.2,119.0 292.8,118.2 294.3,117.4 295.9,116.6 297.4,115.8 299.0,115.0 300.5,114.2 302.0,113.4 303.6,112.6 305.1,111.8 306.7,111.0 308.2,110.2 309.8,109.4 311.3,108.6 312.8,107.8 314.4,107.0 315.9,106.2 317.5,105.4 319.0,104.6 320.5,103.8 322.1,103.0 323.6,102.2 325.2,101.4 326.7,100.6 328.2,99.8 329.8,99.0 331.3,98.2 332.9,97.4 334.4,96.6 336.0,95.8 337.5,95.0 339.0,94.2 340.6,93.4 342.1,92.6 343.7,91.8 345.2,91.0 346.8,90.2 348.3,89.4 349.8,88.6 351.4,87.8 352.9,87.0 354.5,86.2 356.0,85.4 357.5,84.6 359.1,83.8 360.6,83.0 362.2,82.2 363.7,81.4 365.2,80.6 366.8,79.8 368.3,79.0 369.9,78.2 371.4,77.4 373.0,76.6 374.5,75.8 376.0,75.0 377.6,74.2 379.1,73.4 380.7,72.6 382.2,71.8 383.8,71.0 385.3,70.2 386.8,69.4 388.4,68.6 389.9,67.8 391.5,67.0 393.0,66.2 394.5,65.4 396.1,64.6 397.6,63.8 399.2,63.0 400.7,62.2 402.2,61.4 403.8,60.6 405.3,59.8 406.9,59.0 408.4,58.2 410.0,57.4 411.5,56.6 413.0,55.8 414.6,55.0 416.1,54.2 417.7,53.4 419.2,52.6 420.8,51.8 422.3,51.0 423.8,50.2 425.4,49.4 426.9,48.6 428.5,47.8 430.0,143.0"/>
+              <text x="60" y="26" class="d-tag d-cyan">Time view</text>
+              <text x="60" y="185" class="d-sub">amplitude over time (the scope)</text>
+              <line x1="454" y1="30" x2="454" y2="150" class="d-grid"/>
+              <line x1="454" y1="150" x2="850" y2="150" class="d-axis"/>
+              <rect x="484" y="55.0" width="30" height="95.0" rx="3" class="d-magenta"/>
+              <rect x="529" y="102.5" width="30" height="47.5" rx="3" class="d-magenta"/>
+              <rect x="574" y="118.3" width="30" height="31.7" rx="3" class="d-magenta"/>
+              <rect x="619" y="126.2" width="30" height="23.8" rx="3" class="d-magenta"/>
+              <rect x="664" y="131.0" width="30" height="19.0" rx="3" class="d-magenta"/>
+              <rect x="709" y="134.2" width="30" height="15.8" rx="3" class="d-magenta"/>
+              <rect x="754" y="136.4" width="30" height="13.6" rx="3" class="d-magenta"/>
+              <rect x="799" y="138.1" width="30" height="11.9" rx="3" class="d-magenta"/>
+              <text x="478" y="26" class="d-tag d-magenta">Frequency view (spectrum)</text>
+              <text x="478" y="185" class="d-sub">how much of each pitch is present</text>
+              <text x="486" y="47" class="d-sub">fundamental</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Two views of one sound.</strong> The same sawtooth wave shown as amplitude-over-time (left) and as its <strong>spectrum</strong> (right) — a tall bar at the base pitch (the <strong>fundamental</strong>) plus shorter bars at its <span class="term" data-tip="Whole-number multiples of the fundamental frequency that give a sound its brightness.">harmonics</span>. A pure sine would be a single bar; noise would fill the whole chart.</figcaption>
+          </figure>
+
+          <p>
+            This is the mental model the rest of the course leans on. When a
+            <strong>filter</strong> &ldquo;removes the highs&rdquo; (Module 08), it&rsquo;s
+            erasing the right-hand bars of the spectrum. When a tone &ldquo;folds back&rdquo;
+            as <span class="term" data-tip="A false, lower tone created when a frequency above the Nyquist limit folds back down into the audible range.">aliasing</span>
+            (next module), it&rsquo;s a bar sliding to the wrong place. Keep both views in
+            mind and everything downstream gets easier.
+          </p>
+          <p>
+            The lab plays a tone and shows it <em>both</em> ways at once: the scope on the
+            left (time), the live spectrum on the right (frequency). Switch the waveform
+            and watch the bars change — a sine collapses to one bar; a saw grows a whole
+            ladder of harmonics; noise becomes a wall.
+          </p>
+
+          <div class="lab" id="lab-spectrum">
+            <div class="lab-head"><span class="dot"></span><span class="title">Spectrum lab — the same sound, two views</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <div class="spectrum-grid">
+                <canvas class="scope" aria-label="Time-domain oscilloscope"></canvas>
+                <canvas class="spectrum" aria-label="Frequency-domain spectrum bars"></canvas>
+              </div>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Waveform</label>
+                  <div class="seg-btns" role="group" aria-label="Waveform">
+                    <button class="on" data-shape="sine">sine</button>
+                    <button data-shape="square">square</button>
+                    <button data-shape="sawtooth">saw</button>
+                    <button data-shape="triangle">tri</button>
+                    <button data-shape="noise">noise</button>
+                  </div>
+                </div>
+                <button class="play-btn" data-spectrum-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play
+                </button>
+                <span style="font-size:12.5px;color:var(--muted)">Left = time · right = frequency. Watch harmonics appear as you switch shape.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Any sound is a sum of pure sine waves — that&rsquo;s the Fourier idea.</li>
+              <li>The same sound has two views: time domain (wave over time) and frequency domain (its spectrum).</li>
+              <li>A spectrum is a bar chart: the fundamental is the pitch you hear; harmonics are the brightness above it.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#signals"><span class="dir">← Prev</span><span class="ttl">01 · Sound as numbers</span></a>
+            <a class="next" href="#sampling"><span class="dir">Next →</span><span class="ttl">03 · Sampling &amp; Nyquist</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 03 --- -->
+      <section class="doc" id="sampling">
+        <div class="mod-head">
+          <span class="eye">Module 03 <span class="part-tag">· Part I</span></span>
           <h3>Sampling &amp; the Nyquist limit</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">See why the sample rate sets a hard ceiling on the highest sound you can capture — and hear what happens when you break that rule.</span></div>
         </div>
@@ -371,7 +505,7 @@
             That false tone is called <strong>aliasing</strong> (the real frequency
             wearing a fake &ldquo;alias&rdquo;), and it sounds like harsh, metallic
             gravel or whistling. Avoiding it is a huge part of an audio system's job
-            — you'll see the specific tool that fixes it in Module 05.
+            — you'll see the specific tool that fixes it in Module 08.
           </p>
 
           <div class="example">
@@ -442,21 +576,21 @@
               <li>Sample rate = samples per second (kHz). CD is 44.1&nbsp;kHz.</li>
               <li>Nyquist: the highest capturable frequency is exactly sample rate ÷ 2.</li>
               <li>Go above that limit and the tone folds back as a false one — aliasing.</li>
-              <li>A dedicated filter (Module 05) is what keeps aliasing out.</li>
+              <li>A dedicated filter (Module 08) is what keeps aliasing out.</li>
             </ul>
           </div>
 
           <div class="mod-nav">
-            <a href="#signals"><span class="dir">← Prev</span><span class="ttl">01 · Sound as numbers</span></a>
-            <a class="next" href="#quantization"><span class="dir">Next →</span><span class="ttl">03 · Quantisation &amp; ADPCM</span></a>
+            <a href="#spectrum"><span class="dir">← Prev</span><span class="ttl">02 · The frequency domain</span></a>
+            <a class="next" href="#quantization"><span class="dir">Next →</span><span class="ttl">04 · Quantisation &amp; ADPCM</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 03 --- -->
+      <!-- --- Module 04 --- -->
       <section class="doc" id="quantization">
         <div class="mod-head">
-          <span class="eye">Module 03 <span class="part-tag">· Part I</span></span>
+          <span class="eye">Module 04 <span class="part-tag">· Part I</span></span>
           <h3>Quantisation, PCM &amp; ADPCM</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn how bit depth trades file size for fidelity, and how a clever compression trick (ADPCM) squeezes audio into just 4 bits per sample.</span></div>
         </div>
@@ -581,7 +715,7 @@
             clamped to 16 bits, refreshing the block's step scale every 16 bytes.
             Don't worry about the exact math — the point is just: <em>scaled
             correction + prediction from the last two samples</em> (<code>yn1</code>,
-            <code>yn2</code>). You'll see the chip that runs it in Module 06.</p></div>
+            <code>yn2</code>). You'll see the chip that runs it in Module 09.</p></div>
           </div>
 
           <div class="takeaway">
@@ -594,16 +728,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#sampling"><span class="dir">← Prev</span><span class="ttl">02 · Sampling &amp; Nyquist</span></a>
-            <a class="next" href="#mixing"><span class="dir">Next →</span><span class="ttl">04 · Mixing, gain &amp; panning</span></a>
+            <a href="#sampling"><span class="dir">← Prev</span><span class="ttl">03 · Sampling &amp; Nyquist</span></a>
+            <a class="next" href="#mixing"><span class="dir">Next →</span><span class="ttl">05 · Mixing, gain &amp; panning</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 04 --- -->
+      <!-- --- Module 05 --- -->
       <section class="doc" id="mixing">
         <div class="mod-head">
-          <span class="eye">Module 04 <span class="part-tag">· Part I</span></span>
+          <span class="eye">Module 05 <span class="part-tag">· Part I</span></span>
           <h3>Mixing, gain &amp; panning</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand how many separate sounds combine into one output, why volume changes must be gradual, and how a sound gets placed left or right.</span></div>
         </div>
@@ -663,7 +797,7 @@
             250&nbsp;ms exactly the way real hardware ramps them, so you never hear a
             click. This little loop — decode, set gain, pan, sum — is precisely what a
             console's audio mixer does, just with 4 voices instead of 64. You'll meet
-            that hardware version in Module 08.
+            that hardware version in Module 11.
           </p>
 
           <div class="lab" id="lab-mixer">
@@ -715,16 +849,255 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#quantization"><span class="dir">← Prev</span><span class="ttl">03 · Quantisation &amp; ADPCM</span></a>
-            <a class="next" href="#filters"><span class="dir">Next →</span><span class="ttl">05 · Filters &amp; resampling</span></a>
+            <a href="#quantization"><span class="dir">← Prev</span><span class="ttl">04 · Quantisation &amp; ADPCM</span></a>
+            <a class="next" href="#envelopes"><span class="dir">Next →</span><span class="ttl">06 · Envelopes</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 05 --- -->
+      <!-- --- Module 06 --- -->
+      <section class="doc" id="envelopes">
+        <div class="mod-head">
+          <span class="eye">Module 06 <span class="part-tag">· Part I</span></span>
+          <h3>Envelopes — shaping a sound over time</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand how a note&rsquo;s loudness rises, holds and fades (the ADSR envelope), and why that shape defines an instrument&rsquo;s character.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            In Module 05 a voice&rsquo;s volume was a single number — its
+            <span class="term" data-tip="A voice's volume: a number every sample is multiplied by.">gain</span>.
+            But real notes aren&rsquo;t one steady volume. Pluck a string and it snaps
+            loud then rings away; bow it slowly and it swells in and holds. That
+            <em>shape of loudness over time</em> is called the note&rsquo;s
+            <strong>envelope</strong>, and it&rsquo;s a huge part of why two instruments
+            playing the same pitch sound completely different.
+          </p>
+          <p>
+            The classic way to describe an envelope has four stages, abbreviated
+            <strong>ADSR</strong>:
+          </p>
+          <div class="defs">
+            <div class="row"><dt>Attack</dt><dd>How long the sound takes to rise from silence up to full volume when the note starts. Short = a sharp hit; long = a gentle fade-in.</dd></div>
+            <div class="row"><dt>Decay</dt><dd>After the peak, how long it takes to fall to the steady level below.</dd></div>
+            <div class="row"><dt>Sustain</dt><dd>The steady level held while the note is still down. Note this is a <em>level</em> (a volume), not a length of time.</dd></div>
+            <div class="row"><dt>Release</dt><dd>After the note is let go, how long it takes to fade from the sustain level back to silence.</dd></div>
+          </div>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 210" role="img" aria-label="The four stages of an ADSR volume envelope">
+              <line x1="70" y1="150" x2="830" y2="150" class="d-axis"/>
+              <line x1="70" y1="34" x2="70" y2="150" class="d-axis"/>
+              <line x1="70" y1="90" x2="830" y2="90" class="d-stem"/>
+              <polygon points="70,150 70,150 190,40 310,90 460,90 640,150 640,150" fill="rgba(69,228,209,0.10)"/>
+              <polyline class="d-wave-c" points="70,150 190,40 310,90 460,90 640,150"/>
+              <circle cx="70" cy="150" r="4.5" class="d-dot-v"/>
+              <circle cx="190" cy="40" r="4.5" class="d-dot-v"/>
+              <circle cx="310" cy="90" r="4.5" class="d-dot-v"/>
+              <circle cx="460" cy="90" r="4.5" class="d-dot-v"/>
+              <circle cx="640" cy="150" r="4.5" class="d-dot-v"/>
+              <text x="130" y="172" text-anchor="middle" class="d-tag d-violet">A</text>
+              <text x="130" y="188" text-anchor="middle" class="d-sub">attack</text>
+              <text x="250" y="172" text-anchor="middle" class="d-tag d-violet">D</text>
+              <text x="250" y="188" text-anchor="middle" class="d-sub">decay</text>
+              <text x="385" y="172" text-anchor="middle" class="d-tag d-violet">S</text>
+              <text x="385" y="188" text-anchor="middle" class="d-sub">sustain</text>
+              <text x="550" y="172" text-anchor="middle" class="d-tag d-violet">R</text>
+              <text x="550" y="188" text-anchor="middle" class="d-sub">release</text>
+              <text x="66" y="28" class="d-sub">loud</text>
+              <text x="760" y="82" class="d-sub">sustain level</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The ADSR envelope.</strong> A note&rsquo;s loudness over time: <strong>Attack</strong> rises from silence to the peak, <strong>Decay</strong> drops to a held <strong>Sustain</strong> level, and <strong>Release</strong> fades back to silence when the note ends. Same waveform, different envelope = a pluck vs. a slow pad.</figcaption>
+          </figure>
+
+          <div class="example">
+            <span class="lbl">Two instruments, one waveform</span>
+            <p>
+              <strong>A drum or plucked string:</strong> near-instant attack, no real
+              sustain, a quick release — a sharp spike that immediately rings away.
+            </p>
+            <p>
+              <strong>An organ or synth pad:</strong> a slow attack, a high sustain held
+              as long as the key is down, and a slow release — a smooth swell. Feed
+              <em>both</em> envelopes the exact same sawtooth and they sound like
+              different instruments. That&rsquo;s the power of the envelope.
+            </p>
+          </div>
+
+          <p>
+            Under the hood, an envelope is nothing exotic: it&rsquo;s just the
+            <span class="term" data-tip="Sliding a volume smoothly rather than jumping, to avoid a click.">gain ramp</span>
+            from Module 05 applied in a scheduled sequence — ramp up (attack), ramp
+            down (decay), hold (sustain), ramp to zero (release) — all smooth, so no
+            clicks. When you reach Part II you&rsquo;ll find an &ldquo;envelope&rdquo; step
+            sitting right in the console&rsquo;s per-voice pipeline; this is that step.
+          </p>
+          <p>
+            Move the four sliders below and watch the envelope shape redraw live, then
+            press play to hear a voice shaped by it. Try to dial in a percussive pluck
+            (fast attack, low sustain, short release), then a slow pad (long attack,
+            high sustain, long release).
+          </p>
+
+          <div class="lab" id="lab-env">
+            <div class="lab-head"><span class="dot"></span><span class="title">Envelope lab — shape a note with ADSR</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="env-canvas" aria-label="Live drawing of the ADSR envelope shape"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Attack — <span class="val" data-a-val>8 ms</span></label>
+                  <input type="range" min="1" max="600" value="8" data-a aria-label="Attack">
+                </div>
+                <div class="ctrl">
+                  <label>Decay — <span class="val" data-d-val>140 ms</span></label>
+                  <input type="range" min="1" max="800" value="140" data-d aria-label="Decay">
+                </div>
+                <div class="ctrl">
+                  <label>Sustain — <span class="val" data-s-val>55 %</span></label>
+                  <input type="range" min="0" max="100" value="55" data-s aria-label="Sustain">
+                </div>
+                <div class="ctrl">
+                  <label>Release — <span class="val" data-r-val>260 ms</span></label>
+                  <input type="range" min="1" max="1200" value="260" data-r aria-label="Release">
+                </div>
+                <button class="play-btn" data-env-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play note
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>An envelope is a note&rsquo;s loudness shaped over time; ADSR = Attack, Decay, Sustain, Release.</li>
+              <li>Sustain is a level (how loud while held), not a duration.</li>
+              <li>The same waveform with different envelopes becomes different-sounding instruments.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#mixing"><span class="dir">← Prev</span><span class="ttl">05 · Mixing, gain &amp; panning</span></a>
+            <a class="next" href="#headroom"><span class="dir">Next →</span><span class="ttl">07 · Loudness &amp; clipping</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 07 --- -->
+      <section class="doc" id="headroom">
+        <div class="mod-head">
+          <span class="eye">Module 07 <span class="part-tag">· Part I</span></span>
+          <h3>Loudness, headroom &amp; clipping</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Learn what happens when the mix gets too loud — clipping — and how headroom, a master gain and decibels keep sound clean.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Module 05 said mixing is just <em>adding sample values together</em>. That
+            raises a question we dodged: what if the sum gets too big? Every digital
+            audio format has a hard ceiling — the largest number it can store. For
+            16-bit audio that&rsquo;s about ±32,767. Add several loud voices and their
+            combined value can shoot past that ceiling… but the format simply cannot
+            represent a bigger number.
+          </p>
+          <p>
+            So the hardware does the only thing it can: it <strong>clamps</strong> any
+            over-the-ceiling value back down to the maximum. On the waveform, the peaks
+            that tried to go higher get sliced off flat. That flat-topping is called
+            <strong>clipping</strong>, and it sounds harsh and buzzy — a gritty
+            distortion — because those sudden flat edges inject a spray of new
+            high-frequency <span class="term" data-tip="Extra frequencies above the fundamental; the flat edges of a clipped wave add harsh ones.">harmonics</span>
+            that weren&rsquo;t in the original.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 180" role="img" aria-label="A clean sine wave versus an over-driven one whose peaks are clipped flat">
+              <line x1="70" y1="52" x2="830" y2="52" class="d-stem"/>
+              <line x1="70" y1="138" x2="830" y2="138" class="d-stem"/>
+              <polyline class="d-wave-c" points="70.0,95.0 73.2,93.0 76.3,91.0 79.5,89.1 82.7,87.1 85.8,85.2 89.0,83.3 92.2,81.4 95.3,79.5 98.5,77.7 101.7,76.0 104.8,74.3 108.0,72.7 111.2,71.1 114.3,69.6 117.5,68.1 120.7,66.8 123.8,65.5 127.0,64.3 130.2,63.1 133.3,62.1 136.5,61.1 139.7,60.3 142.8,59.5 146.0,58.9 149.2,58.3 152.3,57.8 155.5,57.5 158.7,57.2 161.8,57.1 165.0,57.0 168.2,57.1 171.3,57.2 174.5,57.5 177.7,57.8 180.8,58.3 184.0,58.9 187.2,59.5 190.3,60.3 193.5,61.1 196.7,62.1 199.8,63.1 203.0,64.3 206.2,65.5 209.3,66.8 212.5,68.1 215.7,69.6 218.8,71.1 222.0,72.7 225.2,74.3 228.3,76.0 231.5,77.7 234.7,79.5 237.8,81.4 241.0,83.3 244.2,85.2 247.3,87.1 250.5,89.1 253.7,91.0 256.8,93.0 260.0,95.0 263.2,97.0 266.3,99.0 269.5,100.9 272.7,102.9 275.8,104.8 279.0,106.7 282.2,108.6 285.3,110.5 288.5,112.3 291.7,114.0 294.8,115.7 298.0,117.3 301.2,118.9 304.3,120.4 307.5,121.9 310.7,123.2 313.8,124.5 317.0,125.7 320.2,126.9 323.3,127.9 326.5,128.9 329.7,129.7 332.8,130.5 336.0,131.1 339.2,131.7 342.3,132.2 345.5,132.5 348.7,132.8 351.8,132.9 355.0,133.0 358.2,132.9 361.3,132.8 364.5,132.5 367.7,132.2 370.8,131.7 374.0,131.1 377.2,130.5 380.3,129.7 383.5,128.9 386.7,127.9 389.8,126.9 393.0,125.7 396.2,124.5 399.3,123.2 402.5,121.9 405.7,120.4 408.8,118.9 412.0,117.3 415.2,115.7 418.3,114.0 421.5,112.3 424.7,110.5 427.8,108.6 431.0,106.7 434.2,104.8 437.3,102.9 440.5,100.9 443.7,99.0 446.8,97.0 450.0,95.0 453.2,93.0 456.3,91.0 459.5,89.1 462.7,87.1 465.8,85.2 469.0,83.3 472.2,81.4 475.3,79.5 478.5,77.7 481.7,76.0 484.8,74.3 488.0,72.7 491.2,71.1 494.3,69.6 497.5,68.1 500.7,66.8 503.8,65.5 507.0,64.3 510.2,63.1 513.3,62.1 516.5,61.1 519.7,60.3 522.8,59.5 526.0,58.9 529.2,58.3 532.3,57.8 535.5,57.5 538.7,57.2 541.8,57.1 545.0,57.0 548.2,57.1 551.3,57.2 554.5,57.5 557.7,57.8 560.8,58.3 564.0,58.9 567.2,59.5 570.3,60.3 573.5,61.1 576.7,62.1 579.8,63.1 583.0,64.3 586.2,65.5 589.3,66.8 592.5,68.1 595.7,69.6 598.8,71.1 602.0,72.7 605.2,74.3 608.3,76.0 611.5,77.7 614.7,79.5 617.8,81.4 621.0,83.3 624.2,85.2 627.3,87.1 630.5,89.1 633.7,91.0 636.8,93.0 640.0,95.0 643.2,97.0 646.3,99.0 649.5,100.9 652.7,102.9 655.8,104.8 659.0,106.7 662.2,108.6 665.3,110.5 668.5,112.3 671.7,114.0 674.8,115.7 678.0,117.3 681.2,118.9 684.3,120.4 687.5,121.9 690.7,123.2 693.8,124.5 697.0,125.7 700.2,126.9 703.3,127.9 706.5,128.9 709.7,129.7 712.8,130.5 716.0,131.1 719.2,131.7 722.3,132.2 725.5,132.5 728.7,132.8 731.8,132.9 735.0,133.0 738.2,132.9 741.3,132.8 744.5,132.5 747.7,132.2 750.8,131.7 754.0,131.1 757.2,130.5 760.3,129.7 763.5,128.9 766.7,127.9 769.8,126.9 773.0,125.7 776.2,124.5 779.3,123.2 782.5,121.9 785.7,120.4 788.8,118.9 792.0,117.3 795.2,115.7 798.3,114.0 801.5,112.3 804.7,110.5 807.8,108.6 811.0,106.7 814.2,104.8 817.3,102.9 820.5,100.9 823.7,99.0 826.8,97.0 830.0,95.0"/>
+              <polyline class="d-wave-m" points="70.0,95.0 73.2,90.9 76.3,86.8 79.5,82.8 82.7,78.8 85.8,74.8 89.0,70.9 92.2,67.0 95.3,63.3 98.5,59.6 101.7,56.0 104.8,52.5 108.0,52.0 111.2,52.0 114.3,52.0 117.5,52.0 120.7,52.0 123.8,52.0 127.0,52.0 130.2,52.0 133.3,52.0 136.5,52.0 139.7,52.0 142.8,52.0 146.0,52.0 149.2,52.0 152.3,52.0 155.5,52.0 158.7,52.0 161.8,52.0 165.0,52.0 168.2,52.0 171.3,52.0 174.5,52.0 177.7,52.0 180.8,52.0 184.0,52.0 187.2,52.0 190.3,52.0 193.5,52.0 196.7,52.0 199.8,52.0 203.0,52.0 206.2,52.0 209.3,52.0 212.5,52.0 215.7,52.0 218.8,52.0 222.0,52.0 225.2,52.5 228.3,56.0 231.5,59.6 234.7,63.3 237.8,67.0 241.0,70.9 244.2,74.8 247.3,78.8 250.5,82.8 253.7,86.8 256.8,90.9 260.0,95.0 263.2,99.1 266.3,103.2 269.5,107.2 272.7,111.2 275.8,115.2 279.0,119.1 282.2,123.0 285.3,126.7 288.5,130.4 291.7,134.0 294.8,137.5 298.0,138.0 301.2,138.0 304.3,138.0 307.5,138.0 310.7,138.0 313.8,138.0 317.0,138.0 320.2,138.0 323.3,138.0 326.5,138.0 329.7,138.0 332.8,138.0 336.0,138.0 339.2,138.0 342.3,138.0 345.5,138.0 348.7,138.0 351.8,138.0 355.0,138.0 358.2,138.0 361.3,138.0 364.5,138.0 367.7,138.0 370.8,138.0 374.0,138.0 377.2,138.0 380.3,138.0 383.5,138.0 386.7,138.0 389.8,138.0 393.0,138.0 396.2,138.0 399.3,138.0 402.5,138.0 405.7,138.0 408.8,138.0 412.0,138.0 415.2,137.5 418.3,134.0 421.5,130.4 424.7,126.7 427.8,123.0 431.0,119.1 434.2,115.2 437.3,111.2 440.5,107.2 443.7,103.2 446.8,99.1 450.0,95.0 453.2,90.9 456.3,86.8 459.5,82.8 462.7,78.8 465.8,74.8 469.0,70.9 472.2,67.0 475.3,63.3 478.5,59.6 481.7,56.0 484.8,52.5 488.0,52.0 491.2,52.0 494.3,52.0 497.5,52.0 500.7,52.0 503.8,52.0 507.0,52.0 510.2,52.0 513.3,52.0 516.5,52.0 519.7,52.0 522.8,52.0 526.0,52.0 529.2,52.0 532.3,52.0 535.5,52.0 538.7,52.0 541.8,52.0 545.0,52.0 548.2,52.0 551.3,52.0 554.5,52.0 557.7,52.0 560.8,52.0 564.0,52.0 567.2,52.0 570.3,52.0 573.5,52.0 576.7,52.0 579.8,52.0 583.0,52.0 586.2,52.0 589.3,52.0 592.5,52.0 595.7,52.0 598.8,52.0 602.0,52.0 605.2,52.5 608.3,56.0 611.5,59.6 614.7,63.3 617.8,67.0 621.0,70.9 624.2,74.8 627.3,78.8 630.5,82.8 633.7,86.8 636.8,90.9 640.0,95.0 643.2,99.1 646.3,103.2 649.5,107.2 652.7,111.2 655.8,115.2 659.0,119.1 662.2,123.0 665.3,126.7 668.5,130.4 671.7,134.0 674.8,137.5 678.0,138.0 681.2,138.0 684.3,138.0 687.5,138.0 690.7,138.0 693.8,138.0 697.0,138.0 700.2,138.0 703.3,138.0 706.5,138.0 709.7,138.0 712.8,138.0 716.0,138.0 719.2,138.0 722.3,138.0 725.5,138.0 728.7,138.0 731.8,138.0 735.0,138.0 738.2,138.0 741.3,138.0 744.5,138.0 747.7,138.0 750.8,138.0 754.0,138.0 757.2,138.0 760.3,138.0 763.5,138.0 766.7,138.0 769.8,138.0 773.0,138.0 776.2,138.0 779.3,138.0 782.5,138.0 785.7,138.0 788.8,138.0 792.0,138.0 795.2,137.5 798.3,134.0 801.5,130.4 804.7,126.7 807.8,123.0 811.0,119.1 814.2,115.2 817.3,111.2 820.5,107.2 823.7,103.2 826.8,99.1 830.0,95.0"/>
+              <text x="836" y="55" class="d-sub">+max</text>
+              <text x="836" y="141" class="d-sub">−max</text>
+              <text x="76" y="24" class="d-tag d-cyan">Clean signal (fits)</text>
+              <text x="500" y="24" class="d-tag d-magenta">Over-driven → flat-topped = clipping</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Clipping.</strong> The dashed lines are the format&rsquo;s ceiling (its maximum value). The clean wave (cyan) fits inside. Turn the level up too far (magenta) and the peaks slam into the ceiling and get sliced flat — that flat-topping is <strong>clipping</strong>, heard as harsh distortion. <strong>Headroom</strong> is the space you leave below the ceiling to avoid it.</figcaption>
+          </figure>
+
+          <p>
+            The cure is <strong>headroom</strong>: deliberately leave some empty space
+            between your normal levels and the ceiling, so that even a sudden loud
+            moment has room to grow without hitting the top. In practice a mixer keeps a
+            <span class="term" data-tip="A single master volume applied to the whole mix, kept below the ceiling to preserve headroom.">master gain</span>
+            comfortably below maximum, and often adds a
+            <span class="term" data-tip="A safety device that automatically catches peaks nearing the ceiling so they never clip.">limiter</span>
+            as a safety net to catch stray peaks before they clip.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Pouring a glass</span>
+            <p>
+              Fill a glass to the very brim and any extra just spills and makes a mess
+              — that&rsquo;s clipping. Leave a finger&rsquo;s width at the top and there&rsquo;s
+              room for a splash without overflowing — that&rsquo;s
+              <span class="term" data-tip="The gap left between normal signal levels and the maximum, so peaks don't clip.">headroom</span>.
+            </p>
+          </div>
+
+          <p>
+            One more piece of vocabulary, because it ties a neat bow on Module 04. We
+            measure loudness in <strong>decibels</strong> (dB), a scale built to match
+            how ears actually judge volume. The distance between the quietest and
+            loudest a format can hold is its <strong>dynamic range</strong>. Here&rsquo;s
+            the satisfying connection: <em>each extra bit of depth buys about 6&nbsp;dB of
+            range</em>, so 16-bit audio spans roughly <strong>96&nbsp;dB</strong> — an
+            enormous span from a whisper to a roar, which is exactly why 16-bit sounds so
+            clean.
+          </p>
+          <p>
+            In the lab, the <strong>drive</strong> slider sets how hard a voice is pushed
+            toward the ceiling. At ×1 it&rsquo;s clean; turn it up and — live — watch the
+            scope&rsquo;s peaks flatten while the tone turns to buzz. That&rsquo;s the exact
+            moment headroom runs out.
+          </p>
+
+          <div class="lab" id="lab-clip">
+            <div class="lab-head"><span class="dot"></span><span class="title">Headroom lab — drive it into clipping</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope showing clipped waveform"></canvas>
+              <div class="controls">
+                <div class="ctrl">
+                  <label>Drive — <span class="val" data-drive-val>×1.0 · clean</span></label>
+                  <input type="range" min="1" max="12" value="1" step="0.1" data-drive aria-label="Drive">
+                </div>
+                <button class="play-btn" data-clip-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play
+                </button>
+                <span style="font-size:12.5px;color:var(--muted)">×1 fits under the ceiling; push higher and the peaks clip flat.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Summed voices can exceed the format&rsquo;s ceiling; the hardware clamps them, slicing peaks flat — that&rsquo;s clipping (harsh distortion).</li>
+              <li>Headroom — space left below the ceiling — plus a master gain and limiter prevent it.</li>
+              <li>Loudness is measured in dB; each bit ≈ 6&nbsp;dB, so 16-bit ≈ 96&nbsp;dB of dynamic range.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#envelopes"><span class="dir">← Prev</span><span class="ttl">06 · Envelopes</span></a>
+            <a class="next" href="#filters"><span class="dir">Next →</span><span class="ttl">08 · Filters &amp; resampling</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 08 --- -->
       <section class="doc" id="filters">
         <div class="mod-head">
-          <span class="eye">Module 05 <span class="part-tag">· Part I</span></span>
+          <span class="eye">Module 08 <span class="part-tag">· Part I</span></span>
           <h3>Filters &amp; resampling</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet the last two fundamental tools: filters, which reshape a sound's tone, and resamplers, which change its pitch — cleanly.</span></div>
         </div>
@@ -798,7 +1171,7 @@
           <ul>
             <li><strong>Nearest</strong> — just grab the closest stored sample. Cheapest, but rough and noisy.</li>
             <li><strong>Linear</strong> — draw a straight line between the two neighbours and read off the point. Noticeably smoother.</li>
-            <li><strong>Polyphase FIR</strong> — the high-quality option: a small filter that blends <em>several</em> nearby samples using carefully precomputed weights, so it interpolates <em>and</em> suppresses the aliasing from Module 02 at the same time. Each weight is a <span class="term" data-tip="A single multiply-add step in a FIR filter: one nearby sample times its weight.">tap</span>; the weights come from a stored table.</li>
+            <li><strong>Polyphase FIR</strong> — the high-quality option: a small filter that blends <em>several</em> nearby samples using carefully precomputed weights, so it interpolates <em>and</em> suppresses the aliasing from Module 03 at the same time. Each weight is a <span class="term" data-tip="A single multiply-add step in a FIR filter: one nearby sample times its weight.">tap</span>; the weights come from a stored table.</li>
           </ul>
 
           <div class="defs">
@@ -810,7 +1183,7 @@
           <p>
             The high-quality resampler is what keeps re-pitched audio from turning to
             gravel — remember, you already <em>heard</em> what a bad resampler does
-            back in Module 02. Here's the flow a good one runs for every output
+            back in Module 03. Here's the flow a good one runs for every output
             sample:
           </p>
           <div class="pipe">
@@ -836,8 +1209,8 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#mixing"><span class="dir">← Prev</span><span class="ttl">04 · Mixing, gain &amp; panning</span></a>
-            <a class="next" href="#dsp"><span class="dir">Next → Part II</span><span class="ttl">06 · The audio DSP</span></a>
+            <a href="#headroom"><span class="dir">← Prev</span><span class="ttl">07 · Loudness, headroom &amp; clipping</span></a>
+            <a class="next" href="#dsp"><span class="dir">Next → Part II</span><span class="ttl">09 · The audio DSP</span></a>
           </div>
         </div>
       </section>
@@ -856,14 +1229,14 @@
             of just two channels — Dolby Pro Logic II. From here on we'll name real
             hardware, but every piece maps back to a fundamental you already know.
           </p>
-          <div class="part-meta"><span>Modules <b>06–09</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>1 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>09–12</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>1 interactive</b></span></div>
         </div>
       </section>
 
-      <!-- --- Module 06 --- -->
+      <!-- --- Module 09 --- -->
       <section class="doc" id="dsp">
         <div class="mod-head">
-          <span class="eye">Module 06 <span class="part-tag">· Part II</span></span>
+          <span class="eye">Module 09 <span class="part-tag">· Part II</span></span>
           <h3>The audio DSP</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet the actual chip — what a DSP is, the memories it uses, and the special hardware that decodes samples for it.</span></div>
         </div>
@@ -996,7 +1369,7 @@
               streams samples from <span class="term" data-tip="Audio RAM — a separate 16 MB pool holding the game's sound samples, feeding the DSP's accelerator.">ARAM</span>,
               the <span class="term" data-tip="Arithmetic Logic Unit — does the multiplies and adds, accumulating in 40-bit registers.">ALU</span>
               does the Part I mixing/filtering math, and a finished 32&nbsp;kHz stereo
-              mix (plus a surround channel, Module 09) heads out to the DAC.
+              mix (plus a surround channel, Module 12) heads out to the DAC.
             </figcaption>
           </figure>
 
@@ -1031,7 +1404,7 @@
             (Audio RAM). The accelerator is hardware that streams compressed samples
             straight out of ARAM and decodes them on the fly — this is where the
             4-bit <span class="term" data-tip="Adaptive Differential PCM — compression that stores a small predicted correction per sample in 4 bits.">ADPCM</span>
-            math from Module 03 physically happens. It understands ADPCM plus 8- and
+            math from Module 04 physically happens. It understands ADPCM plus 8- and
             16-bit PCM, tracks where a looping sound starts and ends, and on each loop
             restores the predictor's state (<code>pred_scale</code>, <code>yn1</code>,
             <code>yn2</code>) so the waveform continues seamlessly without a click.
@@ -1058,16 +1431,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#filters"><span class="dir">← Prev · Part I</span><span class="ttl">05 · Filters &amp; resampling</span></a>
-            <a class="next" href="#ucodes"><span class="dir">Next →</span><span class="ttl">07 · One chip, many ucodes</span></a>
+            <a href="#filters"><span class="dir">← Prev · Part I</span><span class="ttl">08 · Filters &amp; resampling</span></a>
+            <a class="next" href="#ucodes"><span class="dir">Next →</span><span class="ttl">10 · One chip, many ucodes</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 07 --- -->
+      <!-- --- Module 10 --- -->
       <section class="doc" id="ucodes">
         <div class="mod-head">
-          <span class="eye">Module 07 <span class="part-tag">· Part II</span></span>
+          <span class="eye">Module 10 <span class="part-tag">· Part II</span></span>
           <h3>One chip, many ucodes</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">See how the very same DSP is re-tasked by small uploadable programs — for audio, memory cards, even link-cable crypto.</span></div>
         </div>
@@ -1107,7 +1480,7 @@
           </div>
 
           <p>
-            How does Dolphin's high-level emulator (Module 10) know <em>which</em>
+            How does Dolphin's high-level emulator (Module 13) know <em>which</em>
             ucode a game just uploaded? It computes a <span class="term" data-tip="Cyclic Redundancy Check — a short 'fingerprint' number computed from data; identical data always yields the same CRC.">CRC</span>
             — a short fingerprint number — of the ucode's code and looks it up in a
             table. Here are the main families, with real fingerprints and the games
@@ -1182,16 +1555,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#dsp"><span class="dir">← Prev</span><span class="ttl">06 · The audio DSP</span></a>
-            <a class="next" href="#ax"><span class="dir">Next →</span><span class="ttl">08 · AX: the voice pipeline</span></a>
+            <a href="#dsp"><span class="dir">← Prev</span><span class="ttl">09 · The audio DSP</span></a>
+            <a class="next" href="#ax"><span class="dir">Next →</span><span class="ttl">11 · AX: the voice pipeline</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 08 --- -->
+      <!-- --- Module 11 --- -->
       <section class="doc" id="ax">
         <div class="mod-head">
-          <span class="eye">Module 08 <span class="part-tag">· Part II</span></span>
+          <span class="eye">Module 11 <span class="part-tag">· Part II</span></span>
           <h3>AX: the voice pipeline</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Trace a single sound through the AX ucode and watch it use, in order, every fundamental from Part I.</span></div>
         </div>
@@ -1216,18 +1589,18 @@
             pipeline — and you already learned every step in Part&nbsp;I:
           </p>
           <ol>
-            <li><strong>Fetch &amp; decode</strong> — the <span class="term" data-tip="Hardware that streams compressed samples from ARAM and decodes them on the fly.">accelerator</span> streams ADPCM/PCM from ARAM <span style="color:var(--muted)">(Modules 03, 06)</span>.</li>
-            <li><strong>Resample</strong> — change the pitch with a <span class="term" data-tip="A fractional read pointer stored as 16 bits whole + 16 bits fraction.">16.16</span> read pointer; nearest, linear, or a 4-tap <span class="term" data-tip="A high-quality resampler that blends several samples with pre-set weights to avoid aliasing.">polyphase FIR</span> <span style="color:var(--muted)">(Module 05)</span>.</li>
-            <li><strong>Envelope</strong> — a per-sample volume <span class="term" data-tip="A gradual volume slide that prevents clicks when a sound's loudness changes.">ramp</span> so gains glide, never click <span style="color:var(--muted)">(Module 04)</span>.</li>
-            <li><strong>Filter</strong> — an optional <span class="term" data-tip="A filter that quietens high frequencies to muffle or soften a sound.">low-pass</span> (plus a <span class="term" data-tip="A configurable filter that can act as low-pass, high-pass, band-pass, or peak.">biquad</span> on Wii) <span style="color:var(--muted)">(Module 05)</span>.</li>
-            <li><strong>Mix</strong> — summed into the MAIN L/R/S output and the extra <span class="term" data-tip="Auxiliary buses — side mixes used for effects like reverb, later folded back into the main mix.">AUX buses</span>, each switched on or off by a mix-control bitfield <span style="color:var(--muted)">(Module 04)</span>.</li>
+            <li><strong>Fetch &amp; decode</strong> — the <span class="term" data-tip="Hardware that streams compressed samples from ARAM and decodes them on the fly.">accelerator</span> streams ADPCM/PCM from ARAM <span style="color:var(--muted)">(Modules 04, 09)</span>.</li>
+            <li><strong>Resample</strong> — change the pitch with a <span class="term" data-tip="A fractional read pointer stored as 16 bits whole + 16 bits fraction.">16.16</span> read pointer; nearest, linear, or a 4-tap <span class="term" data-tip="A high-quality resampler that blends several samples with pre-set weights to avoid aliasing.">polyphase FIR</span> <span style="color:var(--muted)">(Module 08)</span>.</li>
+            <li><strong>Envelope</strong> — a per-sample volume <span class="term" data-tip="A gradual volume slide that prevents clicks when a sound's loudness changes.">ramp</span> so gains glide, never click <span style="color:var(--muted)">(Module 05)</span>.</li>
+            <li><strong>Filter</strong> — an optional <span class="term" data-tip="A filter that quietens high frequencies to muffle or soften a sound.">low-pass</span> (plus a <span class="term" data-tip="A configurable filter that can act as low-pass, high-pass, band-pass, or peak.">biquad</span> on Wii) <span style="color:var(--muted)">(Module 08)</span>.</li>
+            <li><strong>Mix</strong> — summed into the MAIN L/R/S output and the extra <span class="term" data-tip="Auxiliary buses — side mixes used for effects like reverb, later folded back into the main mix.">AUX buses</span>, each switched on or off by a mix-control bitfield <span style="color:var(--muted)">(Module 05)</span>.</li>
           </ol>
           <p>
             The finished result is clamped to 16 bits and written out as interleaved
             big-endian <strong>R, L</strong> sample pairs, plus a separate
             <strong>surround</strong> buffer carrying a special encoded channel — which
             is exactly what the next module explains. If you want to <em>feel</em> how
-            this works, re-open the <a href="#mixing">Module 04 mixer</a> with this
+            this works, re-open the <a href="#mixing">Module 05 mixer</a> with this
             five-step list in mind: that little lab is AX in miniature, one step per
             control.
           </p>
@@ -1243,16 +1616,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#ucodes"><span class="dir">← Prev</span><span class="ttl">07 · One chip, many ucodes</span></a>
-            <a class="next" href="#dpl2"><span class="dir">Next →</span><span class="ttl">09 · Dolby Pro Logic II</span></a>
+            <a href="#ucodes"><span class="dir">← Prev</span><span class="ttl">10 · One chip, many ucodes</span></a>
+            <a class="next" href="#dpl2"><span class="dir">Next →</span><span class="ttl">12 · Dolby Pro Logic II</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 09 --- -->
+      <!-- --- Module 12 --- -->
       <section class="doc" id="dpl2">
         <div class="mod-head">
-          <span class="eye">Module 09 <span class="part-tag">· Part II</span></span>
+          <span class="eye">Module 12 <span class="part-tag">· Part II</span></span>
           <h3>Dolby Pro Logic II — surround from two channels</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand matrix encoding: how four surround channels fold into an ordinary stereo pair, and how a decoder pulls them back out.</span></div>
         </div>
@@ -1400,8 +1773,8 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#ax"><span class="dir">← Prev</span><span class="ttl">08 · AX: the voice pipeline</span></a>
-            <a class="next" href="#lle-hle"><span class="dir">Next → Part III</span><span class="ttl">10 · LLE vs HLE</span></a>
+            <a href="#ax"><span class="dir">← Prev</span><span class="ttl">11 · AX: the voice pipeline</span></a>
+            <a class="next" href="#lle-hle"><span class="dir">Next → Part III</span><span class="ttl">13 · LLE vs HLE</span></a>
           </div>
         </div>
       </section>
@@ -1418,14 +1791,14 @@
             resampling mixer to your speakers. These four modules connect the whole
             course to the actual settings you'll toggle in the emulator.
           </p>
-          <div class="part-meta"><span>Modules <b>10–13</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>1 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>13–16</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>1 interactive</b></span></div>
         </div>
       </section>
 
-      <!-- --- Module 10 --- -->
+      <!-- --- Module 13 --- -->
       <section class="doc" id="lle-hle">
         <div class="mod-head">
-          <span class="eye">Module 10 <span class="part-tag">· Part III</span></span>
+          <span class="eye">Module 13 <span class="part-tag">· Part III</span></span>
           <h3>LLE vs HLE — two philosophies</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Grasp the single most important choice in audio emulation: actually run the chip, or just imitate what it produces.</span></div>
         </div>
@@ -1520,16 +1893,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#dpl2"><span class="dir">← Prev · Part II</span><span class="ttl">09 · Dolby Pro Logic II</span></a>
-            <a class="next" href="#pipeline"><span class="dir">Next →</span><span class="ttl">11 · Boot, mail &amp; dispatch</span></a>
+            <a href="#dpl2"><span class="dir">← Prev · Part II</span><span class="ttl">12 · Dolby Pro Logic II</span></a>
+            <a class="next" href="#pipeline"><span class="dir">Next →</span><span class="ttl">14 · Boot, mail &amp; dispatch</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 11 --- -->
+      <!-- --- Module 14 --- -->
       <section class="doc" id="pipeline">
         <div class="mod-head">
-          <span class="eye">Module 11 <span class="part-tag">· Part III</span></span>
+          <span class="eye">Module 14 <span class="part-tag">· Part III</span></span>
           <h3>Boot, mail &amp; ucode dispatch</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow the exact handshake that loads a ucode onto the DSP, and how HLE picks which C++ implementation to run.</span></div>
         </div>
@@ -1590,16 +1963,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#lle-hle"><span class="dir">← Prev</span><span class="ttl">10 · LLE vs HLE</span></a>
-            <a class="next" href="#output"><span class="dir">Next →</span><span class="ttl">12 · The output path</span></a>
+            <a href="#lle-hle"><span class="dir">← Prev</span><span class="ttl">13 · LLE vs HLE</span></a>
+            <a class="next" href="#output"><span class="dir">Next →</span><span class="ttl">15 · The output path</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 12 --- -->
+      <!-- --- Module 15 --- -->
       <section class="doc" id="output">
         <div class="mod-head">
-          <span class="eye">Module 12 <span class="part-tag">· Part III</span></span>
+          <span class="eye">Module 15 <span class="part-tag">· Part III</span></span>
           <h3>The output path</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow the finished samples from the DSP, through Dolphin's mixer, and out to a real sound card.</span></div>
         </div>
@@ -1616,10 +1989,10 @@
             game disc — called <span class="term" data-tip="Disc Track — streaming ADPCM audio read directly off the game disc, e.g. background music.">DTK</span>
             (Disc Track) audio — runs at <strong>48&nbsp;kHz</strong>. Your sound card,
             meanwhile, probably wants 44.1 or 48&nbsp;kHz. So the mixer must
-            <span class="term" data-tip="Changing a stream's sample rate by interpolating new sample values — the Module 05 idea, applied at output.">resample</span>
-            both streams to a common rate (Module 05, back again). It uses a
+            <span class="term" data-tip="Changing a stream's sample rate by interpolating new sample values — the Module 08 idea, applied at output.">resample</span>
+            both streams to a common rate (Module 08, back again). It uses a
             windowed, granule-based <span class="term" data-tip="A high-quality resampler that fits a smooth curve through 6 nearby samples to estimate in-between values.">6-point Hermite interpolator</span>
-            — the practical cousin of Module 05's polyphase filter — then applies
+            — the practical cousin of Module 08's polyphase filter — then applies
             volume, <span class="term" data-tip="Adding a tiny bit of noise before reducing bit depth, which hides quantisation artefacts.">dithers</span>
             back down to 16-bit, and hands off stereo (or 6-channel float for
             surround) to the backend.
@@ -1661,16 +2034,16 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#pipeline"><span class="dir">← Prev</span><span class="ttl">11 · Boot, mail &amp; dispatch</span></a>
-            <a class="next" href="#try"><span class="dir">Next →</span><span class="ttl">13 · Try it in Dolphin</span></a>
+            <a href="#pipeline"><span class="dir">← Prev</span><span class="ttl">14 · Boot, mail &amp; dispatch</span></a>
+            <a class="next" href="#try"><span class="dir">Next →</span><span class="ttl">16 · Try it in Dolphin</span></a>
           </div>
         </div>
       </section>
 
-      <!-- --- Module 13 --- -->
+      <!-- --- Module 16 --- -->
       <section class="doc" id="try">
         <div class="mod-head">
-          <span class="eye">Module 13 <span class="part-tag">· Part III</span></span>
+          <span class="eye">Module 16 <span class="part-tag">· Part III</span></span>
           <h3>Try it in Dolphin</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Turn the whole course into a few settings you can toggle and A/B for yourself.</span></div>
         </div>
@@ -1681,7 +2054,7 @@
             here is something you can now explain:
           </p>
           <ul>
-            <li><strong>DSP Emulation Engine → HLE</strong> — the fast default (Module 10). Good for almost everything.</li>
+            <li><strong>DSP Emulation Engine → HLE</strong> — the fast default (Module 13). Good for almost everything.</li>
             <li><strong>→ LLE Recompiler</strong> — switch here if a game sounds wrong under HLE, if you're running homebrew with an unknown ucode, or if you want <strong>Dolby Pro Logic II</strong>. Requires a DSP ROM.</li>
             <li><strong>→ LLE Interpreter</strong> — for DSP debugging only; very slow.</li>
             <li><strong>Dolby Pro Logic II decoder</strong> — appears only with LLE on a supported backend; pick a quality level to trade CPU for a bigger <span class="term" data-tip="The decoder that expands matrix-encoded stereo into 5.1 surround.">FreeSurround</span> block.</li>
@@ -1691,7 +2064,7 @@
             <span class="term" data-tip="The 'synth' ucode with literal positional Dolby matrix mixing, used by Wind Waker and Twilight Princess.">Zelda-ucode</span>
             title (Wind Waker, Twilight Princess) under HLE, then again under LLE with
             DPL2 turned on, and compare the surround field. The difference you hear is
-            the matrix encoding from Module 09 coming alive — the whole course,
+            the matrix encoding from Module 12 coming alive — the whole course,
             audible in a single A/B test.
           </p>
 
@@ -1705,7 +2078,7 @@
           </div>
 
           <div class="mod-nav">
-            <a href="#output"><span class="dir">← Prev</span><span class="ttl">12 · The output path</span></a>
+            <a href="#output"><span class="dir">← Prev</span><span class="ttl">15 · The output path</span></a>
             <a class="next" href="#signals"><span class="dir">↺ Restart</span><span class="ttl">01 · Sound as numbers</span></a>
           </div>
         </div>

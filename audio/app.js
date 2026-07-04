@@ -417,6 +417,127 @@ function MixerLab(root) {
   });
 }
 
+/* -------------------------------------------------------- envelope lab     */
+/* An ADSR envelope shapes a note's loudness over time: Attack (fade in),
+   Decay (drop to a held level), Sustain (that held level), Release (fade out).
+   The canvas draws the current shape; playing applies it to a saw voice.      */
+function buildEnvNote(a, d, s, r) {
+  return (ctx, dest) => {
+    const t0 = ctx.currentTime + 0.02, hold = 0.45, dur = a + d + hold + r;
+    const peak = 0.85, sus = Math.max(0.0008, peak * s);
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 220;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3200; lp.Q.value = 0.6;
+    const g = ctx.createGain(), gg = g.gain;
+    gg.setValueAtTime(0.0001, t0);
+    gg.linearRampToValueAtTime(peak, t0 + a);                     // attack
+    gg.linearRampToValueAtTime(sus, t0 + a + d);                  // decay → sustain
+    gg.setValueAtTime(sus, t0 + a + d + hold);                    // sustain hold
+    gg.linearRampToValueAtTime(0.0001, t0 + a + d + hold + r);    // release
+    osc.connect(lp); lp.connect(g); g.connect(dest);
+    osc.start(t0); osc.stop(t0 + dur + 0.03);
+    return { duration: dur + 0.05, stop() { try { osc.stop(); } catch (e) {} } };
+  };
+}
+
+function EnvelopeLab(root) {
+  const canvas = root.querySelector('.env-canvas');
+  const ctx2d = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const R = k => root.querySelector(`[data-${k}]`);
+  const V = k => root.querySelector(`[data-${k}-val]`);
+  const rs = { a: R('a'), d: R('d'), s: R('s'), r: R('r') };
+
+  function vals() {
+    return {
+      a: parseFloat(rs.a.value) / 1000,
+      d: parseFloat(rs.d.value) / 1000,
+      s: parseFloat(rs.s.value) / 100,
+      r: parseFloat(rs.r.value) / 1000,
+    };
+  }
+  function labels() {
+    V('a').textContent = rs.a.value + ' ms';
+    V('d').textContent = rs.d.value + ' ms';
+    V('s').textContent = rs.s.value + ' %';
+    V('r').textContent = rs.r.value + ' ms';
+  }
+  function draw() {
+    const b = canvas.getBoundingClientRect();
+    canvas.width = b.width * dpr; canvas.height = b.height * dpr;
+    const W = canvas.width, H = canvas.height, pad = 10 * dpr;
+    ctx2d.clearRect(0, 0, W, H);
+    // baseline
+    ctx2d.strokeStyle = 'rgba(90,78,130,0.28)'; ctx2d.lineWidth = 1;
+    ctx2d.beginPath(); ctx2d.moveTo(pad, H - pad); ctx2d.lineTo(W - pad, H - pad); ctx2d.stroke();
+    const v = vals(), hold = 0.45;
+    const total = v.a + v.d + hold + v.r || 1;
+    const x = t => pad + (W - 2 * pad) * (t / total);
+    const y = amp => (H - pad) - (H - 2 * pad) * amp;
+    const pts = [[0, 0], [v.a, 1], [v.a + v.d, v.s], [v.a + v.d + hold, v.s], [total, 0]];
+    // fill under curve
+    ctx2d.beginPath(); ctx2d.moveTo(x(0), y(0));
+    pts.forEach(p => ctx2d.lineTo(x(p[0]), y(p[1])));
+    ctx2d.lineTo(x(total), y(0)); ctx2d.closePath();
+    ctx2d.fillStyle = 'rgba(69,228,209,0.10)'; ctx2d.fill();
+    // curve
+    ctx2d.beginPath(); ctx2d.moveTo(x(pts[0][0]), y(pts[0][1]));
+    pts.slice(1).forEach(p => ctx2d.lineTo(x(p[0]), y(p[1])));
+    ctx2d.strokeStyle = '#45e4d1'; ctx2d.lineWidth = 2.4 * dpr;
+    ctx2d.lineJoin = 'round'; ctx2d.stroke();
+    // stage dots
+    ctx2d.fillStyle = '#a884ff';
+    pts.forEach(p => { ctx2d.beginPath(); ctx2d.arc(x(p[0]), y(p[1]), 3.4 * dpr, 0, 7); ctx2d.fill(); });
+  }
+  Object.values(rs).forEach(el => el.addEventListener('input', () => { labels(); draw(); }));
+  window.addEventListener('resize', draw);
+  labels(); draw();
+  root.querySelector('[data-env-play]').addEventListener('click', () => {
+    const v = vals();
+    Engine.play('Envelope · ADSR voice', buildEnvNote(v.a, v.d, v.s, v.r));
+  });
+}
+
+/* -------------------------------------------------------- clipping lab      */
+/* Push a signal past the ±1 ceiling and a hard limiter flattens its peaks —
+   that flat-topping is clipping, heard as harsh distortion. Drive is the
+   input gain; headroom is how much room is left before the ceiling.           */
+const CLIP_CURVE = (() => { const n = 2048, c = new Float32Array(n); for (let i = 0; i < n; i++) c[i] = i / (n - 1) * 2 - 1; return c; })();
+
+function buildClipGroup(drive) {
+  return (ctx, dest) => {
+    const t0 = ctx.currentTime + 0.02, dur = 1.8;
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 110;
+    const pre = ctx.createGain(); pre.gain.value = drive;
+    const ws = ctx.createWaveShaper(); ws.curve = CLIP_CURVE; ws.oversample = '4x';
+    const out = ctx.createGain(); out.connect(dest);
+    adsr(ctx, out, t0, dur, 0.01, 0.12, 0.55);
+    osc.connect(pre); pre.connect(ws); ws.connect(out);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+    return { pre, duration: dur + 0.05, stop() { try { osc.stop(); } catch (e) {} } };
+  };
+}
+
+function ClipLab(root) {
+  const driveR = root.querySelector('[data-drive]');
+  const driveV = root.querySelector('[data-drive-val]');
+  Scope(root.querySelector('.scope'), { color: '#ff6a6a' });
+  let live = null, actx = null;
+  const val = () => parseFloat(driveR.value);
+  function label() {
+    driveV.textContent = '×' + val().toFixed(1) + (val() <= 1 ? ' · clean' : ' · clipping');
+  }
+  driveR.addEventListener('input', () => {
+    label();
+    if (live && actx) live.pre.gain.setTargetAtTime(val(), actx.currentTime, 0.02);
+  });
+  label();
+  root.querySelector('[data-clip-play]').addEventListener('click', () => {
+    live = Engine.play('Headroom · drive ' + '×' + val().toFixed(1), (ctx, dest) => {
+      actx = ctx; return buildClipGroup(val())(ctx, dest);
+    });
+  });
+}
+
 /* ==========================================================================
    Wire-up
    ========================================================================== */
@@ -488,6 +609,24 @@ document.addEventListener('DOMContentLoaded', () => {
       Engine.play(`Sample rate · ${(r/1000)} kHz`, buildSRC(r));
     }));
   }
+
+  /* spectrum lab — same sound shown in time and frequency at once */
+  const sp = document.getElementById('lab-spectrum');
+  if (sp) {
+    Scope(sp.querySelector('.scope'), { color: '#45e4d1' });
+    Scope(sp.querySelector('.spectrum'), { mode: 'bars' });
+    let shape = 'sine';
+    sp.querySelectorAll('.seg-btns button').forEach(b => b.addEventListener('click', () => {
+      sp.querySelectorAll('.seg-btns button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); shape = b.dataset.shape;
+    }));
+    sp.querySelector('[data-spectrum-play]').addEventListener('click', () =>
+      Engine.play(`Spectrum · ${shape} @ 220 Hz`, buildTone(shape, 220, 1.9)));
+  }
+
+  /* envelope + clipping labs */
+  const envL = document.getElementById('lab-env'); if (envL) EnvelopeLab(envL);
+  const clipL = document.getElementById('lab-clip'); if (clipL) ClipLab(clipL);
 
   /* mixer + panner labs */
   const ml = document.getElementById('lab-mixer'); if (ml) MixerLab(ml);
