@@ -2115,7 +2115,7 @@ tap_done:
             resampling mixer to your speakers. These four modules connect the whole
             course to the actual settings you'll toggle in the emulator.
           </p>
-          <div class="part-meta"><span>Modules <b>13–16</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>1 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>13–16</b></span><span>Difficulty <b>Emulation</b></span><span>Labs <b>3 interactive</b></span></div>
         </div>
       </section>
 
@@ -2237,6 +2237,18 @@ tap_done:
             both off. Pro Logic II is only offered when HLE is off.</p></div>
           </div>
 
+          <div class="note warn">
+            <div class="ico">▲</div>
+            <div><p><strong>What HLE-gone-wrong sounds like.</strong> Because HLE
+            re-implements each ucode by hand, its failures are oddly specific:
+            crystal-clear sound effects but <em>missing music</em> (one command
+            list handled, another not), wrong instruments (a mis-read sample
+            header), missing reverb (the AUX detour skipped) — or, the classic,
+            a Factor&nbsp;5 game booting to total silence. Under LLE those bugs
+            are impossible by construction: there is no reimplementation to get
+            wrong.</p></div>
+          </div>
+
           <div class="takeaway">
             <div class="th">Key takeaways</div>
             <ul>
@@ -2305,6 +2317,24 @@ tap_done:
             homebrew&rdquo;) and a best-effort fallback to AX. Under
             <span class="term" data-tip="Low-Level Emulation — running the DSP's real instructions directly.">LLE</span>
             there's no lookup at all — it just runs whatever code arrived.</p></div>
+          </div>
+
+          <p>
+            Now watch it happen. The simulator below replays the handshake one
+            mail at a time — the actual 32-bit values a GameCube pushes through
+            the mailboxes at boot, with a translation beside each.
+          </p>
+
+          <div class="lab" id="lab-mail">
+            <div class="lab-head"><span class="dot"></span><span class="title">Mailbox simulator — boot a ucode, one mail at a time</span><span class="badge">interactive</span></div>
+            <div class="lab-body">
+              <div class="mail-log" data-mail-log aria-live="polite"><div class="mail-empty">— mailboxes idle · the DSP is running its boot ROM ucode —</div></div>
+              <div class="controls">
+                <button class="play-btn" data-mail-step>Step ➜</button>
+                <button class="surr-btn" data-mail-reset>Reset</button>
+                <span style="font-size:12.5px;color:var(--muted)" data-mail-note>Press Step to send the first mail.</span>
+              </div>
+            </div>
           </div>
 
           <div class="takeaway">
@@ -2378,6 +2408,31 @@ tap_done:
             inspect it.
           </p>
 
+          <h4>Hear the Mixer&rsquo;s job</h4>
+          <p>
+            Module 08 gave you the ladder of interpolation quality — nearest,
+            linear, polyphase — but only on paper. Here it finally gets ears.
+            The lab stores a bright sweep at the DSP&rsquo;s 32&nbsp;kHz and
+            converts it to your device&rsquo;s rate three different ways: with
+            <strong>nearest</strong> (grab the closest sample — listen for the
+            gritty, metallic edge as the sweep climbs), <strong>linear</strong>
+            (straight lines between samples — duller artefacts), and a 4-point
+            <strong>Hermite</strong> curve, the small cousin of the Mixer&rsquo;s
+            6-point interpolator — clean to the top.
+          </p>
+
+          <div class="lab" id="lab-resample">
+            <div class="lab-head"><span class="dot"></span><span class="title">Resampler A/B — 32&nbsp;kHz → your device, three ways</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <canvas class="scope" aria-label="Oscilloscope of the resampled sweep"></canvas>
+              <div class="controls">
+                <button class="play-btn" data-resample="nearest" style="background:linear-gradient(180deg,#ff6a6a,#c23b3b);color:#200">nearest</button>
+                <button class="play-btn" data-resample="linear" style="background:linear-gradient(180deg,#ffb14e,#c9832b);color:#200">linear</button>
+                <button class="play-btn" data-resample="hermite">Hermite</button>
+              </div>
+            </div>
+          </div>
+
           <div class="takeaway">
             <div class="th">Key takeaways</div>
             <ul>
@@ -2413,6 +2468,54 @@ tap_done:
             <li><strong>→ LLE Interpreter</strong> — for DSP debugging only; very slow.</li>
             <li><strong>Dolby Pro Logic II decoder</strong> — appears only with LLE on a supported backend; pick a quality level to trade CPU for a bigger <span class="term" data-tip="The decoder that expands matrix-encoded stereo into 5.1 surround.">FreeSurround</span> block.</li>
           </ul>
+
+          <div class="note hw">
+            <div class="ico">▍</div>
+            <div><p><strong>What LLE actually needs.</strong> The two ROMs you met
+            in Module 09: <code>dsp_rom.bin</code> (the boot IROM) and
+            <code>dsp_coef.bin</code> (the resampling coefficient ROM), dropped
+            into Dolphin&rsquo;s <code>User/GC</code> folder and verified against
+            the hashes from that module (<code>irom 0x66f334fe / drom
+            0xf3b93527</code>). No dump? Dolphin quietly falls back to its
+            bundled clean-room replacement — audio still works, with minor
+            differences in a few titles.</p></div>
+          </div>
+
+          <h4>If something sounds wrong</h4>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr><th>Symptom</th><th>Likely cause</th><th>Try</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Crackles &amp; stutters everywhere</td>
+                  <td>The game isn&rsquo;t running full speed, so the audio buffer starves — Module 11&rsquo;s deadline, replayed on your PC</td>
+                  <td>Lower demanding settings; enable Audio Stretching</td>
+                </tr>
+                <tr>
+                  <td>Music missing, or wrong instruments</td>
+                  <td>A quirk in HLE&rsquo;s hand-written reimplementation of that ucode</td>
+                  <td>Switch to LLE Recompiler</td>
+                </tr>
+                <tr>
+                  <td>&ldquo;Unknown ucode&rdquo; warning</td>
+                  <td>Homebrew, or an exotic engine (Module 10&rsquo;s Factor&nbsp;5 story)</td>
+                  <td>LLE Recompiler</td>
+                </tr>
+                <tr>
+                  <td>No Pro Logic II option in the list</td>
+                  <td>HLE is selected, or the backend can&rsquo;t deliver it</td>
+                  <td>LLE + a supported backend (e.g. Cubeb, WASAPI)</td>
+                </tr>
+                <tr>
+                  <td>LLE makes the game itself stutter</td>
+                  <td>The emulated DSP is fighting the CPU thread for time</td>
+                  <td>Enable &ldquo;DSP LLE on dedicated thread&rdquo;</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <figure class="figure">
             <svg viewBox="0 0 900 316" role="img" aria-label="A decision tree for choosing Dolphin's DSP emulation engine">
               <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker><marker id="ahc" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#45e4d1"/></marker><marker id="ahv" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#a884ff"/></marker></defs>

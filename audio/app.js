@@ -642,6 +642,93 @@ function PanLab(root) {
   root.querySelector('[data-pan-play]').addEventListener('click', startPanner);
 }
 
+/* -------------------------------------------------------- mailbox lab      */
+/* Replays the CPU<->DSP boot handshake from module 14, one mail at a time —
+   the real 32-bit values, with a translation beside each. Pure DOM, no audio. */
+function MailLab(root) {
+  const log = root.querySelector('[data-mail-log]');
+  const note = root.querySelector('[data-mail-note]');
+  const stepBtn = root.querySelector('[data-mail-step]');
+  const STEPS = [
+    { side: 'cpu', mail: '0x8071FEED', text: 'the magic init mail — “incoming ucode!”' },
+    { side: 'cpu', mail: '0x8123A000', text: 'where the ucode sits in main RAM' },
+    { side: 'cpu', mail: '0x00001D20', text: 'how many bytes to copy' },
+    { side: 'cpu', mail: '0x00000000', text: 'where to put it in IRAM — also the entry point' },
+    { side: 'dsp', mail: 'DMA', text: 'boot ROM ucode copies 0x1D20 bytes MRAM → IRAM' },
+    { side: 'dsp', mail: 'JMP 0x0000', text: '…and jumps in: the game’s ucode is now running' },
+    { side: 'hle', mail: 'CRC 0x3AD3B7AC', text: '(HLE only) Dolphin fingerprints IRAM → matches AXUCode' },
+    { side: 'dsp', mail: '0xDCD10000', text: 'DSP_INIT — “ready”; from here on it’s a command list every frame' },
+  ];
+  const WHO = { cpu: 'CPU → DSP', dsp: 'DSP → CPU', hle: 'Dolphin' };
+  let at = 0;
+  function reset() {
+    at = 0;
+    log.innerHTML = '<div class="mail-empty">— mailboxes idle · the DSP is running its boot ROM ucode —</div>';
+    note.textContent = 'Press Step to send the first mail.';
+    stepBtn.disabled = false;
+  }
+  stepBtn.addEventListener('click', () => {
+    if (at === 0) log.innerHTML = '';
+    const s = STEPS[at++];
+    const row = document.createElement('div');
+    row.className = 'mrow ' + s.side;
+    row.innerHTML = '<span class="who">' + WHO[s.side] + '</span><code>' + s.mail + '</code><span class="what">' + s.text + '</span>';
+    log.appendChild(row);
+    if (at >= STEPS.length) {
+      note.textContent = 'Handshake complete — the ucode is live. Reset to replay.';
+      stepBtn.disabled = true;
+    } else {
+      note.textContent = 'Step ' + at + ' of ' + STEPS.length;
+    }
+  });
+  root.querySelector('[data-mail-reset]').addEventListener('click', reset);
+}
+
+/* -------------------------------------------------------- resampler lab    */
+/* The Mixer's job, audible: a bright sweep "stored at 32 kHz" is converted
+   to the device rate with three interpolators of increasing quality.        */
+function buildResampled(kind) {
+  return (ctx, dest) => {
+    const srSrc = 32000, dur = 1.7;
+    const nSrc = Math.floor(srSrc * dur);
+    const src = new Float32Array(nSrc);
+    for (let i = 0; i < nSrc; i++) {
+      const t = i / srSrc;
+      const f0 = 500, f1 = 14000;                       // sweep into the top octave
+      const ph = 2 * Math.PI * (f0 * t + (f1 - f0) * t * t / (2 * dur));
+      src[i] = Math.sin(ph);
+    }
+    const sr = ctx.sampleRate;
+    const nOut = Math.floor(sr * dur);
+    const buf = ctx.createBuffer(1, nOut, sr);
+    const d = buf.getChannelData(0);
+    const step = srSrc / sr;
+    const at = i => (i < 0 || i >= nSrc) ? 0 : src[i];
+    for (let n = 0; n < nOut; n++) {
+      const p = n * step, i0 = Math.floor(p), fr = p - i0;
+      let v;
+      if (kind === 'nearest') {
+        v = at(Math.round(p));
+      } else if (kind === 'linear') {
+        v = at(i0) * (1 - fr) + at(i0 + 1) * fr;
+      } else {                                          // 4-point Hermite
+        const ym1 = at(i0 - 1), y0 = at(i0), y1 = at(i0 + 1), y2 = at(i0 + 2);
+        const c1 = 0.5 * (y1 - ym1);
+        const c2 = ym1 - 2.5 * y0 + 2 * y1 - 0.5 * y2;
+        const c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1);
+        v = ((c3 * fr + c2) * fr + c1) * fr + y0;
+      }
+      d[n] = 0.6 * v;
+    }
+    const t0 = ctx.currentTime + 0.02;
+    const g = ctx.createGain(); g.connect(dest);
+    adsr(ctx, g, t0, dur, 0.01, 0.1, 0.8);
+    const node = ctx.createBufferSource(); node.buffer = buf; node.connect(g);
+    node.start(t0);
+    return { duration: dur + 0.05, stop() { try { node.stop(); } catch (e) {} } };
+  };
+}
+
 /* -------------------------------------------------------- AUX reverb lab   */
 /* A voice's AUX send, made audible: a plucked arpeggio goes dry to the
    output AND, scaled by the send knob, into a convolution reverb whose
@@ -1064,6 +1151,15 @@ document.addEventListener('DOMContentLoaded', () => {
   /* AUX reverb + frame budget labs (Part II) */
   const auxL = document.getElementById('lab-aux'); if (auxL) AuxLab(auxL);
   const frL = document.getElementById('lab-frame'); if (frL) FrameLab(frL);
+
+  /* mailbox + resampler labs (Part III) */
+  const mlb = document.getElementById('lab-mail'); if (mlb) MailLab(mlb);
+  const rsl = document.getElementById('lab-resample');
+  if (rsl) {
+    Scope(rsl.querySelector('.scope'), { color: '#a884ff' });
+    rsl.querySelectorAll('[data-resample]').forEach(b => b.addEventListener('click', () =>
+      Engine.play(`Mixer · ${b.dataset.resample} interpolation`, buildResampled(b.dataset.resample))));
+  }
 
   /* mixer + panner labs */
   const ml = document.getElementById('lab-mixer'); if (ml) MixerLab(ml);
