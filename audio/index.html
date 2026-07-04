@@ -1282,7 +1282,7 @@
             of just two channels — Dolby Pro Logic II. From here on we'll name real
             hardware, but every piece maps back to a fundamental you already know.
           </p>
-          <div class="part-meta"><span>Modules <b>09–12</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>1 interactive</b></span></div>
+          <div class="part-meta"><span>Modules <b>09–12</b></span><span>Difficulty <b>Hardware</b></span><span>Labs <b>3 interactive</b></span></div>
         </div>
       </section>
 
@@ -1448,6 +1448,30 @@
               <div class="seg" style="flex:.5;background:#ffb14e">COEF<small>4&nbsp;KB</small></div>
             </div>
           </div>
+
+          <h4>What its code actually looks like</h4>
+          <p>
+            Those 230 opcodes aren&rsquo;t general-purpose — they&rsquo;re shaped
+            around one job: <em>multiply, accumulate, and keep the data moving,
+            every single cycle</em>. Here&rsquo;s an illustrative fragment in the
+            style of Dolphin&rsquo;s disassembler — one tap of the resampling
+            filter from Module 08:
+          </p>
+          <div class="asm">
+            <pre><span class="c">; one tap of the 4-tap resampler FIR — the Module 08 math, in silicon</span>
+<span class="k">BLOOP</span>   <span class="r">$AX1.H</span>, tap_done   <span class="c">; hardware loop — repeats with ZERO branch cost</span>
+  <span class="k">LRRI</span>  <span class="r">$AX0.H</span>, @<span class="r">$AR0</span>     <span class="c">; load filter coefficient from COEF ROM, pointer++</span>
+  <span class="k">LRRI</span>  <span class="r">$AX0.L</span>, @<span class="r">$AR1</span>     <span class="c">; load audio sample from DRAM,         pointer++</span>
+  <span class="k">MULAC</span> <span class="r">$AX0.H</span>, <span class="r">$AX0.L</span>, <span class="r">$ACC0</span>  <span class="c">; ACC0 += coef &times; sample — into the 40-bit accumulator</span>
+tap_done:
+<span class="k">SRRI</span>    @<span class="r">$AR2</span>, <span class="r">$ACC0.M</span>    <span class="c">; store the mixed sample, pointer++ — done, next voice</span></pre>
+          </div>
+          <p style="font-size:13px;color:var(--muted)">
+            Notice what&rsquo;s <em>free</em>: the loop has no branch overhead, and
+            most arithmetic ops carry a parallel load or store in the same
+            instruction. That&rsquo;s why a 16-bit chip from 2001 could mix 64
+            voices in real time.
+          </p>
 
           <p>
             The star of the chip is the block labelled <strong>accelerator</strong>.
@@ -1631,6 +1655,18 @@
             An unlisted fingerprint triggers a &ldquo;try LLE&rdquo; warning and a
             best-effort fallback.
           </p>
+          <div class="note hw">
+            <div class="ico">▍</div>
+            <div><p><strong>The stress test: Factor 5.</strong> The <em>Rogue
+            Squadron</em> games (Rogue Leader, Rebel Strike) shipped their own
+            radically customised ucode, grown out of the MusyX middleware —
+            streaming-heavy, voice-hungry, and nothing like AX inside. It was
+            long the textbook case for Module 13&rsquo;s advice: HLE&rsquo;s
+            dispatch table had no implementation that behaved right, so to get
+            correct audio you flipped to LLE and simply <em>ran</em> Factor
+            5&rsquo;s real code on the emulated chip.</p></div>
+          </div>
+
 
           <div class="takeaway">
             <div class="th">Key takeaways</div>
@@ -1728,6 +1764,83 @@
             five-step list in mind: that little lab is AX in miniature, one step per
             control.
           </p>
+          <p>
+            One more Part&nbsp;I echo before we move on: as its very last step, AX
+            runs the finished mix through a <strong>compressor</strong> stage — a
+            table-driven limiter, configured by the game. Dozens of summed voices
+            can easily overshoot the 16-bit ceiling, and Module&nbsp;07 taught you
+            what that sounds like — so the ucode tames the peaks instead of
+            letting them <span class="term" data-tip="When a signal exceeds the format's maximum value and its peaks get sliced off flat — heard as harsh distortion.">clip</span>.
+            The headroom lesson, shipped in microcode.
+          </p>
+
+          <h4>The AUX detour — where reverb lives</h4>
+          <p>
+            The pipeline above actually ends in more than one place. Besides the
+            MAIN output, every voice can send a copy of itself into the
+            <strong>AUX buses</strong> (AUXA/AUXB, plus AUXC on Wii) — and here's
+            the surprise: AX doesn't process them. Each frame it
+            <span class="term" data-tip="Direct Memory Access — a bulk memory copy performed without the processor doing it byte by byte.">DMA</span>s
+            the AUX mixes back to main RAM, where <em>the CPU</em> applies the
+            effect — reverb, echo, chorus — and returns the processed buffers to
+            be folded into the next frame's mix. Every echoing cave and cathedral
+            on the console is this round-trip: the DSP does the per-voice grind,
+            the CPU does the fancy effects. Try it — the send knob below is
+            exactly a voice's AUX send level, feeding a synthetic cave (the
+            reverb is a generated impulse response; nothing is recorded).
+          </p>
+
+          <div class="lab" id="lab-aux">
+            <div class="lab-head"><span class="dot"></span><span class="title">AUX send — put the arpeggio in a cave</span><span class="badge">Web Audio · live</span></div>
+            <div class="lab-body">
+              <div class="controls">
+                <div class="ctrl" style="min-width:220px">
+                  <label>AUX send (reverb) — <span class="val" data-aux-send-val>35 %</span></label>
+                  <input type="range" min="0" max="100" value="35" data-aux-send aria-label="AUX send level">
+                </div>
+                <button class="play-btn" data-aux-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play
+                </button>
+                <span style="font-size:12.5px;color:var(--muted)">0&nbsp;% = dry voice only · slide up while it plays and the cave grows around it.</span>
+              </div>
+            </div>
+          </div>
+
+          <h4>The frame budget — why ~64 voices</h4>
+          <p>
+            Remember that AX works in <span class="term" data-tip="A fixed batch of samples the mixer processes at once — 32 samples (5 ms) per frame on GameCube.">frames</span>:
+            every 5&nbsp;ms it must fetch, decode, resample, envelope, filter and
+            mix <em>every</em> voice before the output buffer runs dry. That is a
+            hard real-time deadline. Each voice costs cycles, so the frame is a
+            budget — and when a busy scene pushes past it, frames miss the
+            deadline, the buffer underruns, and the audio crackles and drops out.
+            That's why the practical voice ceiling was ~64, and why sound
+            designers spent their budget like money. The lab below
+            <em>simulates</em> the deadline (your computer isn't actually
+            struggling): each bar is one 5&nbsp;ms frame, the dashed line is the
+            budget, and red frames missed it — which mutes them, exactly the
+            crackle a real overrun makes.
+          </p>
+
+          <div class="lab" id="lab-frame">
+            <div class="lab-head"><span class="dot"></span><span class="title">Frame budget — blow the 5&nbsp;ms deadline</span><span class="badge">simulation · live</span></div>
+            <div class="lab-body">
+              <canvas class="frame-canvas" aria-label="Timeline of 5 millisecond mixer frames; red frames missed the deadline"></canvas>
+              <div class="controls">
+                <div class="ctrl" style="min-width:220px">
+                  <label>Active voices — <span class="val" data-frame-voices-val>48 voices</span></label>
+                  <input type="range" min="8" max="120" value="48" data-frame-voices aria-label="Number of active voices">
+                </div>
+                <button class="play-btn" data-frame-play>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Play
+                </button>
+                <span style="font-size:12.5px;color:var(--muted)" data-frame-stat>budget ≈ 64 voices · slide past it and hear frames drop.</span>
+              </div>
+            </div>
+          </div>
+
 
           <div class="takeaway">
             <div class="th">Key takeaways</div>
@@ -1736,6 +1849,8 @@
               <li>It runs at a fixed 32&nbsp;kHz in millisecond-sized frames.</li>
               <li>Each voice = decode → resample → ramp → filter → mix — the entire Part I chain, in order.</li>
               <li>It outputs stereo plus a separate encoded surround buffer.</li>
+              <li>Effects take the AUX detour: the DSP sends side-mixes to the CPU for reverb and folds them back in.</li>
+              <li>Every frame is a 5&nbsp;ms deadline — overrun the voice budget and the audio drops out.</li>
             </ul>
           </div>
 

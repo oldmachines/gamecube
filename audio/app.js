@@ -642,6 +642,156 @@ function PanLab(root) {
   root.querySelector('[data-pan-play]').addEventListener('click', startPanner);
 }
 
+/* -------------------------------------------------------- AUX reverb lab   */
+/* A voice's AUX send, made audible: a plucked arpeggio goes dry to the
+   output AND, scaled by the send knob, into a convolution reverb whose
+   impulse response is synthesised (exponentially decaying noise) — the
+   round-trip a real game does through main RAM and the CPU.              */
+function AuxLab(root) {
+  const slider = root.querySelector('[data-aux-send]');
+  const valEl = root.querySelector('[data-aux-send-val]');
+  let sendGain = null, actx = null;
+  const sendVal = () => parseFloat(slider.value) / 100;
+  slider.addEventListener('input', () => {
+    valEl.textContent = slider.value + ' %';
+    if (sendGain && actx) sendGain.gain.setTargetAtTime(sendVal(), actx.currentTime, 0.02);
+  });
+
+  function makeIR(ctx, seconds = 1.9) {
+    const sr = ctx.sampleRate, n = Math.floor(sr * seconds);
+    const buf = ctx.createBuffer(2, n, sr);
+    let s = 1234567;
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < n; i++) {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        d[i] = ((s / 0x3fffffff) - 1) * Math.pow(1 - i / n, 2.6);
+      }
+    }
+    return buf;
+  }
+
+  root.querySelector('[data-aux-play]').addEventListener('click', () => {
+    Engine.play('AX · AUX reverb send', (ctx, dest) => {
+      actx = ctx;
+      // dry path + AUX send -> "cave" -> return, both into the mix
+      const dry = ctx.createGain(); dry.gain.value = 0.9; dry.connect(dest);
+      sendGain = ctx.createGain(); sendGain.gain.value = sendVal();
+      const conv = ctx.createConvolver(); conv.buffer = makeIR(ctx);
+      const ret = ctx.createGain(); ret.gain.value = 1.5;
+      sendGain.connect(conv); conv.connect(ret); ret.connect(dest);
+      const bus = ctx.createGain(); bus.connect(dry); bus.connect(sendGain);
+      // a plucked arpeggio, pre-scheduled
+      const notes = [261.63, 329.63, 392.0, 523.25, 392.0, 329.63];
+      const oscs = [];
+      let t = ctx.currentTime + 0.05;
+      for (let k = 0; k < 24; k++) {
+        const o = ctx.createOscillator(); o.type = 'triangle';
+        o.frequency.value = notes[k % notes.length];
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.5, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+        o.connect(g); g.connect(bus);
+        o.start(t); o.stop(t + 0.4);
+        oscs.push(o);
+        t += 0.4;
+      }
+      return { duration: 24 * 0.4 + 2.2, stop() { oscs.forEach(o => { try { o.stop(); } catch (e) {} }); } };
+    });
+  });
+}
+
+/* -------------------------------------------------------- frame budget lab */
+/* SIMULATES the DSP's 5 ms real-time deadline: each frame costs cycles per
+   voice (with a little per-frame jitter, like real workloads); a frame whose
+   load exceeds the budget misses the deadline and its audio is muted — the
+   authentic crackle of a buffer underrun. The canvas is a rolling timeline:
+   one bar per frame, dashed line = the budget, red = dropped.              */
+function FrameLab(root) {
+  const canvas = root.querySelector('.frame-canvas');
+  const c2 = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const slider = root.querySelector('[data-frame-voices]');
+  const valEl = root.querySelector('[data-frame-voices-val]');
+  const statEl = root.querySelector('[data-frame-stat]');
+  const BUDGET = 64, FRAME = 0.005;
+  let voices = parseInt(slider.value, 10);
+  let playing = false, raf = null;
+  const hist = new Array(180).fill(0);
+  let histAt = 0, drops = 0, frames = 0;
+
+  slider.addEventListener('input', () => {
+    voices = parseInt(slider.value, 10);
+    valEl.textContent = voices + ' voices';
+  });
+
+  function draw() {
+    const r = canvas.getBoundingClientRect();
+    canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+    const W = canvas.width, H = canvas.height;
+    c2.clearRect(0, 0, W, H);
+    const bw = W / hist.length, scale = H * 0.7;
+    for (let i = 0; i < hist.length; i++) {
+      const load = hist[(histAt + i) % hist.length];
+      if (!load) continue;
+      const h = Math.min(1.3, load) * scale;
+      c2.fillStyle = load > 1 ? '#ff6a6a' : '#45e4d1';
+      c2.fillRect(i * bw + 0.5, H - h, Math.max(1, bw - 1.2), h);
+    }
+    const by = H - scale;                       // the budget line (load = 1)
+    c2.strokeStyle = 'rgba(255,177,78,.9)';
+    c2.lineWidth = dpr;
+    c2.setLineDash([5 * dpr, 4 * dpr]);
+    c2.beginPath(); c2.moveTo(0, by); c2.lineTo(W, by); c2.stroke();
+    c2.setLineDash([]);
+    if (playing) raf = requestAnimationFrame(draw);
+  }
+  draw();
+
+  root.querySelector('[data-frame-play]').addEventListener('click', () => {
+    Engine.play('AX · frame budget (simulated)', (ctx, dest) => {
+      // a sustained 6-voice chord, gated per simulated frame
+      const gate = ctx.createGain(); gate.gain.value = 1; gate.connect(dest);
+      const master = ctx.createGain(); master.gain.value = 0.12; master.connect(gate);
+      const oscs = [130.81, 164.81, 196.0, 261.63, 329.63, 392.0].map((f, i) => {
+        const o = ctx.createOscillator(); o.type = i % 2 ? 'triangle' : 'sawtooth';
+        o.frequency.value = f; o.detune.value = (i - 2.5) * 4;
+        o.connect(master); o.start();
+        return o;
+      });
+      drops = 0; frames = 0;
+      let nextT = ctx.currentTime + 0.05;
+      let seed = 97;
+      const timer = setInterval(() => {
+        // schedule simulated frames ~150 ms ahead
+        while (nextT < ctx.currentTime + 0.15) {
+          seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+          const jitter = 0.85 + 0.3 * (seed / 0x7fffffff);
+          const load = (voices / BUDGET) * jitter;
+          const dropped = load > 1;
+          gate.gain.setValueAtTime(dropped ? 0 : 1, nextT);
+          hist[histAt] = load; histAt = (histAt + 1) % hist.length;
+          frames++; if (dropped) drops++;
+          nextT += FRAME;
+        }
+        statEl.textContent = drops
+          ? 'missed deadline: ' + (100 * drops / frames).toFixed(1) + '% of frames'
+          : 'all frames on time · budget ≈ 64 voices';
+      }, 90);
+      playing = true;
+      cancelAnimationFrame(raf); raf = requestAnimationFrame(draw);
+      return {
+        stop() {
+          clearInterval(timer);
+          playing = false;
+          oscs.forEach(o => { try { o.stop(); } catch (e) {} });
+        }
+      };
+    });
+  });
+}
+
 /* -------------------------------------------------------- AX mixer lab     */
 function MixerLab(root) {
   const strips = [...root.querySelectorAll('.strip')];
@@ -910,6 +1060,10 @@ document.addEventListener('DOMContentLoaded', () => {
   /* envelope + clipping labs */
   const envL = document.getElementById('lab-env'); if (envL) EnvelopeLab(envL);
   const clipL = document.getElementById('lab-clip'); if (clipL) ClipLab(clipL);
+
+  /* AUX reverb + frame budget labs (Part II) */
+  const auxL = document.getElementById('lab-aux'); if (auxL) AuxLab(auxL);
+  const frL = document.getElementById('lab-frame'); if (frL) FrameLab(frL);
 
   /* mixer + panner labs */
   const ml = document.getElementById('lab-mixer'); if (ml) MixerLab(ml);
