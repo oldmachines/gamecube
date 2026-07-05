@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GameCube Homebrew — write your own game for the little purple box</title>
-<meta name="description" content="Part IV of the Inside-the-GameCube collection: a hands-on course on writing your own GameCube software. The devkitPro toolchain, libogc, the DOL executable format, setup on Windows, macOS and Linux, and every step from an empty folder to code running in Dolphin and on real hardware.">
+<meta name="description" content="A hands-on course on writing your own GameCube software. The devkitPro toolchain, libogc, the DOL executable format, setup on Windows, macOS and Linux, and every step from an empty folder to code running in Dolphin and on real hardware.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237d5cf0%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27none%27 stroke=%27%230c0a13%27 stroke-width=%273%27/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -22,29 +22,29 @@
       <div class="logo" aria-hidden="true"></div>
       <div>
         <h1>GameCube Homebrew</h1>
-        <span class="sub">Part IV · 13 modules</span>
+        <span class="sub">A course · 13 modules</span>
       </div>
     </div>
 
     <nav class="toc" aria-label="Course contents">
-      <div class="toc-group">IV·A · The scene &amp; the toolkit</div>
+      <div class="toc-group">Stage 1 · The scene &amp; the toolkit</div>
       <a href="#what"><span class="n">01</span><span>What homebrew is</span></a>
       <a href="#toolchain"><span class="n">02</span><span>The toolchain</span></a>
       <a href="#libraries"><span class="n">03</span><span>The libraries</span></a>
 
-      <div class="toc-group">IV·B · First light</div>
+      <div class="toc-group">Stage 2 · First light</div>
       <a href="#setup"><span class="n">04</span><span>Set up Windows / Mac / Linux</span></a>
       <a href="#hello"><span class="n">05</span><span>Hello, world</span></a>
       <a href="#build"><span class="n">06</span><span>From .c to .dol</span></a>
       <a href="#run"><span class="n">07</span><span>Run it — Dolphin &amp; hardware</span></a>
 
-      <div class="toc-group">IV·C · Make it a game</div>
+      <div class="toc-group">Stage 3 · Make it a game</div>
       <a href="#pad"><span class="n">08</span><span>Reading the controller</span></a>
       <a href="#pixels"><span class="n">09</span><span>Putting pixels on screen</span></a>
       <a href="#assets"><span class="n">10</span><span>Sound, files &amp; saves</span></a>
       <a href="#loop"><span class="n">11</span><span>The game loop &amp; the frame budget</span></a>
 
-      <div class="toc-group">IV·D · Ship it</div>
+      <div class="toc-group">Stage 4 · Ship it</div>
       <a href="#ship"><span class="n">12</span><span>From DOL to disc</span></a>
       <a href="#epilogue"><span class="n">13</span><span>Your turn</span></a>
 
@@ -60,13 +60,13 @@
       <canvas id="hero-tokens" aria-hidden="true"></canvas>
       <div class="wrap">
         <div class="inner">
-          <span class="eyebrow">An interactive course · Part IV of the collection</span>
+          <span class="eyebrow">An interactive course · devkitPro &amp; libogc</span>
           <h2>Now <span class="grad">write your own.</span></h2>
           <p class="lede">
-            Parts I–III of this collection took the GameCube apart — the CPU,
-            the GPU, the DSP, the disc drive — and showed how Dolphin puts it
-            back together. Part IV closes the loop: you write code and
-            <strong>the real machine runs it</strong>. This course covers the
+            The other courses in this collection took the GameCube apart — the
+            CPU, the GPU, the DSP, the disc drive — and showed how Dolphin puts
+            it back together. This course closes the loop: you write code and
+            <strong>the real machine runs it</strong>. It covers the
             free, open toolchain the community built (devkitPPC and libogc),
             the DOL executable format that every retail game also uses, full
             setup instructions for <strong>Windows, macOS and Linux</strong>,
@@ -77,32 +77,32 @@
           <div class="cta-row">
             <a class="btn primary" href="#what">
               <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              Begin Part IV
+              Begin the course
             </a>
             <a class="btn" href="#setup">Skip to machine setup</a>
           </div>
 
           <div class="arc-cards">
             <a class="arc" href="#part-a">
-              <div class="an">IV · A</div>
+              <div class="an">STAGE 1</div>
               <h4>The scene &amp; the toolkit</h4>
               <p>What homebrew is (and isn't), the cross-compiler that targets Gekko, and libogc — the community's answer to Nintendo's SDK.</p>
               <div class="cnt">3 modules</div>
             </a>
             <a class="arc" href="#part-b">
-              <div class="an">IV · B</div>
+              <div class="an">STAGE 2</div>
               <h4>First light</h4>
               <p>Install the tools on your OS, write hello-world, understand the build pipeline and the DOL format, and run the result.</p>
               <div class="cnt">4 modules · with labs</div>
             </a>
             <a class="arc" href="#part-c">
-              <div class="an">IV · C</div>
+              <div class="an">STAGE 3</div>
               <h4>Make it a game</h4>
               <p>The controller, the screen, sound and storage, and the sacred 16.7-millisecond game loop — with a playable frame-budget lab.</p>
               <div class="cnt">4 modules · with labs</div>
             </a>
             <a class="arc" href="#part-d">
-              <div class="an">IV · D</div>
+              <div class="an">STAGE 4</div>
               <h4>Ship it</h4>
               <p>DOLs versus disc images, packaging and distributing your work, and where to go once the course lets go of your hand.</p>
               <div class="cnt">2 modules</div>
@@ -117,7 +117,7 @@
       <!-- ============================================ PART A ============== -->
       <section class="part" id="part-a">
         <div class="part-inner">
-          <div class="kicker">Part IV · A</div>
+          <div class="kicker">Stage 1</div>
           <h3>The scene &amp; the toolkit</h3>
           <p>
             Before touching a compiler, you should know what you're joining.
@@ -134,7 +134,7 @@
       <!-- --- Module 01 --- -->
       <section class="doc" id="what">
         <div class="mod-head">
-          <span class="eye">Module 01 <span class="part-tag">· Part IV·A</span></span>
+          <span class="eye">Module 01 <span class="part-tag">· Stage 1</span></span>
           <h3>What homebrew is</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Know exactly what "homebrew" means, why writing your own GameCube software is a legitimate craft distinct from piracy, and what two decades of the scene have built.</span></div>
         </div>
@@ -267,7 +267,7 @@
           </div>
 
           <div class="mod-nav">
-            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of Part IV</span></a>
+            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of course</span></a>
             <a class="next" href="#toolchain"><span class="dir">Next →</span><span class="ttl">02 · The toolchain</span></a>
           </div>
         </div>
@@ -276,7 +276,7 @@
       <!-- --- Module 02 --- -->
       <section class="doc" id="toolchain">
         <div class="mod-head">
-          <span class="eye">Module 02 <span class="part-tag">· Part IV·A</span></span>
+          <span class="eye">Module 02 <span class="part-tag">· Stage 1</span></span>
           <h3>The toolchain</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand what a cross-compiler is, what each piece of the devkitPro toolchain does, and why code built on your x86/ARM laptop runs on a PowerPC console.</span></div>
         </div>
@@ -400,7 +400,7 @@
               <li>A cross-compiler runs on your machine but emits code for another — here, <code>powerpc-eabi-gcc</code> emitting Gekko-ready PowerPC.</li>
               <li>devkitPro is the distribution; devkitPPC is the compiler + binutils + libc; dkp-pacman installs and updates it all.</li>
               <li>The target is bare metal: newlib provides the C library, and libogc supplies the hardware-facing plumbing underneath it.</li>
-              <li><code>elf2dol</code> and the examples tree round out the kit — both star later in Part IV·B.</li>
+              <li><code>elf2dol</code> and the examples tree round out the kit — both star later in Stage 2.</li>
             </ul>
           </div>
 
@@ -414,7 +414,7 @@
       <!-- --- Module 03 --- -->
       <section class="doc" id="libraries">
         <div class="mod-head">
-          <span class="eye">Module 03 <span class="part-tag">· Part IV·A</span></span>
+          <span class="eye">Module 03 <span class="part-tag">· Stage 1</span></span>
           <h3>The libraries</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet libogc — the community's stand-in for Nintendo's SDK — learn which of its subsystems drives which piece of hardware, and know what to reach for above and beside it.</span></div>
         </div>
@@ -534,14 +534,14 @@
       <!-- ============================================ PART B ============== -->
       <section class="part" id="part-b">
         <div class="part-inner">
-          <div class="kicker">Part IV · B</div>
+          <div class="kicker">Stage 2</div>
           <h3>First light</h3>
           <p>
             Vocabulary over; hands on. This stretch installs the toolchain on
             your actual computer — Windows, macOS or Linux, each with its own
             tab — then writes the traditional first program, follows it
             through the build pipeline into the console's DOL executable
-            format, and runs it. By the end of Part IV·B you will have watched
+            format, and runs it. By the end of Stage 2 you will have watched
             code you compiled boot on (an emulated) GameCube. That moment does
             not get old.
           </p>
@@ -552,7 +552,7 @@
       <!-- --- Module 04 --- -->
       <section class="doc" id="setup">
         <div class="mod-head">
-          <span class="eye">Module 04 <span class="part-tag">· Part IV·B</span></span>
+          <span class="eye">Module 04 <span class="part-tag">· Stage 2</span></span>
           <h3>Set up your machine — Windows, macOS or Linux</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Install devkitPPC, libogc and the GameCube tools on your OS, verify the install by building a real example, and have Dolphin ready to run what you build.</span></div>
         </div>
@@ -744,7 +744,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 05 --- -->
       <section class="doc" id="hello">
         <div class="mod-head">
-          <span class="eye">Module 05 <span class="part-tag">· Part IV·B</span></span>
+          <span class="eye">Module 05 <span class="part-tag">· Stage 2</span></span>
           <h3>Hello, world</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Read the canonical GameCube hello-world line by line, and recognise that every call in it is a concept from Parts I–III wearing a function name.</span></div>
         </div>
@@ -874,7 +874,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 06 --- -->
       <section class="doc" id="build">
         <div class="mod-head">
-          <span class="eye">Module 06 <span class="part-tag">· Part IV·B</span></span>
+          <span class="eye">Module 06 <span class="part-tag">· Stage 2</span></span>
           <h3>From .c to .dol — the build &amp; the executable format</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow your source through compile, link and convert; then open the DOL format — the GameCube's native executable, shared by every retail game — field by field.</span></div>
         </div>
@@ -1004,7 +1004,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 07 --- -->
       <section class="doc" id="run">
         <div class="mod-head">
-          <span class="eye">Module 07 <span class="part-tag">· Part IV·B</span></span>
+          <span class="eye">Module 07 <span class="part-tag">· Stage 2</span></span>
           <h3>Run it — Dolphin first, hardware after</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Establish the fast development loop in Dolphin, then survey the real-hardware boot routes — what each needs and which to choose.</span></div>
         </div>
@@ -1120,7 +1120,7 @@ output ... template.dol</span></pre>
       <!-- ============================================ PART C ============== -->
       <section class="part" id="part-c">
         <div class="part-inner">
-          <div class="kicker">Part IV · C</div>
+          <div class="kicker">Stage 3</div>
           <h3>Make it a game</h3>
           <p>
             A program that prints text is a program; a program that reads your
@@ -1136,7 +1136,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 08 --- -->
       <section class="doc" id="pad">
         <div class="mod-head">
-          <span class="eye">Module 08 <span class="part-tag">· Part IV·C</span></span>
+          <span class="eye">Module 08 <span class="part-tag">· Stage 3</span></span>
           <h3>Reading the controller</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Master the PAD API: the scan-per-frame model, the 16-bit button mask, edge-versus-level reads, and the analog inputs.</span></div>
         </div>
@@ -1237,7 +1237,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 09 --- -->
       <section class="doc" id="pixels">
         <div class="mod-head">
-          <span class="eye">Module 09 <span class="part-tag">· Part IV·C</span></span>
+          <span class="eye">Module 09 <span class="part-tag">· Stage 3</span></span>
           <h3>Putting pixels on screen</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Know your three rendering options — poking the XFB directly, the full GX pipeline, or GRRLIB — and understand the YUY2 pixel format the framebuffer actually speaks.</span></div>
         </div>
@@ -1336,7 +1336,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 10 --- -->
       <section class="doc" id="assets">
         <div class="mod-head">
-          <span class="eye">Module 10 <span class="part-tag">· Part IV·C</span></span>
+          <span class="eye">Module 10 <span class="part-tag">· Stage 3</span></span>
           <h3>Sound, files &amp; saves</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Add audio through the DSP's homebrew ucode, get assets into your program — baked in or from SD — and save progress to a memory card.</span></div>
         </div>
@@ -1440,7 +1440,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 11 --- -->
       <section class="doc" id="loop">
         <div class="mod-head">
-          <span class="eye">Module 11 <span class="part-tag">· Part IV·C</span></span>
+          <span class="eye">Module 11 <span class="part-tag">· Stage 3</span></span>
           <h3>The game loop &amp; the frame budget</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Internalise the scan → update → draw → WaitVSync loop, the 16.7-millisecond budget it must fit in, and what missing that budget looks and feels like.</span></div>
         </div>
@@ -1549,7 +1549,7 @@ output ... template.dol</span></pre>
       <!-- ============================================ PART D ============== -->
       <section class="part" id="part-d">
         <div class="part-inner">
-          <div class="kicker">Part IV · D</div>
+          <div class="kicker">Stage 4</div>
           <h3>Ship it</h3>
           <p>
             A game nobody else can run is a diary. The final stretch covers
@@ -1565,7 +1565,7 @@ output ... template.dol</span></pre>
       <!-- --- Module 12 --- -->
       <section class="doc" id="ship">
         <div class="mod-head">
-          <span class="eye">Module 12 <span class="part-tag">· Part IV·D</span></span>
+          <span class="eye">Module 12 <span class="part-tag">· Stage 4</span></span>
           <h3>From DOL to disc — packaging &amp; distribution</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Choose the right shipping container — bare DOL versus full disc image — understand what building a GCM actually involves, and release your work like a good citizen of the scene.</span></div>
         </div>
@@ -1658,14 +1658,13 @@ output ... template.dol</span></pre>
       <!-- --- Module 13 --- -->
       <section class="doc" id="epilogue">
         <div class="mod-head">
-          <span class="eye">Module 13 <span class="part-tag">· Part IV·D</span></span>
+          <span class="eye">Module 13 <span class="part-tag">· Stage 4</span></span>
           <h3>Epilogue: your turn</h3>
           <div class="objective"><span class="lbl">Goal</span><span class="txt">Close the collection's loop: see the whole path from your keyboard to the scanline, collect the best next steps, and go build something.</span></div>
         </div>
         <div class="prose">
           <p>
-            Here is the entire course — arguably the entire collection — in
-            one chain. Trace it once with your finger; every link is now
+            Here is the entire course in one chain. Trace it once with your finger; every link is now
             something you've either studied or built:
           </p>
           <div class="pipe">
@@ -1680,9 +1679,9 @@ output ... template.dol</span></pre>
             <div class="stage"><div class="t">the machine</div><div class="d">Gekko · Flipper · DSP · your loop <span style="color:var(--muted)">(08–11)</span></div></div>
           </div>
           <p>
-            When Part I of any course in this collection began, the GameCube
+            When the first module of any course in this collection began, the GameCube
             was a sealed appliance. Somewhere in the middle it became a
-            diagram. If Part IV did its job, it is now something better: a
+            diagram. If this course did its job, it is now something better: a
             <strong>target</strong>. The 485&nbsp;MHz CPU whose pipelines you
             studied executes your opcodes. The TEV stages you toggled in a lab
             combine your textures. The DSP mixes your voices; the vsync you
@@ -1702,7 +1701,7 @@ output ... template.dol</span></pre>
           <p>
             A good first project, if you want one: a one-screen arcade game —
             paddle, ball, score, one music track, one sound effect, saves its
-            high score to the memory card. It touches every module in Part IV,
+            high score to the memory card. It touches every module of this course,
             fits comfortably in the frame budget, bakes into a single DOL, and
             it is exactly the kind of thing the scene has cherished for twenty
             years: proof that the little purple box still says yes to anyone
@@ -1710,12 +1709,12 @@ output ... template.dol</span></pre>
           </p>
 
           <div class="takeaway">
-            <div class="th">Course complete ✦ — and so is the collection</div>
+            <div class="th">Course complete ✦</div>
             <ul>
               <li>You can set up a GameCube toolchain on Windows, macOS or Linux, and explain every piece of it.</li>
               <li>You can read a DOL header byte by byte, and narrate the pipeline that produced it.</li>
               <li>You can boot code in Dolphin and name every hardware route to running it for real.</li>
-              <li>Input, pixels, sound, storage, and the 16.7 ms loop: the pillars of a real game are in your hands. Parts I–III taught you the machine. Part IV made it yours.</li>
+              <li>Input, pixels, sound, storage, and the 16.7 ms loop: the pillars of a real game are in your hands. The other four courses taught you the machine. This one made it yours.</li>
             </ul>
           </div>
 
@@ -1728,7 +1727,7 @@ output ... template.dol</span></pre>
 
       <footer class="foot">
         <p>
-          Part IV of the <a href="../">Inside the GameCube</a> collection.
+          Part of the <a href="../">Inside the GameCube</a> collection.
           Every screen, controller and build on this page is a synthetic
           browser simulation; the page ships <strong>no Nintendo code, tools
           or assets</strong>, and neither does the toolchain it teaches.

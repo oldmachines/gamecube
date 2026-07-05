@@ -14,13 +14,13 @@ no framework, no tracking. Open it in a browser and it runs.
 | **Graphics & Flipper** | ✅ Ready — 16-module interactive course | [`graphics/`](graphics/) |
 | **CPU & Gekko** | ✅ Ready — 15-module interactive course | [`cpu/`](cpu/) |
 | **The disc drive** | ✅ Ready — 13-module interactive course | [`disc/`](disc/) |
-| **Homebrew (Part IV)** | ✅ Ready — 13-module interactive course | [`homebrew/`](homebrew/) |
+| **Write your own homebrew** | ✅ Ready — 13-module interactive course | [`homebrew/`](homebrew/) |
 
 Every course follows the same arc: **Part I** teaches the field's fundamentals
 from absolute zero, **Part II** tears down the GameCube's take on it, and
 **Part III** shows how the [Dolphin emulator](https://github.com/dolphin-emu/dolphin)
-reproduces it. A shared **Part IV** caps the collection: once the machine has
-been taken apart, you learn to write your own software for it. Each module
+reproduces it. A fifth course caps the collection: once the machine has been
+taken apart, you learn to write your own software for it. Each module
 ships **interactive labs** — everything is drawn and synthesised live in the
 browser; no game assets are included.
 
@@ -65,7 +65,7 @@ protection, and how games streamed data and hid loads — and finally disc image
 include a laser-readout scope, a scratch-and-interleaving simulator, a seek
 visualiser and a streaming-buffer playground.
 
-### Write your own homebrew (Part IV)
+### Write your own homebrew
 
 The collection's capstone: creating your own GameCube software with the free,
 community-built toolchain — no Nintendo code anywhere. It covers what homebrew
