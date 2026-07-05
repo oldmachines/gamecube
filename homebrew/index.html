@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GameCube Homebrew — write your own game for the little purple box</title>
+<meta name="description" content="Part IV of the Inside-the-GameCube collection: a hands-on course on writing your own GameCube software. The devkitPro toolchain, libogc, the DOL executable format, setup on Windows, macOS and Linux, and every step from an empty folder to code running in Dolphin and on real hardware.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%237d5cf0%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%276%27 fill=%27none%27 stroke=%27%230c0a13%27 stroke-width=%273%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="progress" aria-hidden="true"><div class="fill" id="progress-fill"></div></div>
+<button class="menu-btn" id="menu-btn" aria-label="Open contents">☰</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+
+  <!-- ================================================= SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"></div>
+      <div>
+        <h1>GameCube Homebrew</h1>
+        <span class="sub">Part IV · 13 modules</span>
+      </div>
+    </div>
+
+    <nav class="toc" aria-label="Course contents">
+      <div class="toc-group">IV·A · The scene &amp; the toolkit</div>
+      <a href="#what"><span class="n">01</span><span>What homebrew is</span></a>
+      <a href="#toolchain"><span class="n">02</span><span>The toolchain</span></a>
+      <a href="#libraries"><span class="n">03</span><span>The libraries</span></a>
+
+      <div class="toc-group">IV·B · First light</div>
+      <a href="#setup"><span class="n">04</span><span>Set up Windows / Mac / Linux</span></a>
+      <a href="#hello"><span class="n">05</span><span>Hello, world</span></a>
+      <a href="#build"><span class="n">06</span><span>From .c to .dol</span></a>
+      <a href="#run"><span class="n">07</span><span>Run it — Dolphin &amp; hardware</span></a>
+
+      <div class="toc-group">IV·C · Make it a game</div>
+      <a href="#pad"><span class="n">08</span><span>Reading the controller</span></a>
+      <a href="#pixels"><span class="n">09</span><span>Putting pixels on screen</span></a>
+      <a href="#assets"><span class="n">10</span><span>Sound, files &amp; saves</span></a>
+      <a href="#loop"><span class="n">11</span><span>The game loop &amp; the frame budget</span></a>
+
+      <div class="toc-group">IV·D · Ship it</div>
+      <a href="#ship"><span class="n">12</span><span>From DOL to disc</span></a>
+      <a href="#epilogue"><span class="n">13</span><span>Your turn</span></a>
+
+      <div class="progress-note">Progress · <b id="pct">0%</b></div>
+    </nav>
+  </aside>
+
+  <!-- ================================================= MAIN =============== -->
+  <main class="main">
+
+    <!-- ------------------------------------------------ HERO -------------- -->
+    <header class="hero">
+      <canvas id="hero-tokens" aria-hidden="true"></canvas>
+      <div class="wrap">
+        <div class="inner">
+          <span class="eyebrow">An interactive course · Part IV of the collection</span>
+          <h2>Now <span class="grad">write your own.</span></h2>
+          <p class="lede">
+            Parts I–III of this collection took the GameCube apart — the CPU,
+            the GPU, the DSP, the disc drive — and showed how Dolphin puts it
+            back together. Part IV closes the loop: you write code and
+            <strong>the real machine runs it</strong>. This course covers the
+            free, open toolchain the community built (devkitPPC and libogc),
+            the DOL executable format that every retail game also uses, full
+            setup instructions for <strong>Windows, macOS and Linux</strong>,
+            and every step from an empty folder to a playable program in
+            Dolphin — and on real hardware. You'll need a computer, a C
+            compiler's worth of patience, and nothing from Nintendo at all.
+          </p>
+          <div class="cta-row">
+            <a class="btn primary" href="#what">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              Begin Part IV
+            </a>
+            <a class="btn" href="#setup">Skip to machine setup</a>
+          </div>
+
+          <div class="arc-cards">
+            <a class="arc" href="#part-a">
+              <div class="an">IV · A</div>
+              <h4>The scene &amp; the toolkit</h4>
+              <p>What homebrew is (and isn't), the cross-compiler that targets Gekko, and libogc — the community's answer to Nintendo's SDK.</p>
+              <div class="cnt">3 modules</div>
+            </a>
+            <a class="arc" href="#part-b">
+              <div class="an">IV · B</div>
+              <h4>First light</h4>
+              <p>Install the tools on your OS, write hello-world, understand the build pipeline and the DOL format, and run the result.</p>
+              <div class="cnt">4 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-c">
+              <div class="an">IV · C</div>
+              <h4>Make it a game</h4>
+              <p>The controller, the screen, sound and storage, and the sacred 16.7-millisecond game loop — with a playable frame-budget lab.</p>
+              <div class="cnt">4 modules · with labs</div>
+            </a>
+            <a class="arc" href="#part-d">
+              <div class="an">IV · D</div>
+              <h4>Ship it</h4>
+              <p>DOLs versus disc images, packaging and distributing your work, and where to go once the course lets go of your hand.</p>
+              <div class="cnt">2 modules</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ============================================ PART A ============== -->
+      <section class="part" id="part-a">
+        <div class="part-inner">
+          <div class="kicker">Part IV · A</div>
+          <h3>The scene &amp; the toolkit</h3>
+          <p>
+            Before touching a compiler, you should know what you're joining.
+            This first stretch explains what console homebrew actually is, how
+            a legal, Nintendo-free toolchain for a proprietary console can even
+            exist, and which libraries stand in for the official SDK you don't
+            have. Everything here connects backwards to the other four courses:
+            the machine you're about to program is the one they dissected.
+          </p>
+          <div class="part-meta"><span>Modules <b>01–03</b></span><span>Difficulty <b>Beginner</b></span><span>Prerequisite <b>some C helps</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 01 --- -->
+      <section class="doc" id="what">
+        <div class="mod-head">
+          <span class="eye">Module 01 <span class="part-tag">· Part IV·A</span></span>
+          <h3>What homebrew is</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Know exactly what "homebrew" means, why writing your own GameCube software is a legitimate craft distinct from piracy, and what two decades of the scene have built.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            <strong>Homebrew</strong> is software for a games console written
+            by people outside the console maker's licensed-developer program.
+            No official development kit, no signed contract, no access to
+            Nintendo's tools or documentation — just the machine itself,
+            publicly available knowledge about how it works, and a toolchain
+            built by volunteers. The word covers everything from a scrolling
+            "hello world" demo to full games, media players, emulators and
+            system utilities like
+            <span class="term" data-tip="The GameCube scene's all-in-one homebrew launcher: boots DOLs and games from SD cards and other media, forces video modes, and generally does everything the retail IPL never let you do.">Swiss</span>,
+            the Swiss-army-knife launcher that modern GameCube enthusiasts
+            treat as essential equipment.
+          </p>
+          <p>
+            Draw the line clearly, because the internet often smudges it:
+            homebrew is <em>writing your own software</em>. It is not copying
+            games, and this course has nothing to do with piracy. The disc
+            course's <a href="../disc/">Part II</a> told the story of the
+            GameCube's copy protection from the defender's side; nothing in
+            <em>this</em> course involves circumventing it to copy anything.
+            You'll build programs from your own source code with a toolchain
+            containing no Nintendo code whatsoever, and you'll run them either
+            in an emulator or through hardware paths designed to load
+            <em>unsigned, homemade</em> software. (The usual disclaimer: this
+            is an educational overview, not legal advice, and the details vary
+            by jurisdiction — but "I wrote a program and ran it on hardware I
+            own" is about as clean as the hobby gets.)
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Cooking in someone else's kitchen</span>
+            <p>
+              A licensed developer rents the kitchen with the chef's blessing:
+              recipe book, branded ingredients, a hotline to the manufacturer.
+              A homebrew developer owns the same kitchen — they bought it — but
+              arrives with no recipe book at all. Everything they know about
+              the oven's quirks was worked out by a community of cooks
+              comparing notes for twenty years. The food is entirely theirs;
+              only the kitchen is Nintendo's design. Nobody is stealing meals.
+            </p>
+          </div>
+
+          <h4>How a closed console became programmable</h4>
+          <p>
+            The GameCube launched in 2001 with no intended path for hobbyist
+            code: the console only booted discs pressed in Nintendo's
+            deliberately off-spec format (the <a href="../disc/">disc
+            course</a> explains why yours can't be). The scene's history is the
+            story of finding <em>legitimate entry points</em>. Early on,
+            <em>Phantasy Star Online</em>'s online mode — which could download
+            and execute updates over the network — famously became a way to
+            load community code through the broadband adapter. The homebrew
+            that followed built gentler doors: exploitable save files that
+            bootstrap a loader from a memory card, commercial accessories
+            (Datel's Action Replay family shipped its own boot disc that the
+            console accepts), and eventually modern hardware like SD-card
+            adapters for the memory-card slots and serial port. Module 07
+            walks the current routes in detail.
+          </p>
+          <p>
+            The second half of the story is the toolchain. Volunteers ported
+            <strong>GCC</strong> — the free C/C++ compiler — to target the
+            GameCube's PowerPC processor, and wrote
+            <strong>libogc</strong>, a from-scratch library that talks to the
+            hardware the way Nintendo's SDK does, but with independent code.
+            That work grew into <strong>devkitPro</strong>, a maintained
+            distribution of console toolchains that today installs with a
+            package manager on all three desktop OSes. It is the reason this
+            course can exist: the tools are free, open, current, and contain
+            no copyrighted Nintendo material.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 250" role="img" aria-label="Two development worlds compared: the licensed path with Nintendo's SDK and dev kits, and the homebrew path with devkitPPC, libogc and community documentation — both producing PowerPC code the same console runs">
+              <text x="60" y="34" class="d-tag d-violet">Licensed development (2001)</text>
+              <rect x="60" y="50" width="180" height="46" rx="9" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="150" y="70" text-anchor="middle" class="d-label" style="font-size:12.5px">Nintendo SDK</text>
+              <text x="150" y="87" text-anchor="middle" class="d-sub">under NDA</text>
+              <rect x="60" y="106" width="180" height="46" rx="9" class="d-fill-panel d-violet-s" stroke-width="1.5"/>
+              <text x="150" y="126" text-anchor="middle" class="d-label" style="font-size:12.5px">official dev kit HW</text>
+              <text x="150" y="143" text-anchor="middle" class="d-sub">leased, not sold</text>
+              <text x="60" y="190" class="d-tag d-cyan" >Homebrew (today)</text>
+              <rect x="60" y="200" width="180" height="40" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="150" y="225" text-anchor="middle" class="d-label" style="font-size:12.5px">devkitPPC + libogc</text>
+              <rect x="250" y="200" width="150" height="40" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="325" y="225" text-anchor="middle" class="d-label" style="font-size:12.5px">community docs</text>
+              <defs><marker id="ah01" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <line x1="420" y1="101" x2="560" y2="120" class="d-axis" stroke-width="1.8" marker-end="url(#ah01)"/>
+              <line x1="420" y1="220" x2="560" y2="150" class="d-axis" stroke-width="1.8" marker-end="url(#ah01)"/>
+              <rect x="250" y="50" width="150" height="102" rx="9" class="d-fill-panel2 d-stroke-line" stroke-width="1.2"/>
+              <text x="325" y="95" text-anchor="middle" class="d-label" style="font-size:12.5px">your C code</text>
+              <text x="325" y="114" text-anchor="middle" class="d-sub">same on both paths</text>
+              <rect x="565" y="95" width="180" height="66" rx="10" class="d-fill-panel d-good-s" stroke="#5fd18b" stroke-width="1.6"/>
+              <text x="655" y="122" text-anchor="middle" class="d-label" style="font-size:13px">PowerPC machine code</text>
+              <text x="655" y="142" text-anchor="middle" class="d-sub">Gekko can't tell the difference</text>
+              <line x1="745" y1="128" x2="800" y2="128" class="d-axis" stroke-width="1.8" marker-end="url(#ah01)"/>
+              <rect x="805" y="106" width="70" height="44" rx="9" class="d-fill-panel2 d-stroke-line" stroke-width="1.5"/>
+              <text x="840" y="133" text-anchor="middle" class="d-label" style="font-size:12px">🎮</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Two roads, one destination.</strong> A licensed studio compiled C against Nintendo's SDK; you'll compile C against libogc with a free compiler. Both roads end in PowerPC machine code, and the <a href="../cpu/">Gekko</a> executes yours exactly as willingly as it executed <em>Metroid Prime</em>. The hardware has no opinion about who wrote the program — only the boot path does, which is why Module 07 exists.</figcaption>
+          </figure>
+
+          <h4>What you can realistically build</h4>
+          <p>
+            Everything the machine can do is on the table, because homebrew
+            code runs with full control of the hardware — there is no
+            operating system underneath you (a fact Module 11 turns into a
+            superpower). The community has produced 2D and 3D games, ports of
+            <em>Doom</em>-era classics, emulators for older consoles, media
+            software, and serious system tools. Your ceiling is the console's:
+            485&nbsp;MHz of <a href="../cpu/">Gekko</a>, the
+            <a href="../graphics/">Flipper</a> GPU's fixed-function pipeline,
+            43&nbsp;MB of total RAM, and the <a href="../audio/">DSP</a> for
+            sound. Those courses taught you the machine as an examiner; this
+            one hands you the keys.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Homebrew = your own software for the console, built without Nintendo's SDK or blessing — a separate thing from piracy entirely.</li>
+              <li>The scene's two pillars: <em>entry points</em> to run unsigned code (Module 07) and a <em>free toolchain</em> — devkitPPC + libogc — with no Nintendo code in it.</li>
+              <li>Homebrew runs with full hardware control; everything the other four courses described is directly programmable.</li>
+              <li>You need no special hardware to start: the toolchain plus Dolphin is a complete development loop.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a class="disabled" aria-disabled="true"><span class="dir">← Prev</span><span class="ttl">Start of Part IV</span></a>
+            <a class="next" href="#toolchain"><span class="dir">Next →</span><span class="ttl">02 · The toolchain</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 02 --- -->
+      <section class="doc" id="toolchain">
+        <div class="mod-head">
+          <span class="eye">Module 02 <span class="part-tag">· Part IV·A</span></span>
+          <h3>The toolchain</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Understand what a cross-compiler is, what each piece of the devkitPro toolchain does, and why code built on your x86/ARM laptop runs on a PowerPC console.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Your computer and the GameCube speak different machine languages.
+            Your laptop's processor executes x86-64 or ARM instructions; the
+            GameCube's <span class="term" data-tip="The GameCube's CPU: a PowerPC 750CXe derivative with game-specific extensions, covered in depth by the CPU course.">Gekko</span>
+            executes 32-bit PowerPC (the <a href="../cpu/">CPU course</a>
+            spent fifteen modules on it). A normal compiler produces programs
+            for the machine it runs on. What you need is a
+            <strong>cross-compiler</strong>: a compiler that <em>runs</em> on
+            your machine but <em>emits</em> code for a different one. This is
+            utterly routine in embedded development — it's how phone apps,
+            router firmware and Mars-rover code get built — and it's the
+            single concept that makes console homebrew possible.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The translator who never travels</span>
+            <p>
+              A cross-compiler is a translator living in your city who writes
+              flawless letters in a language spoken only on a distant island.
+              The translator never needs to visit the island; they just need to
+              know the language perfectly. Your PC never executes a single
+              PowerPC instruction during a build — it only <em>writes</em>
+              them, and the letter is posted to the console afterwards.
+            </p>
+          </div>
+
+          <h4>The pieces, by name</h4>
+          <p>
+            The GameCube homebrew toolchain is distributed by
+            <strong>devkitPro</strong>, the volunteer organisation that
+            maintains cross-toolchains for many consoles. You'll see these
+            names constantly, so meet the cast once, properly:
+          </p>
+          <div class="defs">
+            <div class="row"><dt>devkitPro</dt><dd>The umbrella project and its package repositories. Also lends its name to the installer and the <code>/opt/devkitpro</code> directory everything lives in.</dd></div>
+            <div class="row"><dt>devkitPPC</dt><dd>The PowerPC cross-toolchain itself: GCC (C/C++ compiler), binutils (assembler, linker, object-file tools) and a C standard library, all built to target <code>powerpc-eabi</code> — bare-metal PowerPC with no operating system assumed.</dd></div>
+            <div class="row"><dt>dkp-pacman</dt><dd>The package manager (a port of Arch Linux's pacman) that installs and updates everything above. One command pulls the whole GameCube kit; another updates it.</dd></div>
+            <div class="row"><dt>libogc</dt><dd>The hardware library — Module 03's subject. The "ogc" is exactly what you'd guess.</dd></div>
+            <div class="row"><dt>gamecube-tools</dt><dd>Small host-side utilities, most importantly <code>elf2dol</code>, which converts the linker's output into the console's executable format (Module 06's subject).</dd></div>
+            <div class="row"><dt>gamecube-examples</dt><dd>A tree of small, working sample projects — video, audio, controller, network — that double as templates. Your first build in Module 04 is one of these.</dd></div>
+          </div>
+          <p>
+            Every tool in devkitPPC carries the target's name as a prefix:
+            the compiler is <code>powerpc-eabi-gcc</code>, the linker
+            <code>powerpc-eabi-ld</code>, the object inspector
+            <code>powerpc-eabi-objdump</code>. The prefix is your constant
+            reminder that outputs are for the console, not for the machine
+            you're sitting at. When the build system invokes the compiler it
+            also passes Gekko-specific flags — you'll see
+            <code>-mogc -mcpu=750 -meabi -mhard-float</code> in the standard
+            makefiles — telling GCC to schedule code for the 750 core the
+            <a href="../cpu/">CPU course</a> described and to use its hardware
+            floating point.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 260" role="img" aria-label="Cross-compilation: source code on a host machine passes through powerpc-eabi-gcc and binutils to produce PowerPC machine code that ships to the GameCube target">
+              <defs><marker id="ah02" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <rect x="40" y="40" width="330" height="180" rx="12" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <text x="60" y="68" class="d-tag">HOST — your computer (x86-64 / ARM)</text>
+              <rect x="60" y="84" width="120" height="44" rx="8" class="d-fill-panel2 d-stroke-line" stroke-width="1.2"/>
+              <text x="120" y="103" text-anchor="middle" class="d-label" style="font-size:12px">main.c</text>
+              <text x="120" y="119" text-anchor="middle" class="d-sub">your source</text>
+              <line x1="180" y1="106" x2="218" y2="106" class="d-axis" stroke-width="1.8" marker-end="url(#ah02)"/>
+              <rect x="222" y="84" width="128" height="44" rx="8" class="d-fill-panel2 d-cyan-s" stroke-width="1.4"/>
+              <text x="286" y="103" text-anchor="middle" class="d-label" style="font-size:11.5px">powerpc-eabi-gcc</text>
+              <text x="286" y="119" text-anchor="middle" class="d-sub">runs here…</text>
+              <text x="60" y="170" class="d-sub">also here: make, dkp-pacman, elf2dol,</text>
+              <text x="60" y="188" class="d-sub">objdump, your editor, Dolphin</text>
+              <line x1="370" y1="130" x2="520" y2="130" stroke="#5fd18b" stroke-width="2" marker-end="url(#ah02)"/>
+              <text x="445" y="118" text-anchor="middle" class="d-sub" style="fill:#5fd18b">PowerPC machine code</text>
+              <rect x="525" y="40" width="330" height="180" rx="12" class="d-fill-panel d-stroke-line" stroke-width="1.5"/>
+              <text x="545" y="68" class="d-tag">TARGET — the GameCube (PowerPC)</text>
+              <rect x="545" y="84" width="130" height="44" rx="8" class="d-fill-panel2 d-violet-s" stroke-width="1.4"/>
+              <text x="610" y="103" text-anchor="middle" class="d-label" style="font-size:12px">Gekko @ 485 MHz</text>
+              <text x="610" y="119" text-anchor="middle" class="d-sub">…code runs here</text>
+              <rect x="690" y="84" width="146" height="44" rx="8" class="d-fill-panel2 d-stroke-line" stroke-width="1.2"/>
+              <text x="763" y="103" text-anchor="middle" class="d-label" style="font-size:12px">24 MB MEM1 + ARAM</text>
+              <text x="763" y="119" text-anchor="middle" class="d-sub">where the DOL lands</text>
+              <text x="545" y="170" class="d-sub">no OS, no loader of its own — your program</text>
+              <text x="545" y="188" class="d-sub">owns the whole machine from _start onward</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>Host and target.</strong> Every tool runs on your computer; only the finished machine code crosses to the console. Dolphin blurs the line delightfully — it makes your host <em>pretend to be</em> the target, which is why the edit-compile-test loop in Module 07 can be seconds long.</figcaption>
+          </figure>
+
+          <h4>What "no operating system" means for the compiler</h4>
+          <p>
+            The <code>eabi</code> in the target triple means the compiler
+            assumes a <strong>bare-metal</strong> environment: no Linux, no
+            Windows, no system calls to lean on. So who provides
+            <code>printf</code>, <code>malloc</code> and friends? A compact
+            C library for embedded targets (devkitPPC ships
+            <span class="term" data-tip="A small C standard library designed for embedded systems, used by devkitPPC in place of a desktop libc. libogc supplies the hooks it needs to talk to real hardware.">newlib</span>)
+            implements the standard functions, and delegates the
+            hardware-touching parts — "actually put this character somewhere",
+            "give me more heap" — to hooks that libogc fills in. That's why
+            <code>printf</code> in Module 05 can appear on your TV: the C
+            library formats the string, and libogc's console code draws it
+            into video memory. The stack of responsibilities is exactly the
+            next module's subject.
+          </p>
+
+          <div class="note">
+            <span class="ico">◈</span>
+            <p>
+              Nothing in this toolchain is Nintendo's. GCC and binutils are
+              GNU projects; newlib is an open embedded libc; libogc was written
+              by the community. This matters legally (Module 01) but also
+              practically: you can read every line of the code your program is
+              built from, all the way down.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>A cross-compiler runs on your machine but emits code for another — here, <code>powerpc-eabi-gcc</code> emitting Gekko-ready PowerPC.</li>
+              <li>devkitPro is the distribution; devkitPPC is the compiler + binutils + libc; dkp-pacman installs and updates it all.</li>
+              <li>The target is bare metal: newlib provides the C library, and libogc supplies the hardware-facing plumbing underneath it.</li>
+              <li><code>elf2dol</code> and the examples tree round out the kit — both star later in Part IV·B.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#what"><span class="dir">← Prev</span><span class="ttl">01 · What homebrew is</span></a>
+            <a class="next" href="#libraries"><span class="dir">Next →</span><span class="ttl">03 · The libraries</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 03 --- -->
+      <section class="doc" id="libraries">
+        <div class="mod-head">
+          <span class="eye">Module 03 <span class="part-tag">· Part IV·A</span></span>
+          <h3>The libraries</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Meet libogc — the community's stand-in for Nintendo's SDK — learn which of its subsystems drives which piece of hardware, and know what to reach for above and beside it.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            A compiler gives you a language; it gives you nothing to
+            <em>say</em>. On a PC, the operating system provides the verbs —
+            open a window, play a sound, read the gamepad. On the GameCube
+            there is no operating system: after boot, your program is
+            <em>alone with the hardware</em>, and every device is programmed
+            by reading and writing its
+            <span class="term" data-tip="Special memory addresses wired to a device instead of RAM — writing them issues commands, reading them fetches status. Every GameCube subsystem exposes a set of these.">memory-mapped registers</span>.
+            The other courses showed you several of these register interfaces
+            up close — the disc drive's DI, the DSP's mailboxes, Flipper's
+            command FIFO. You <em>could</em> program them all by hand. You'd
+            just spend a year on plumbing before drawing a triangle.
+          </p>
+          <p>
+            <strong>libogc</strong> is the library that does the plumbing. It
+            is the homebrew ecosystem's de-facto standard runtime: a
+            from-scratch, community-written layer that initialises the
+            machine, owns the interrupt handlers, and wraps each hardware
+            subsystem in a sane C API. Its coverage maps almost one-to-one
+            onto this collection's courses:
+          </p>
+
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>libogc subsystem</th><th>Hardware it drives</th><th>Covered by</th><th>You call it for…</th></tr></thead>
+              <tbody>
+                <tr><td><code>VIDEO_*</code> / VI</td><td>Video Interface — scan-out of the XFB to the TV</td><td><a href="../graphics/">Graphics</a> Part II</td><td>video modes, framebuffers, vsync</td></tr>
+                <tr><td><code>GX_*</code></td><td>Flipper's 3D pipeline — vertices, TEV, textures</td><td><a href="../graphics/">Graphics</a> Part II</td><td>every triangle you draw</td></tr>
+                <tr><td><code>PAD_*</code></td><td>Serial Interface — the four controller ports</td><td>this course, Module 08</td><td>buttons, sticks, rumble</td></tr>
+                <tr><td><code>AESND_*</code> / <code>ASND_*</code></td><td>The audio DSP + AI streaming</td><td><a href="../audio/">Audio</a> Parts I–II</td><td>mixing voices, playing samples</td></tr>
+                <tr><td><code>DVD_*</code></td><td>The disc drive's DI interface</td><td><a href="../disc/">Disc</a> Part II</td><td>reading from an actual disc</td></tr>
+                <tr><td><code>CARD_*</code></td><td>Memory-card slots (EXI bus)</td><td>this course, Module 10</td><td>save files</td></tr>
+                <tr><td><code>AR_*</code> / ARAM</td><td>The 16 MB auxiliary RAM</td><td><a href="../cpu/">CPU</a> &amp; <a href="../audio/">Audio</a></td><td>staging assets off the main heap</td></tr>
+                <tr><td><code>LWP_*</code>, <code>OSTick</code>…</td><td>Gekko itself — threads, timers, caches, interrupts</td><td><a href="../cpu/">CPU</a> Part II</td><td>the "OS layer" your program stands on</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The building superintendent</span>
+            <p>
+              Owning the whole building (bare metal) sounds glamorous until a
+              pipe bursts at 3 a.m. libogc is the superintendent who moves in
+              with you: it keeps the boiler (interrupts), the intercom
+              (controllers) and the plumbing (DMA) working, so your time goes
+              into the apartment you actually wanted to build. And unlike most
+              supers, you can read its source when you want to know how
+              anything really works.
+            </p>
+          </div>
+
+          <h4>Above and beside libogc</h4>
+          <p>
+            libogc is deliberately close to the metal — <code>GX_*</code> is
+            barely friendlier than Flipper's own registers (the
+            <a href="../graphics/">graphics course</a> is genuinely the
+            manual for it). The ecosystem stacks convenience on top:
+          </p>
+          <ul>
+            <li><strong>GRRLIB</strong> — a much-loved 2D/3D convenience layer over GX: load a PNG, draw it at (x, y), print TTF text. The fastest route from zero to something moving on screen.</li>
+            <li><strong>libfat</strong> — a FAT filesystem driver, so an SD card in an adapter behaves like <code>fopen("sd:/assets/level1.dat")</code>. Module 10 leans on it.</li>
+            <li><strong>Ported middleware</strong> — the scene has ported classics of the open-source world (SDL, image and audio decoders, physics libraries), so a surprising amount of desktop C code compiles for the console with minor changes.</li>
+          </ul>
+          <p>
+            One absence to note: Nintendo's actual SDK. Leaked copies of it
+            exist in murky corners, and using them contaminates a project both
+            legally and morally — everything it enables, libogc does cleanly.
+            The scene's healthiest projects are libogc all the way down, and
+            this course follows suit.
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 300" role="img" aria-label="The homebrew software stack: your game on top, optional helpers like GRRLIB and libfat, libogc plus newlib beneath, and the raw hardware registers at the bottom">
+              <rect x="150" y="30" width="600" height="52" rx="10" class="d-fill-panel d-good-s" stroke="#5fd18b" stroke-width="1.6"/>
+              <text x="450" y="55" text-anchor="middle" class="d-label" style="font-size:13.5px">your game</text>
+              <text x="450" y="72" text-anchor="middle" class="d-sub">the only part you have to write</text>
+              <rect x="150" y="94" width="295" height="46" rx="9" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="297" y="113" text-anchor="middle" class="d-label" style="font-size:12px">GRRLIB · SDL ports…</text>
+              <text x="297" y="130" text-anchor="middle" class="d-sub">optional comfort layers</text>
+              <rect x="455" y="94" width="295" height="46" rx="9" class="d-fill-panel d-amber-s" stroke-width="1.4"/>
+              <text x="602" y="113" text-anchor="middle" class="d-label" style="font-size:12px">libfat · decoders…</text>
+              <text x="602" y="130" text-anchor="middle" class="d-sub">optional services</text>
+              <rect x="150" y="152" width="450" height="52" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="375" y="176" text-anchor="middle" class="d-label" style="font-size:13px">libogc</text>
+              <text x="375" y="193" text-anchor="middle" class="d-sub">VI · GX · PAD · AESND · DVD · CARD · EXI · threads · IRQs</text>
+              <rect x="610" y="152" width="140" height="52" rx="9" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="680" y="176" text-anchor="middle" class="d-label" style="font-size:12.5px">newlib</text>
+              <text x="680" y="193" text-anchor="middle" class="d-sub">printf, malloc…</text>
+              <rect x="150" y="216" width="600" height="52" rx="10" class="d-fill-panel2 d-violet-s" stroke-width="1.5"/>
+              <text x="450" y="240" text-anchor="middle" class="d-label" style="font-size:13px">the machine</text>
+              <text x="450" y="257" text-anchor="middle" class="d-sub">Gekko · Flipper · DSP · DI · SI · EXI — the registers Parts I–III taught you</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>The stack you'll stand on.</strong> Nothing here is Nintendo's; everything below your game is open source. And because Parts I–III taught you the bottom layer, libogc will never feel like magic — <code>VIDEO_WaitVSync()</code> is just a polite way of saying "block until the <a href="../graphics/">VI</a> finishes the field".</figcaption>
+          </figure>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Bare metal means no OS verbs — libogc supplies them, wrapping every subsystem the other courses dissected.</li>
+              <li>The mapping is nearly one-to-one: VI/GX ↔ graphics course, AESND ↔ audio course, DVD ↔ disc course, threads/caches ↔ CPU course.</li>
+              <li>GRRLIB and libfat are the everyday comfort layers; SDL-era ports mean much desktop C code moves over easily.</li>
+              <li>Leaked official SDKs exist; serious homebrew doesn't touch them — libogc does everything cleanly.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#toolchain"><span class="dir">← Prev</span><span class="ttl">02 · The toolchain</span></a>
+            <a class="next" href="#setup"><span class="dir">Next →</span><span class="ttl">04 · Set up your machine</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART B ============== -->
+      <section class="part" id="part-b">
+        <div class="part-inner">
+          <div class="kicker">Part IV · B</div>
+          <h3>First light</h3>
+          <p>
+            Vocabulary over; hands on. This stretch installs the toolchain on
+            your actual computer — Windows, macOS or Linux, each with its own
+            tab — then writes the traditional first program, follows it
+            through the build pipeline into the console's DOL executable
+            format, and runs it. By the end of Part IV·B you will have watched
+            code you compiled boot on (an emulated) GameCube. That moment does
+            not get old.
+          </p>
+          <div class="part-meta"><span>Modules <b>04–07</b></span><span>Difficulty <b>Beginner — follow along</b></span><span>Labs <b>3 interactive</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 04 --- -->
+      <section class="doc" id="setup">
+        <div class="mod-head">
+          <span class="eye">Module 04 <span class="part-tag">· Part IV·B</span></span>
+          <h3>Set up your machine — Windows, macOS or Linux</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Install devkitPPC, libogc and the GameCube tools on your OS, verify the install by building a real example, and have Dolphin ready to run what you build.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            The install has the same shape everywhere, because every platform
+            uses the same package manager underneath: <strong>(1)</strong> get
+            <code>dkp-pacman</code> onto your system, <strong>(2)</strong> ask
+            it for the GameCube development group, <strong>(3)</strong> make
+            sure two environment variables point at the result,
+            <strong>(4)</strong> build an example to prove the chain works,
+            and <strong>(5)</strong> install <a href="../disc/">Dolphin</a> as
+            your test console. Pick your OS below — the page tries to guess it —
+            and note that installer details drift over time: if anything below
+            disagrees with <a href="https://devkitpro.org/wiki/Getting_Started">devkitPro's
+            own getting-started page</a>, trust that page; the <em>shape</em>
+            of the process is what this module teaches.
+          </p>
+
+          <div class="os-tabs">
+            <div class="tab-row" role="tablist">
+              <button role="tab"><span class="os-ico">⊞</span> Windows</button>
+              <button role="tab"><span class="os-ico">⌘</span> macOS</button>
+              <button role="tab"><span class="os-ico">🐧</span> Linux</button>
+            </div>
+
+            <!-- Windows -->
+            <div class="tab-panel" role="tabpanel">
+              <p>
+                Windows gets a <strong>graphical installer</strong> that sets
+                up a small MSYS2-based Unix shell with <code>pacman</code>
+                preconfigured for devkitPro's repositories — you'll do your
+                console builds from that shell.
+              </p>
+              <ul>
+                <li>Download the <b>devkitPro installer</b> for Windows from the devkitPro site and run it.</li>
+                <li>When it asks which workloads you want, tick <b>GameCube development</b> (often listed alongside Wii, since they share the toolchain).</li>
+                <li>Let it finish, then open the <b>MSYS2 shell it installed</b> (look for a devkitPro/MSYS entry in the Start menu) — not plain CMD or PowerShell.</li>
+              </ul>
+              <div class="code">
+                <div class="code-head">devkitPro MSYS shell <button class="copy" type="button">copy</button></div>
+                <pre><span class="c"># already installed the GameCube workload? this is a no-op. otherwise:</span>
+$ <span class="hl">pacman -S gamecube-dev</span>
+<span class="c"># confirm the compiler exists and answers:</span>
+$ <span class="hl">powerpc-eabi-gcc --version</span>
+<span class="p">powerpc-eabi-gcc (devkitPPC release …) …</span></pre>
+              </div>
+              <p>
+                The installer sets <code>DEVKITPRO</code> and
+                <code>DEVKITPPC</code> for its shell automatically. If a build
+                ever complains they're missing, you're probably in the wrong
+                terminal — return to the devkitPro shell.
+              </p>
+            </div>
+
+            <!-- macOS -->
+            <div class="tab-panel" role="tabpanel">
+              <p>
+                macOS gets a signed <strong><code>.pkg</code> installer for
+                devkitPro pacman</strong> (works on both Intel and Apple
+                Silicon Macs — check the release notes for the current
+                minimum macOS version). Download it from devkitPro's site or
+                GitHub releases and install it like any package, then use
+                Terminal:
+              </p>
+              <div class="code">
+                <div class="code-head">Terminal <button class="copy" type="button">copy</button></div>
+                <pre><span class="c"># pull the whole GameCube kit: compiler, libogc, tools, examples</span>
+$ <span class="hl">sudo dkp-pacman -S gamecube-dev</span>
+<span class="c"># the installer drops the env vars into a profile script; open a NEW</span>
+<span class="c"># terminal window, then confirm:</span>
+$ <span class="hl">echo $DEVKITPRO $DEVKITPPC</span>
+<span class="p">/opt/devkitpro /opt/devkitpro/devkitPPC</span>
+$ <span class="hl">powerpc-eabi-gcc --version</span></pre>
+              </div>
+              <p>
+                If the variables come back empty, add them to your shell
+                profile by hand (<code>~/.zshrc</code> on modern macOS):
+              </p>
+              <div class="code">
+                <div class="code-head">~/.zshrc <button class="copy" type="button">copy</button></div>
+                <pre><span class="hl">export DEVKITPRO=/opt/devkitpro</span>
+<span class="hl">export DEVKITPPC=$DEVKITPRO/devkitPPC</span>
+<span class="hl">export PATH=$DEVKITPPC/bin:$PATH</span></pre>
+              </div>
+            </div>
+
+            <!-- Linux -->
+            <div class="tab-panel" role="tabpanel">
+              <p>
+                On Linux you install <strong>devkitpro-pacman</strong> first —
+                devkitPro publishes a <code>.deb</code> for Debian/Ubuntu
+                family systems (and instructions for Arch, where the repos
+                plug into your existing pacman). Then it's the same one
+                command as everywhere else:
+              </p>
+              <div class="code">
+                <div class="code-head">shell <button class="copy" type="button">copy</button></div>
+                <pre><span class="c"># 1) install devkitpro-pacman per the wiki (deb package, or repo setup on Arch)</span>
+<span class="c"># 2) then:</span>
+$ <span class="hl">sudo dkp-pacman -S gamecube-dev</span>
+<span class="c"># 3) log out/in (or source the profile script it installs), then:</span>
+$ <span class="hl">echo $DEVKITPRO $DEVKITPPC</span>
+<span class="p">/opt/devkitpro /opt/devkitpro/devkitPPC</span>
+$ <span class="hl">powerpc-eabi-gcc --version</span></pre>
+              </div>
+              <p>
+                The package installs a script under
+                <code>/etc/profile.d/</code> that exports
+                <code>DEVKITPRO</code> and <code>DEVKITPPC</code> for login
+                shells; if your distribution or shell skips those, export them
+                in your own shell rc exactly as in the macOS tab.
+              </p>
+              <p>
+                <strong>Prefer containers?</strong> devkitPro publishes Docker
+                images (e.g. <code>devkitpro/devkitppc</code>) with everything
+                preinstalled — a tidy option for CI or for keeping your host
+                clean: <code>docker run --rm -v $PWD:/src -w /src
+                devkitpro/devkitppc make</code>.
+              </p>
+            </div>
+          </div>
+
+          <h4>Prove it works — build a real example</h4>
+          <p>
+            Never trust an install you haven't built with. The
+            <code>gamecube-examples</code> package puts working projects under
+            <code>$DEVKITPRO/examples/gamecube/</code>; copy the template out
+            (the examples directory itself may need root to write into) and
+            build it:
+          </p>
+          <div class="code">
+            <div class="code-head">any OS — devkitPro shell / terminal <button class="copy" type="button">copy</button></div>
+            <pre>$ <span class="hl">cp -r $DEVKITPRO/examples/gamecube/template ~/gc-hello</span>
+$ <span class="hl">cd ~/gc-hello</span>
+$ <span class="hl">make</span>
+<span class="p">template.c
+linking ... template.elf
+output ... template.dol</span></pre>
+          </div>
+          <p>
+            Those last two lines are the whole course in miniature — an ELF
+            and a DOL, both of which Module 06 will teach you to read. Last
+            step: install <strong>Dolphin</strong> (from
+            <a href="https://dolphin-emu.org">dolphin-emu.org</a>; it runs on
+            all three OSes) and open the freshly built <code>.dol</code> with
+            it. White text on a black screen — a running GameCube program you
+            built — is the finish line for this module.
+          </p>
+
+          <div class="checklist" aria-label="Setup verification checklist">
+            <label><input type="checkbox" id="ck-pacman"><span><b>dkp-pacman installed</b> — the package manager runs (<code>dkp-pacman --version</code>, or <code>pacman</code> in the Windows devkitPro shell).</span></label>
+            <label><input type="checkbox" id="ck-gcdev"><span><b>GameCube kit installed</b> — <code>gamecube-dev</code> pulled devkitPPC, libogc, gamecube-tools and the examples.</span></label>
+            <label><input type="checkbox" id="ck-env"><span><b>Environment set</b> — <code>echo $DEVKITPRO $DEVKITPPC</code> prints the two paths in a fresh terminal.</span></label>
+            <label><input type="checkbox" id="ck-gcc"><span><b>Compiler answers</b> — <code>powerpc-eabi-gcc --version</code> prints a devkitPPC release banner.</span></label>
+            <label><input type="checkbox" id="ck-make"><span><b>Example builds</b> — <code>make</code> in a copy of the template ends with <code>output ... template.dol</code>.</span></label>
+            <label><input type="checkbox" id="ck-dolphin"><span><b>Dolphin runs it</b> — opening the .dol in Dolphin shows the template's output.</span></label>
+          </div>
+
+          <div class="note warn">
+            <span class="ico">⚠</span>
+            <p>
+              The classic failure is a build that stops immediately with
+              <em>"Please set DEVKITPPC in your environment"</em> — which means
+              exactly what it says: the makefile checks those variables before
+              doing anything. Fresh terminal, correct shell (on Windows: the
+              devkitPro MSYS shell), variables exported — that fixes virtually
+              every first-day problem.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>One process, three skins: install dkp-pacman → <code>gamecube-dev</code> → env vars → build an example → run it in Dolphin.</li>
+              <li>Windows works inside the installer's MSYS2 shell; macOS and Linux use the native terminal with <code>/opt/devkitpro</code>.</li>
+              <li><code>DEVKITPRO</code>/<code>DEVKITPPC</code> unset is the #1 beginner error; a fresh, correct shell is the fix.</li>
+              <li>Docker images exist for CI and clean hosts; devkitPro's wiki is the authority when details drift.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#libraries"><span class="dir">← Prev</span><span class="ttl">03 · The libraries</span></a>
+            <a class="next" href="#hello"><span class="dir">Next →</span><span class="ttl">05 · Hello, world</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 05 --- -->
+      <section class="doc" id="hello">
+        <div class="mod-head">
+          <span class="eye">Module 05 <span class="part-tag">· Part IV·B</span></span>
+          <h3>Hello, world</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Read the canonical GameCube hello-world line by line, and recognise that every call in it is a concept from Parts I–III wearing a function name.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Here is the traditional first program, essentially as it appears
+            in the devkitPro template. It looks longer than a PC hello-world
+            because there is no operating system to inherit a screen from —
+            <em>you</em> boot the display. Read it once, then we'll take it
+            apart:
+          </p>
+
+          <div class="code">
+            <div class="code-head">source/main.c <button class="copy" type="button">copy</button></div>
+            <pre><span class="k">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+<span class="k">#include</span> <span class="s">&lt;stdlib.h&gt;</span>
+<span class="k">#include</span> <span class="s">&lt;gccore.h&gt;</span>   <span class="c">// libogc's front door</span>
+
+<span class="k">static</span> <span class="k">void</span> *xfb = <span class="n">NULL</span>;          <span class="c">// the external framebuffer</span>
+<span class="k">static</span> GXRModeObj *rmode = <span class="n">NULL</span>;  <span class="c">// the video mode we'll run in</span>
+
+<span class="k">int</span> <span class="fn">main</span>(<span class="k">int</span> argc, <span class="k">char</span> **argv) {
+    <span class="fn">VIDEO_Init</span>();                             <span class="c">// wake the Video Interface</span>
+    <span class="fn">PAD_Init</span>();                               <span class="c">// wake the controller ports</span>
+
+    rmode = <span class="fn">VIDEO_GetPreferredMode</span>(<span class="n">NULL</span>);     <span class="c">// 480i/576i/480p — asks the console</span>
+    xfb = <span class="fn">MEM_K0_TO_K1</span>(<span class="fn">SYS_AllocateFramebuffer</span>(rmode));
+    <span class="fn">console_init</span>(xfb, <span class="n">20</span>, <span class="n">20</span>, rmode->fbWidth, rmode->xfbHeight,
+                 rmode->fbWidth * <span class="n">VI_DISPLAY_PIX_SZ</span>);
+
+    <span class="fn">VIDEO_Configure</span>(rmode);                   <span class="c">// program the VI's registers</span>
+    <span class="fn">VIDEO_SetNextFramebuffer</span>(xfb);            <span class="c">// scan out THIS buffer</span>
+    <span class="fn">VIDEO_SetBlack</span>(<span class="n">FALSE</span>);                    <span class="c">// un-blank the screen</span>
+    <span class="fn">VIDEO_Flush</span>();
+    <span class="fn">VIDEO_WaitVSync</span>();                        <span class="c">// let one field scan out</span>
+    <span class="k">if</span> (rmode->viTVMode &amp; <span class="n">VI_NON_INTERLACE</span>) <span class="fn">VIDEO_WaitVSync</span>();
+
+    <span class="fn">printf</span>(<span class="s">"\x1b[2;0H"</span>);                       <span class="c">// cursor to row 2, column 0</span>
+    <span class="fn">printf</span>(<span class="s">"Hello, world!\n"</span>);
+
+    <span class="k">while</span> (<span class="n">1</span>) {
+        <span class="fn">PAD_ScanPads</span>();                       <span class="c">// poll all four ports</span>
+        <span class="k">if</span> (<span class="fn">PAD_ButtonsDown</span>(<span class="n">0</span>) &amp; <span class="n">PAD_BUTTON_START</span>)
+            <span class="fn">exit</span>(<span class="n">0</span>);                          <span class="c">// back to the loader</span>
+        <span class="fn">VIDEO_WaitVSync</span>();                    <span class="c">// the 60 Hz heartbeat</span>
+    }
+    <span class="k">return</span> <span class="n">0</span>;
+}</pre>
+          </div>
+
+          <h4>Every line is an old friend</h4>
+          <p>
+            If you've read the other courses, this program is a reunion:
+          </p>
+          <ul>
+            <li><strong><code>VIDEO_Init</code> / <code>VIDEO_Configure</code></strong> — programming the <span class="term" data-tip="The Video Interface: the chip stage that reads the external framebuffer out of memory and generates the TV signal, covered in the graphics course.">VI</span>, the scan-out hardware from the <a href="../graphics/">graphics course</a>'s EFB→XFB→TV chapter. <code>VIDEO_GetPreferredMode</code> asks what the console is set to (NTSC 480i, PAL 576i, progressive if available) so your program works on any region's hardware.</li>
+            <li><strong><code>SYS_AllocateFramebuffer</code></strong> — reserves memory for the <span class="term" data-tip="External framebuffer: the completed image in main RAM that the VI scans out to the TV — the final stop of the graphics course's pixel pipeline.">XFB</span>, the very buffer the graphics course watched Flipper copy pixels into.</li>
+            <li><strong><code>MEM_K0_TO_K1</code></strong> — pure <a href="../cpu/">CPU course</a>: it converts a normal <em>cached</em> address into its <em>uncached</em> mirror. You write pixels through the uncached window so they land in real RAM immediately, where the VI's DMA can see them — instead of loitering in Gekko's data cache while the TV scans out stale memory.</li>
+            <li><strong><code>console_init</code></strong> — libogc's text console: it hooks <code>printf</code>'s output and renders characters straight into the XFB. No GPU involved — which is why hello-world doesn't need a single <code>GX_*</code> call.</li>
+            <li><strong><code>PAD_ScanPads</code> / <code>PAD_ButtonsDown</code></strong> — Module 08's whole subject, previewed in two lines.</li>
+            <li><strong><code>VIDEO_WaitVSync</code></strong> — blocks until the VI finishes the current field. It's the metronome of every console game ever written, and Module 11 builds the entire concept of the frame budget on it.</li>
+            <li><strong><code>exit(0)</code></strong> — on a PC, "return to the OS". Here, "return to whatever loaded me" — Dolphin stops emulation; a hardware loader like Swiss takes the stage back. There's no OS to fall into, only the program that ran you.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Opening the theatre yourself</span>
+            <p>
+              Printing text on a PC is walking on stage in a running theatre —
+              lights on, audience seated, someone else handles everything.
+              This program arrives at a dark building: it unlocks the doors
+              (<code>VIDEO_Init</code>), raises the house lights
+              (<code>SetBlack(FALSE)</code>), builds a stage from lumber
+              (<code>AllocateFramebuffer</code>), and only <em>then</em> says
+              its one line. The applause is the same — but now you know who
+              turned everything on, because it was you.
+            </p>
+          </div>
+
+          <p>
+            The lab below replays that boot sequence on a mock TV: black frame
+            at <code>VIDEO_Init</code>, cursor at <code>console_init</code>,
+            your text at <code>printf</code>, then the vsync loop counting
+            frames at 60&nbsp;Hz until you press START. Change the message —
+            it's your program now.
+          </p>
+
+          <div class="lab" id="lab-xfb">
+            <div class="lab-head"><span class="dot"></span><span class="title">First-frame lab — the hello-world boot sequence</span><span class="badge">Canvas · simulation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="Simulated GameCube screen replaying the hello-world boot sequence"></canvas>
+              <div class="controls">
+                <div class="ctrl" style="min-width:220px">
+                  <label>your printf string</label>
+                  <input type="text" data-xfb-text value="Hello, world!" maxlength="38" aria-label="Text to print" style="font:500 13px var(--mono);background:var(--panel-2);border:1px solid var(--line-2);border-radius:7px;color:var(--ink);padding:8px 10px">
+                </div>
+                <button class="play-btn" data-xfb-run>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Power on &amp; run
+                </button>
+                <button class="reset-btn" data-xfb-start>press START</button>
+                <div class="readouts">
+                  <span class="readout">state <b data-xfb-state>powered off</b></span>
+                  <span class="readout">vsyncs <b data-xfb-frames>—</b></span>
+                </div>
+                <span class="sim-note">A dramatisation of the real boot order: video init (black) → console init (cursor) → printf → the WaitVSync loop. START calls <code>exit(0)</code>, handing control back to the loader.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>With no OS, your program boots the display itself: init the VI, allocate an XFB, configure a mode, un-blank.</li>
+              <li><code>printf</code> reaches the TV because libogc's console renders text into the framebuffer — newlib formats, libogc draws.</li>
+              <li><code>MEM_K0_TO_K1</code> is the CPU course's cached/uncached distinction doing real work in line three of your first program.</li>
+              <li><code>VIDEO_WaitVSync()</code> is the heartbeat: everything in Module 11 grows from this one blocking call.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#setup"><span class="dir">← Prev</span><span class="ttl">04 · Set up your machine</span></a>
+            <a class="next" href="#build"><span class="dir">Next →</span><span class="ttl">06 · From .c to .dol</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 06 --- -->
+      <section class="doc" id="build">
+        <div class="mod-head">
+          <span class="eye">Module 06 <span class="part-tag">· Part IV·B</span></span>
+          <h3>From .c to .dol — the build &amp; the executable format</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Follow your source through compile, link and convert; then open the DOL format — the GameCube's native executable, shared by every retail game — field by field.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Typing <code>make</code> in Module 04 fired a four-stage pipeline.
+            Nothing in it is exotic — it's the standard C build everyone half
+            remembers, plus one console-specific final step:
+          </p>
+          <div class="pipe">
+            <div class="stage"><div class="t">main.c</div><div class="d">your source</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">main.o</div><div class="d">compile: PowerPC object code</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">hello.elf</div><div class="d">link: + crt0 + libogc, symbols kept</div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">hello.dol</div><div class="d">elf2dol: header + raw sections</div></div>
+          </div>
+          <ul>
+            <li><strong>Compile.</strong> <code>powerpc-eabi-gcc -c</code> turns each <code>.c</code> file into a <code>.o</code> object file of PowerPC machine code with unresolved references ("I call something named <code>VIDEO_Init</code>, wherever that is").</li>
+            <li><strong>Link.</strong> The linker fuses your objects with <span class="term" data-tip="C runtime zero: the startup code that runs before main() — it sets up the stack, clears BSS, initialises libogc's low-level state, then calls your main.">crt0</span> and the libogc libraries, resolves every name to a real address, and lays the program out for the GameCube's memory map: code at the classic load address near the bottom of <span class="term" data-tip="The GameCube's 24 MB of fast 1T-SRAM main memory — the memory map the CPU course walked through.">MEM1</span>. Out comes an <strong>ELF</strong> — the standard Unix executable format — complete with symbol names and debug info.</li>
+            <li><strong>Convert.</strong> <code>elf2dol</code> strips everything the console's loaders don't need — symbols, debug data, section names — and writes the minimal format they expect: a <strong>DOL</strong>.</li>
+          </ul>
+          <p>
+            Keep both outputs. The <code>.elf</code> is your <em>debugging</em>
+            artefact — Dolphin loads it directly and can show you function
+            names in its debugger. The <code>.dol</code> is your
+            <em>shipping</em> artefact — small, loader-friendly, and the thing
+            hardware loaders like Swiss consume.
+          </p>
+
+          <div class="lab" id="lab-build">
+            <div class="lab-head"><span class="dot"></span><span class="title">Build-pipeline lab — watch make work</span><span class="badge">Canvas · animation</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-mid" aria-label="Animated build pipeline from main.c through object file and ELF to the final DOL"></canvas>
+              <div class="controls">
+                <button class="play-btn" data-build-run>
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Run the whole build
+                </button>
+                <button class="reset-btn" data-build-step>step</button>
+                <button class="reset-btn" data-build-reset>reset</button>
+                <div class="readouts">
+                  <span class="readout">newest artefact <b data-build-stage>main.c</b></span>
+                  <span class="readout">size <b data-build-size>1.2 KB</b></span>
+                </div>
+                <span class="sim-note">Sizes are illustrative. Notice the ELF is far bigger than the DOL: symbols and debug info for you, none of it needed by the console.</span>
+              </div>
+            </div>
+          </div>
+
+          <h4>The DOL format — the game format itself</h4>
+          <p>
+            This is not a homebrew-only format. The
+            <a href="../disc/">disc course</a> showed that every retail disc
+            carries the game's main executable as a DOL, loaded by the
+            apploader at boot. Your homebrew and <em>Wind Waker</em> ship in
+            the same container — one of the tidiest facts in the whole scene.
+          </p>
+          <p>
+            And it is a gloriously simple container. A DOL is a
+            <strong>256-byte header followed by raw bytes</strong> — no
+            compression, no symbols, no relocation, no metadata. The header is
+            just three parallel tables and three scalars, all big-endian
+            32-bit values: up to <strong>7 code ("text") sections</strong> and
+            <strong>11 data sections</strong>, each described by a file
+            offset, a RAM load address, and a size; then the
+            <span class="term" data-tip="The zero-initialised data segment: global variables that start as zero. Stored as just an address+size — the loader clears the RAM range instead of storing a run of zeroes in the file.">BSS</span>
+            address and size; and finally the <strong>entry point</strong> —
+            the address the loader jumps to when everything is in place.
+            Loading one takes a dozen lines of code: copy each section from
+            file offset to RAM address, zero the BSS range, flush the CPU
+            cache, jump to the entry point. That radical simplicity is
+            <em>why</em> everything — the apploader, Swiss, Dolphin — happily
+            loads DOLs.
+          </p>
+          <p>
+            The lab below is a real 256-byte header for our hello-world,
+            synthesised by this page. Click each field group to see which
+            bytes it owns and what they mean. (Grey <code>00</code> bytes are
+            unused table slots — this little program needs 1 of its 7 text
+            slots and 2 of its 11 data slots.)
+          </p>
+
+          <div class="lab" id="lab-dol">
+            <div class="lab-head"><span class="dot"></span><span class="title">DOL-header lab — inspect a real header, byte by byte</span><span class="badge">interactive</span></div>
+            <div class="lab-body">
+              <div class="dol-lab">
+                <div class="dol-hex" data-dol-hex aria-label="Hex dump of a 256-byte DOL header"></div>
+                <div class="dol-fields" data-dol-fields role="group" aria-label="DOL header fields"></div>
+                <div class="dol-decode" data-dol-decode aria-live="polite"></div>
+              </div>
+              <span class="sim-note">A synthetic but format-correct header. All values are big-endian, because the target is a big-endian PowerPC — your x86 laptop would read every one of these numbers byte-reversed, a classic porting gotcha.</span>
+            </div>
+          </div>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The moving-day manifest</span>
+            <p>
+              An ELF is a moving company's full paperwork: inventory,
+              insurance, the movers' names, which box the cutlery is in. A DOL
+              is the note taped to the truck door: <em>"boxes 1–3 → living
+              room, boxes 4–5 → kitchen, clear out the garage, and the house
+              key is under the mat at 0x80003100."</em> The console doesn't
+              want paperwork. It wants to know where things go and where to
+              start.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The pipeline is compile → link → convert: gcc makes objects, the linker builds an ELF against libogc, <code>elf2dol</code> emits the DOL.</li>
+              <li>ELF = debugging (symbols, Dolphin's debugger); DOL = shipping (minimal, universal).</li>
+              <li>A DOL is a 256-byte header + raw sections: ≤7 text, ≤11 data, BSS address/size, entry point — all big-endian u32s.</li>
+              <li>Retail games use the exact same format; the apploader on every disc is just a DOL loader (disc course, Module 06).</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#hello"><span class="dir">← Prev</span><span class="ttl">05 · Hello, world</span></a>
+            <a class="next" href="#run"><span class="dir">Next →</span><span class="ttl">07 · Run it</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 07 --- -->
+      <section class="doc" id="run">
+        <div class="mod-head">
+          <span class="eye">Module 07 <span class="part-tag">· Part IV·B</span></span>
+          <h3>Run it — Dolphin first, hardware after</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Establish the fast development loop in Dolphin, then survey the real-hardware boot routes — what each needs and which to choose.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            <strong>Dolphin is your development console.</strong> It opens your
+            <code>.dol</code> or <code>.elf</code> directly — no disc image,
+            no ceremony: point it at the file (or drag the file onto it) and
+            your program boots in a window, one second after <code>make</code>
+            finishes. This tight loop is something 2001-era licensed
+            developers would have envied, and it's made possible by everything
+            the other courses' Part IIIs described: Dolphin recreates the VI,
+            the PAD interface, the DSP and the rest faithfully enough that
+            code which behaves in Dolphin almost always behaves on hardware.
+          </p>
+          <ul>
+            <li><strong>Load the ELF while developing</strong> — Dolphin reads its symbols, so the debugger shows <code>main</code> and <code>VIDEO_Init</code> instead of bare addresses. Enable the debugger UI and you get breakpoints, memory view and register state — the <a href="../cpu/">CPU course</a>'s Part III, now pointed at <em>your</em> code.</li>
+            <li><strong>Watch the log.</strong> Dolphin's log window surfaces your program's report output (and libogc's complaints) — the humble <code>printf</code>-debugging channel every console dev lives in.</li>
+            <li><strong>Map a controller</strong> — keyboard or any PC gamepad stands in for a GameCube pad. Module 08's lab shows exactly what your program will read.</li>
+          </ul>
+
+          <h4>Real hardware — the boot routes</h4>
+          <p>
+            Sooner or later you'll want the real thing: actual Flipper output
+            on an actual TV. The console only boots what its IPL approves, so
+            homebrew enters through one of a few well-worn routes — all of
+            them ultimately loading <strong>Swiss</strong> (or another
+            loader), which then runs DOLs from an SD card. Prices and product
+            names drift; the <em>categories</em> are stable:
+          </p>
+
+          <div class="routes">
+            <div class="route">
+              <span class="tag">no console needed</span>
+              <h5>Dolphin</h5>
+              <p>Open the DOL/ELF directly. Instant, free, with a debugger attached. Where all development happens regardless of what you own.</p>
+              <div class="need"><span>needs ·</span> just your PC</div>
+            </div>
+            <div class="route">
+              <span class="tag hw">the standard kit</span>
+              <h5>SD adapter + Swiss</h5>
+              <p>An SD-card adapter in a memory-card slot (SD Gecko) or the serial port (SD2SP2), with Swiss on the card. Bootstrapped once via one of the entry points below, then it's "copy DOL to card, run".</p>
+              <div class="need"><span>needs ·</span> console + SD adapter + entry point</div>
+            </div>
+            <div class="route">
+              <span class="tag hw">entry points</span>
+              <h5>Savegame exploit / boot disc</h5>
+              <p>A crafted save file for certain retail games can chain-load Swiss from the memory card; Datel's Action Replay / SD Media Launcher discs boot because the console accepts them. Either one starts the chain that launches your loader.</p>
+              <div class="need"><span>needs ·</span> a compatible game save, or a Datel disc</div>
+            </div>
+            <div class="route">
+              <span class="tag hw">the deluxe path</span>
+              <h5>GC Loader / modchip</h5>
+              <p>An FPGA optical-drive replacement (GC Loader) or a classic modchip boots loaders straight from SD/microSD at power-on. Cleanest daily-driver setup; involves opening the console.</p>
+              <div class="need"><span>needs ·</span> console surgery or a pre-modded unit</div>
+            </div>
+            <div class="route">
+              <span class="tag hw">the family trick</span>
+              <h5>A Wii</h5>
+              <p>Early Wiis are GameCubes in a trenchcoat (the disc course's epilogue). A softmodded Wii can run GameCube software through community loaders — often the cheapest real-hardware route, since exploitable Wiis are everywhere.</p>
+              <div class="need"><span>needs ·</span> a softmodded Wii</div>
+            </div>
+            <div class="route">
+              <span class="tag old">the historic routes</span>
+              <h5>BBA / dev hardware</h5>
+              <p>The scene's founding paths: streaming code over the Broadband Adapter (the PSO trick), and USB Gecko debug adapters for a hardware printf channel. Beloved, niche, still documented.</p>
+              <div class="need"><span>needs ·</span> rare accessories &amp; patience</div>
+            </div>
+          </div>
+
+          <div class="note hw">
+            <span class="ico">◆</span>
+            <p>
+              Whichever route you take, the endpoint is the same: Swiss (or a
+              similar loader) presents a file browser, you pick
+              <code>hello.dol</code>, and the loader does exactly what Module
+              06 taught — copies sections to their addresses, zeroes BSS,
+              jumps to the entry point. There is no signing, no approval, no
+              store. The DOL <em>is</em> the distribution format.
+            </p>
+          </div>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The dress rehearsal and the opening night</span>
+            <p>
+              Dolphin is the rehearsal studio: mirrors on every wall
+              (debugger), stop-and-repeat any scene (savestates), no audience.
+              Real hardware is opening night — same script, but now the
+              lighting rig is real and the timing is merciless. Rehearse in
+              the studio daily; go to the theatre to make sure the show
+              actually works under stage lights. Serious homebrew tests on
+              both.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Dolphin opens DOLs and ELFs directly — the edit-compile-test loop is seconds long, with a symbol-aware debugger attached.</li>
+              <li>Real-hardware boot = an entry point (savegame exploit, Datel disc, modchip/GC Loader) that starts Swiss, which then runs your DOLs from SD.</li>
+              <li>A softmodded Wii is a legitimate and often cheapest GameCube-homebrew machine.</li>
+              <li>No signing, no gatekeeper: hand someone a .dol and they can run it. That's the whole distribution story (Module 12 refines it).</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#build"><span class="dir">← Prev</span><span class="ttl">06 · From .c to .dol</span></a>
+            <a class="next" href="#pad"><span class="dir">Next →</span><span class="ttl">08 · Reading the controller</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART C ============== -->
+      <section class="part" id="part-c">
+        <div class="part-inner">
+          <div class="kicker">Part IV · C</div>
+          <h3>Make it a game</h3>
+          <p>
+            A program that prints text is a program; a program that reads your
+            thumbs sixty times a second is a game. This stretch covers the
+            four pillars of any real project — input, video, audio + storage,
+            and the loop that binds them to the display's clock — each pillar
+            standing on a subsystem another course already taught you.
+          </p>
+          <div class="part-meta"><span>Modules <b>08–11</b></span><span>Difficulty <b>Intermediate</b></span><span>Labs <b>3 interactive · 1 playable</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 08 --- -->
+      <section class="doc" id="pad">
+        <div class="mod-head">
+          <span class="eye">Module 08 <span class="part-tag">· Part IV·C</span></span>
+          <h3>Reading the controller</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Master the PAD API: the scan-per-frame model, the 16-bit button mask, edge-versus-level reads, and the analog inputs.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Controller input on the GameCube is refreshingly honest. There are
+            no events, no callbacks, no queues. Once per frame you call
+            <strong><code>PAD_ScanPads()</code></strong>, which polls all four
+            ports over the
+            <span class="term" data-tip="The Serial Interface: the hardware that clocks data to and from the four controller ports. libogc's PAD layer sits directly on it.">Serial Interface</span>
+            and snapshots the state of every connected pad. Then you ask
+            questions about the snapshot:
+          </p>
+          <ul>
+            <li><strong><code>PAD_ButtonsHeld(0)</code></strong> — a 16-bit mask of what is <em>currently down</em> on controller 0 (a <em>level</em>: true every frame the button stays pressed).</li>
+            <li><strong><code>PAD_ButtonsDown(0)</code></strong> — the buttons <em>newly pressed since the last scan</em> (an <em>edge</em>: true for exactly one frame).</li>
+            <li><strong><code>PAD_ButtonsUp(0)</code></strong> — newly released, the other edge.</li>
+            <li><strong><code>PAD_StickX/Y(0)</code></strong>, <strong><code>PAD_SubStickX/Y(0)</code></strong> — the main and C sticks as signed values (working range roughly ±100 after libogc's calibration); <strong><code>PAD_TriggerL/R(0)</code></strong> — the analog trigger depth.</li>
+          </ul>
+          <p>
+            Hold and edge is a distinction worth tattooing somewhere: use
+            <em>held</em> for continuous verbs (walking, aiming, charging) and
+            <em>down</em> for discrete ones (jump, confirm, pause). The classic
+            beginner bug — a menu that flickers through five options per tap —
+            is a <code>Held</code> where a <code>Down</code> belonged.
+          </p>
+          <p>
+            Each button owns one bit of the mask, with names like
+            <code>PAD_BUTTON_A</code> (0x0100), <code>PAD_BUTTON_START</code>
+            (0x1000) and <code>PAD_TRIGGER_Z</code> (0x0010), so tests are
+            single bitwise-ANDs — <code>held &amp; PAD_BUTTON_A</code> — and
+            checking three buttons at once is one OR away. The lab shows the
+            live mask: drive the drawn controller with your keyboard (or plug
+            in any USB gamepad — the browser's Gamepad API stands in for the
+            Serial Interface) and watch bits flip in real time.
+          </p>
+
+          <div class="lab" id="lab-pad">
+            <div class="lab-head"><span class="dot"></span><span class="title">Controller lab — the live PAD_ButtonsHeld mask</span><span class="badge">Canvas · interactive</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-pad" aria-label="A drawn GameCube controller whose buttons light up from keyboard or gamepad input"></canvas>
+              <div class="pad-wrap">
+                <div class="pad-keys" aria-label="Keyboard mapping">
+                  <span class="lbl">keys ·</span>
+                  <span class="kbd">X</span><span class="lbl">A</span>
+                  <span class="kbd">Z</span><span class="lbl">B</span>
+                  <span class="kbd">S</span><span class="lbl">X</span>
+                  <span class="kbd">D</span><span class="lbl">Y</span>
+                  <span class="kbd">Q</span><span class="lbl">L</span>
+                  <span class="kbd">W</span><span class="lbl">R</span>
+                  <span class="kbd">E</span><span class="lbl">Z</span>
+                  <span class="kbd">↵</span><span class="lbl">START</span>
+                  <span class="kbd">←↑↓→</span><span class="lbl">stick / d-pad</span>
+                </div>
+                <div class="readouts">
+                  <span class="readout">PAD_ButtonsHeld(0) <b data-pad-mask>0x0000</b></span>
+                  <span class="readout">binary <b data-pad-bin>0000000000000</b></span>
+                  <span class="readout">stick <b data-pad-stick>0, 0</b></span>
+                </div>
+                <div class="readouts">
+                  <span class="readout" style="max-width:100%"><b data-pad-names>0 (nothing held)</b></span>
+                </div>
+              </div>
+              <span class="sim-note">A USB gamepad works too (press a button on it to wake the Gamepad API). The bit assignments shown are libogc's real ones — this is exactly the value your C code receives.</span>
+            </div>
+          </div>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The photograph, not the doorbell</span>
+            <p>
+              Desktop input is a doorbell: events ring whenever they please
+              and you answer. Console input is a photograph: once per frame
+              you take one picture of all sixteen buttons and both sticks, and
+              for the next 16.7 milliseconds you reason about that frozen
+              picture. Comparing this photo with the previous one is how
+              "held" becomes "just pressed" — the edge is literally the
+              difference between two snapshots.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>One <code>PAD_ScanPads()</code> per frame snapshots all four controllers; everything else queries that snapshot.</li>
+              <li>Held = level (continuous actions); Down/Up = edges (discrete actions). Mixing them up is the classic menu bug.</li>
+              <li>Buttons live in a 16-bit mask tested with bitwise AND; sticks and triggers are signed/unsigned analog values.</li>
+              <li>The polling model fits the frame loop perfectly — input is stage one of Module 11's loop.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#run"><span class="dir">← Prev</span><span class="ttl">07 · Run it</span></a>
+            <a class="next" href="#pixels"><span class="dir">Next →</span><span class="ttl">09 · Putting pixels on screen</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 09 --- -->
+      <section class="doc" id="pixels">
+        <div class="mod-head">
+          <span class="eye">Module 09 <span class="part-tag">· Part IV·C</span></span>
+          <h3>Putting pixels on screen</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Know your three rendering options — poking the XFB directly, the full GX pipeline, or GRRLIB — and understand the YUY2 pixel format the framebuffer actually speaks.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Hello-world drew text without touching the GPU, which reveals the
+            first of three roads to the screen. Choose by ambition:
+          </p>
+          <div class="defs">
+            <div class="row"><dt>1 · Poke the XFB</dt><dd>Write pixel values straight into the framebuffer with the CPU. No GPU, no setup, total control — and total responsibility. Perfect for text, plotters, fractals, retro-style 2D and understanding what a framebuffer <em>is</em>.</dd></div>
+            <div class="row"><dt>2 · The GX pipeline</dt><dd>The real thing: Flipper's hardware T&amp;L, TEV stages and texture units, driven through libogc's <code>GX_*</code> API. Everything the <a href="../graphics/">graphics course</a> taught, now writable. Steep, powerful, and the only road to real 3D.</dd></div>
+            <div class="row"><dt>3 · GRRLIB</dt><dd>GX with the sharp edges filed off: init in one call, load a PNG, draw sprites and text. The pragmatic choice for 2D games and the gentlest on-ramp that still uses the GPU.</dd></div>
+          </div>
+
+          <h4>Road 1 in practice — and the format surprise</h4>
+          <p>
+            Poking pixels comes with a twist the graphics course foreshadowed:
+            the XFB does not hold RGB. It holds
+            <strong>YUY2</strong> — a luma/chroma format where each
+            <em>pair</em> of horizontally adjacent pixels shares its colour
+            information: four bytes carry two brightness values
+            (Y₀, Y₁) but only one shared pair of chroma values (U, V).
+            Television signals work in luma/chroma, the
+            <span class="term" data-tip="The Video Interface — reads the XFB and generates the TV signal. Since TVs speak luma/chroma, the XFB stores exactly that.">VI</span>
+            feeds a television, so the framebuffer speaks the TV's language
+            and halves its memory bandwidth in the bargain (your eye is far
+            more forgiving about colour resolution than brightness — the same
+            fact lossy image formats exploit).
+          </p>
+          <p>
+            The lab lets you feel it: choose two neighbouring pixels' colours
+            and watch them encode into four bytes and decode back. Give the
+            pair similar colours and the round trip is invisible; give them
+            wildly different hues and watch the shared chroma split the
+            difference — a real artefact that real GameCube 2D homebrew deals
+            with (the practical dodge: work in an RGB buffer, convert whole
+            frames, or just let GX do it — roads 2 and 3 handle all of this
+            for you).
+          </p>
+
+          <div class="lab" id="lab-yuy">
+            <div class="lab-head"><span class="dot"></span><span class="title">YUY2 lab — two pixels, four bytes, one shared colour</span><span class="badge">interactive</span></div>
+            <div class="lab-body">
+              <div class="controls">
+                <div class="ctrl">
+                  <label>pixel 0</label>
+                  <input type="color" data-yuy-a value="#45e4d1" aria-label="Colour of pixel 0">
+                </div>
+                <div class="ctrl">
+                  <label>pixel 1</label>
+                  <input type="color" data-yuy-b value="#ff5f9e" aria-label="Colour of pixel 1">
+                </div>
+                <div class="readouts" data-yuy-out></div>
+              </div>
+              <canvas class="scope" style="height:120px" aria-label="The chosen pixel pair before and after the YUY2 round trip"></canvas>
+              <span class="sim-note">Try two similar blues (invisible), then pure red next to pure green (the shared U/V averages them). This is why fine single-pixel colour detail smears horizontally in XFB-poked graphics.</span>
+            </div>
+          </div>
+
+          <h4>Road 2, briefly — GX in one paragraph</h4>
+          <p>
+            A GX frame follows the shape the graphics course drew: allocate a
+            <span class="term" data-tip="The command FIFO through which the CPU streams draw commands to Flipper — the graphics course's Part II covers it in loving detail.">FIFO</span>
+            and call <code>GX_Init</code>; describe your vertex formats;
+            set up the camera and load transform matrices; send vertices
+            between <code>GX_Begin/GX_End</code>; configure
+            <span class="term" data-tip="Texture EnVironment — Flipper's 16-stage programmable colour combiner, the heart of the GameCube look. The graphics course has an interactive TEV lab.">TEV</span>
+            stages for materials; then <code>GX_CopyDisp</code> copies the
+            finished <span class="term" data-tip="Embedded framebuffer — the on-GPU memory where pixels are composited before being copied out to the XFB in main RAM.">EFB</span>
+            into the XFB and you call it a frame. Every one of those nouns has
+            a chapter — and an interactive lab — in the
+            <a href="../graphics/">graphics course</a>; there is no better GX
+            manual on the open web than understanding the hardware it drives.
+            The <code>gamecube-examples</code> tree has working GX samples to
+            crib from, and GRRLIB's source is a readable master-class in
+            "how do I make GX do the normal thing".
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>Three roads: CPU-poked XFB (simple, honest), full GX (powerful, steep), GRRLIB (pragmatic 2D).</li>
+              <li>The XFB speaks YUY2 — paired pixels share chroma because the buffer feeds a television, not a monitor.</li>
+              <li>Shared chroma is a real artefact you can provoke — and the GPU roads handle format conversion for you.</li>
+              <li>The graphics course is your GX textbook; the examples tree and GRRLIB source are your working references.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#pad"><span class="dir">← Prev</span><span class="ttl">08 · Reading the controller</span></a>
+            <a class="next" href="#assets"><span class="dir">Next →</span><span class="ttl">10 · Sound, files &amp; saves</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 10 --- -->
+      <section class="doc" id="assets">
+        <div class="mod-head">
+          <span class="eye">Module 10 <span class="part-tag">· Part IV·C</span></span>
+          <h3>Sound, files &amp; saves</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Add audio through the DSP's homebrew ucode, get assets into your program — baked in or from SD — and save progress to a memory card.</span></div>
+        </div>
+        <div class="prose">
+          <h4>Sound — the DSP works for you now</h4>
+          <p>
+            The <a href="../audio/">audio course</a> told the story of the
+            DSP's interchangeable
+            <span class="term" data-tip="Microcode: the program the audio DSP runs. Retail games shipped Nintendo's AX or Zelda ucodes; homebrew ships the community's own.">ucodes</span>
+            — and homebrew gets its own chapter in it. libogc ships a
+            community-written mixing ucode and two API layers over it:
+            <strong>AESND</strong> (lean, voice-based) and
+            <strong>ASND</strong> (a friendlier layer used by ported
+            libraries). Allocate a voice, hand it PCM sample data, set volume
+            and pitch, and the DSP mixes it into the 48&nbsp;kHz output stream
+            exactly as the audio course described — except now the mix is
+            yours. For music, the scene's tradition is gloriously retro:
+            <strong>tracker modules</strong> (MOD/XM et al.), tiny files that
+            libogc's modplay decodes on the fly — or stream and decode OGG
+            with ported decoders.
+          </p>
+
+          <h4>Assets — baked in, or fetched from SD</h4>
+          <p>
+            Your game needs sprites, samples and levels, and a bare-metal
+            program has no filesystem by default. Two idioms cover nearly all
+            homebrew:
+          </p>
+          <ul>
+            <li><strong>Bake data into the DOL.</strong> The devkitPro makefiles convert any file you drop into the project's <code>data/</code> directory into an object file with generated symbols — your PNG becomes <code>mysprite_png[]</code> and <code>mysprite_png_size</code>, linked straight into a data section (you watched those sections in Module 06's header lab). Zero I/O at runtime, perfect for jam-sized games; the cost is that every asset rides in RAM from boot.</li>
+            <li><strong>Read from SD with libfat.</strong> One <code>fatInitDefault()</code> and the SD card in your Gecko/SD2SP2 adapter mounts as a drive: <code>fopen("sd:/mygame/level2.dat", "rb")</code> and friends just work. Load what you need when you need it — the same streaming discipline the <a href="../disc/">disc course</a> showed retail games practising, with an SD card standing in for the miniDVD.</li>
+          </ul>
+
+          <h4>Saves — the memory card, like a real game</h4>
+          <p>
+            The <code>CARD_*</code> API speaks to memory cards over the
+            <span class="term" data-tip="The EXpansion Interface — the serial bus behind the memory-card slots and the SP1/SP2 ports; also how the SD Gecko adapter smuggles an SD card into the system.">EXI bus</span>:
+            mount, create a file with your game's identity, write your save
+            struct, read it back next boot. Your homebrew's save appears in
+            the console's memory-card manager next to the retail games' —
+            banner icon and all, if you provide one. (Saving to SD via libfat
+            is the lazier road; the memory card is the <em>authentic</em>
+            one.)
+          </p>
+
+          <figure class="figure">
+            <svg viewBox="0 0 900 240" role="img" aria-label="Where a homebrew game's data lives: code and baked assets inside the DOL in RAM, streamed assets on the SD card, saves on the memory card, all meeting in the running game">
+              <defs><marker id="ah10" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="#877f9e"/></marker></defs>
+              <rect x="40" y="40" width="200" height="72" rx="10" class="d-fill-panel d-good-s" stroke="#5fd18b" stroke-width="1.5"/>
+              <text x="140" y="68" text-anchor="middle" class="d-label" style="font-size:12.5px">the DOL, in RAM</text>
+              <text x="140" y="88" text-anchor="middle" class="d-sub">code + baked-in assets</text>
+              <rect x="40" y="132" width="200" height="72" rx="10" class="d-fill-panel d-cyan-s" stroke-width="1.5"/>
+              <text x="140" y="160" text-anchor="middle" class="d-label" style="font-size:12.5px">SD card (libfat)</text>
+              <text x="140" y="180" text-anchor="middle" class="d-sub">streamed assets, big data</text>
+              <rect x="660" y="132" width="200" height="72" rx="10" class="d-fill-panel d-amber-s" stroke-width="1.5"/>
+              <text x="760" y="160" text-anchor="middle" class="d-label" style="font-size:12.5px">memory card (CARD)</text>
+              <text x="760" y="180" text-anchor="middle" class="d-sub">saves, like a retail game</text>
+              <rect x="350" y="76" width="220" height="88" rx="12" class="d-fill-panel2 d-violet-s" stroke-width="1.6"/>
+              <text x="460" y="112" text-anchor="middle" class="d-label" style="font-size:13.5px">your running game</text>
+              <text x="460" y="132" text-anchor="middle" class="d-sub">+ AESND voices on the DSP</text>
+              <line x1="240" y1="80" x2="345" y2="104" class="d-axis" stroke-width="1.8" marker-end="url(#ah10)"/>
+              <line x1="240" y1="164" x2="345" y2="136" class="d-axis" stroke-width="1.8" marker-end="url(#ah10)"/>
+              <line x1="575" y1="140" x2="655" y2="160" class="d-axis" stroke-width="1.8" marker-end="url(#ah10)"/>
+              <line x1="655" y1="176" x2="575" y2="156" class="d-axis" stroke-width="1.8" marker-end="url(#ah10)"/>
+              <text x="608" y="134" class="d-sub">write save</text>
+              <text x="608" y="196" class="d-sub">read save</text>
+            </svg>
+            <figcaption class="fig-cap"><strong>A homebrew game's data geography.</strong> Small games bake everything into the DOL and ship as one file; bigger ones stream from the SD card exactly as retail games streamed from disc. Saves go to the memory card through the same CARD interface retail games used — your game is a first-class citizen of the machine.</figcaption>
+          </figure>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The food truck and the restaurant</span>
+            <p>
+              Baking assets into the DOL is running a food truck: everything
+              you'll serve is loaded before you drive off, service is instant,
+              but the menu is only as big as the truck. libfat streaming is a
+              restaurant with a stocked pantry: effectively bottomless menu,
+              but now there's a kitchen door between you and the ingredients,
+              and you plan around fetch times. Most homebrew starts as a food
+              truck and grows a pantry precisely when the truck gets full.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>AESND/ASND drive a community ucode on the DSP — allocate voices, feed PCM, and the 48 kHz mix is yours; tracker modules are the classic music format.</li>
+              <li>Assets ride two roads: baked into the DOL by the makefile's data rules, or streamed from SD via libfat's <code>sd:/</code> mount.</li>
+              <li><code>CARD_*</code> gives you honest memory-card saves that sit beside retail games' in the card manager.</li>
+              <li>All three storage paths — DOL sections, EXI/SD, memory card — are subsystems earlier courses already mapped.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#pixels"><span class="dir">← Prev</span><span class="ttl">09 · Putting pixels on screen</span></a>
+            <a class="next" href="#loop"><span class="dir">Next →</span><span class="ttl">11 · The game loop</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 11 --- -->
+      <section class="doc" id="loop">
+        <div class="mod-head">
+          <span class="eye">Module 11 <span class="part-tag">· Part IV·C</span></span>
+          <h3>The game loop &amp; the frame budget</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Internalise the scan → update → draw → WaitVSync loop, the 16.7-millisecond budget it must fit in, and what missing that budget looks and feels like.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Every module so far has been a part; this is the whole. A GameCube
+            game — yours, or any retail game ever pressed — is one loop:
+          </p>
+
+          <div class="code">
+            <div class="code-head">the canonical loop <button class="copy" type="button">copy</button></div>
+            <pre><span class="k">while</span> (<span class="n">1</span>) {
+    <span class="fn">PAD_ScanPads</span>();      <span class="c">// 1 · snapshot the players' hands</span>
+    <span class="fn">update_world</span>(dt);    <span class="c">// 2 · physics, AI, rules — pure computation</span>
+    <span class="fn">draw_world</span>();        <span class="c">// 3 · issue GX commands / write pixels</span>
+    <span class="fn">VIDEO_WaitVSync</span>();   <span class="c">// 4 · block until the TV finishes the field</span>
+}</pre>
+          </div>
+
+          <p>
+            Step 4 is the one with teeth. The
+            <span class="term" data-tip="The Video Interface scans one field to the TV every 1/60th of a second (NTSC) — nothing any program does can hurry or delay it.">VI</span>
+            delivers a field to the TV every <strong>16.7&nbsp;ms</strong>
+            (NTSC; 20&nbsp;ms PAL), and <code>VIDEO_WaitVSync()</code> blocks
+            until it has. So the loop runs at exactly 60&nbsp;Hz — <em>if</em>
+            steps 1–3 fit inside the budget. Spend 10&nbsp;ms computing, wait
+            6.7: sixty perfect frames. Spend 17&nbsp;ms — one millisecond
+            over — and you don't get 59 frames: you <strong>miss the
+            vsync</strong>, wait for the <em>next</em> one, and drop to
+            30&nbsp;Hz. The budget isn't a speed limit you can nudge past;
+            it's a train that leaves the station with or without you.
+          </p>
+          <p>
+            Two habits make console timing a gift instead of a terror. First,
+            <strong>double-buffer</strong>: allocate two XFBs and alternate —
+            draw into one while the VI scans the other, then swap at vsync
+            (with a single buffer, the TV can catch you mid-drawing — the
+            tearing artefact the <a href="../graphics/">graphics course</a>
+            demonstrated). Second, exploit the machine's
+            <strong>determinism</strong>. There is no OS, no other process, no
+            thermal throttling, no surprise background update: the same code
+            path costs the same microseconds every single time. If your frame
+            fits today, it fits forever. This is why 2001 games could promise
+            a rock-solid 60 and keep the promise — and Dolphin's Part III
+            chapters showed how much work it takes a modern multitasking PC
+            to <em>imitate</em> that stillness.
+          </p>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · Live television</span>
+            <p>
+              A game loop is a live TV broadcast: a new frame goes to air
+              every 16.7 ms whether you're ready or not. A studio show
+              rehearses until every segment fits its slot exactly — that's
+              the determinism. Miss your slot and you don't air 4% late; you
+              wait for the next slot while the audience watches a repeat.
+              That's the drop to 30 Hz, and viewers feel it instantly.
+            </p>
+          </div>
+
+          <p>
+            The lab makes the budget physical. It's a tiny playable game —
+            move the paddle with ←/→, A/D or the mouse — whose loop presents
+            one frame per vsync, exactly like the code above. The slider adds
+            simulated work to steps 2–3. Push it past the 16.7&nbsp;ms line
+            and watch the game snap from silk to judder: same game, one
+            millisecond too greedy.
+          </p>
+
+          <div class="lab" id="lab-loop">
+            <div class="lab-head"><span class="dot"></span><span class="title">Frame-budget lab — a playable loop you can overload</span><span class="badge">Canvas · playable</span></div>
+            <div class="lab-body">
+              <canvas class="scope lab-tall" aria-label="A small paddle game with a frame-time meter; a slider adds work per frame until the game misses vsyncs"></canvas>
+              <div class="controls">
+                <div class="ctrl" style="min-width:220px">
+                  <label>work per frame — <span class="val" data-loop-work-val>6 ms</span></label>
+                  <input type="range" min="2" max="40" value="6" step="1" data-loop-work aria-label="Simulated work per frame in milliseconds">
+                </div>
+                <div class="readouts">
+                  <span class="readout">presenting <b data-loop-fps>60 fps</b></span>
+                  <span class="readout">missed vsyncs <b data-loop-missed>0</b></span>
+                  <span class="readout">score <b data-loop-score>0</b></span>
+                </div>
+                <span class="sim-note">←/→, A/D or mouse to move. The meter along the bottom is your frame time against the 16.7 ms budget: green fits, red misses — and the instant it crosses the line, 60 Hz becomes 30. There is no 45.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The loop is scan → update → draw → WaitVSync; the VI's 60 Hz field rate is the clock and the contract.</li>
+              <li>Overrun the 16.7 ms budget by any amount and you wait a whole extra field: frame rates quantise (60 → 30), they don't degrade smoothly.</li>
+              <li>Double-buffer two XFBs to draw while the other is scanned out — swap at vsync, never tear.</li>
+              <li>Bare metal is deterministic: a frame that fits once fits always. Budget once, trust it forever.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#assets"><span class="dir">← Prev</span><span class="ttl">10 · Sound, files &amp; saves</span></a>
+            <a class="next" href="#ship"><span class="dir">Next →</span><span class="ttl">12 · From DOL to disc</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================ PART D ============== -->
+      <section class="part" id="part-d">
+        <div class="part-inner">
+          <div class="kicker">Part IV · D</div>
+          <h3>Ship it</h3>
+          <p>
+            A game nobody else can run is a diary. The final stretch covers
+            packaging — when a bare DOL is enough (almost always) and what it
+            takes to build a full disc image (and why that's rarer than you'd
+            think) — plus distribution, licensing manners, and where your
+            skills point next.
+          </p>
+          <div class="part-meta"><span>Modules <b>12–13</b></span><span>Difficulty <b>Easy reading</b></span><span>Mood <b>graduation</b></span></div>
+        </div>
+      </section>
+
+      <!-- --- Module 12 --- -->
+      <section class="doc" id="ship">
+        <div class="mod-head">
+          <span class="eye">Module 12 <span class="part-tag">· Part IV·D</span></span>
+          <h3>From DOL to disc — packaging &amp; distribution</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Choose the right shipping container — bare DOL versus full disc image — understand what building a GCM actually involves, and release your work like a good citizen of the scene.</span></div>
+        </div>
+        <div class="prose">
+          <h4>The default answer: ship the DOL</h4>
+          <p>
+            For almost all homebrew, the file you built in Module 06 <em>is</em>
+            the release. Every relevant runner — Dolphin, Swiss, Wii loaders —
+            opens a <code>.dol</code> directly, and users know exactly what to
+            do with one: drop it on the SD card, pick it in the menu. Zip it
+            with a README and a licence, publish it where the scene gathers
+            (the community's homebrew directories, or simply your own
+            repository), and you have shipped GameCube software. If you baked
+            your assets in (Module 10), it's genuinely one file.
+          </p>
+
+          <h4>The fancy answer: build a disc image</h4>
+          <p>
+            Sometimes you want your project to <em>be a disc</em>: booted by a
+            GC Loader or modchip as if pressed, aware of the
+            <a href="../disc/">disc course</a>'s whole apparatus. Recall from
+            that course what a bootable disc actually contains, because now
+            it's a packing list — every item something <em>you</em> must
+            provide:
+          </p>
+          <div class="defs">
+            <div class="row"><dt>boot header</dt><dd>The disc's identity block: game code, maker code, title. Yours to invent — homebrew traditionally picks a playful ID.</dd></div>
+            <div class="row"><dt>apploader</dt><dd>The little bootstrap program the IPL runs off the disc. Nintendo's is copyrighted, so a homebrew image needs a replacement — and the scene wrote open ones that do the same job: load the DOL, jump to it.</dd></div>
+            <div class="row"><dt>main DOL</dt><dd>Your executable. The same bytes you'd have shipped bare.</dd></div>
+            <div class="row"><dt>FST + files</dt><dd>The filesystem table and your asset files, laid out exactly as the disc course's "what's on the disc" module described — so your game can use real <code>DVD_*</code> reads.</dd></div>
+          </div>
+          <p>
+            Community tools assemble all of that into a
+            <code>.gcm</code>/<code>.iso</code> from a directory tree plus
+            your DOL. The result boots in Dolphin like any image, and on
+            hardware through the optical-drive-replacement routes. It's a
+            wonderful capstone exercise — you will never look at a retail
+            disc's innards the same way — but be honest about the audience:
+            for SD-card users, the bare DOL was already perfect.
+          </p>
+
+          <div class="note warn">
+            <span class="ico">⚠</span>
+            <p>
+              The bright line, one last time: build images <em>of your own
+              software</em>, from your own files, with an open apploader.
+              Shipping Nintendo's apploader, IPL data or any retail content in
+              your image steps over the line that keeps this hobby healthy —
+              and it's never necessary.
+            </p>
+          </div>
+
+          <h4>Release manners</h4>
+          <ul>
+            <li><strong>License it.</strong> The scene runs on source: GPL and MIT-family licences dominate, and releasing your source is both the custom and the reason the next generation learns. (You're reading a course that exists because Dolphin and libogc are open.)</li>
+            <li><strong>State your targets.</strong> "Tested in Dolphin and on NTSC hardware via SD2SP2 + Swiss" is one sentence and saves users an evening. Video modes are the classic gotcha — Module 05's <code>VIDEO_GetPreferredMode</code> pattern covers NTSC/PAL, so keep it.</li>
+            <li><strong>Version the ELF away.</strong> Ship the DOL; keep the matching ELF archived so you can debug crash reports against the exact build.</li>
+            <li><strong>Credit your ingredients.</strong> libogc, GRRLIB, any ported decoder — a credits line each. Small scene, long memories, good manners.</li>
+          </ul>
+
+          <div class="analogy">
+            <span class="lbl">Analogy · The zine and the hardcover</span>
+            <p>
+              Shipping a DOL is publishing a zine: photocopy, staple, hand it
+              out — perfectly legitimate publishing, and how most of the
+              scene's beloved work actually circulates. Building a disc image
+              is commissioning a hardcover: binding, dust jacket, the works.
+              Undeniably satisfying, occasionally worth it — but nobody ever
+              refused to read a great zine because of the staples.
+            </p>
+          </div>
+
+          <div class="takeaway">
+            <div class="th">Key takeaways</div>
+            <ul>
+              <li>The bare .dol is the scene's standard release unit — every loader and emulator opens it, one file, done.</li>
+              <li>A bootable image = boot header + (open) apploader + your DOL + FST/files, assembled by community tools into a GCM/ISO.</li>
+              <li>Never ship Nintendo's apploader or any retail bytes; open replacements exist and suffice.</li>
+              <li>Release with source, licence, tested-targets note and credits — the customs that keep a twenty-year scene alive.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#loop"><span class="dir">← Prev</span><span class="ttl">11 · The game loop</span></a>
+            <a class="next" href="#epilogue"><span class="dir">Next →</span><span class="ttl">13 · Your turn</span></a>
+          </div>
+        </div>
+      </section>
+
+      <!-- --- Module 13 --- -->
+      <section class="doc" id="epilogue">
+        <div class="mod-head">
+          <span class="eye">Module 13 <span class="part-tag">· Part IV·D</span></span>
+          <h3>Epilogue: your turn</h3>
+          <div class="objective"><span class="lbl">Goal</span><span class="txt">Close the collection's loop: see the whole path from your keyboard to the scanline, collect the best next steps, and go build something.</span></div>
+        </div>
+        <div class="prose">
+          <p>
+            Here is the entire course — arguably the entire collection — in
+            one chain. Trace it once with your finger; every link is now
+            something you've either studied or built:
+          </p>
+          <div class="pipe">
+            <div class="stage"><div class="t">main.c</div><div class="d">your idea, in C <span style="color:var(--muted)">(05)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">powerpc-eabi-gcc</div><div class="d">cross-compiled + libogc <span style="color:var(--muted)">(02–03)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">hello.dol</div><div class="d">the console's own format <span style="color:var(--muted)">(06)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">Dolphin / Swiss</div><div class="d">loaded &amp; jumped to <span style="color:var(--muted)">(07)</span></div></div>
+            <div class="arrow">→</div>
+            <div class="stage"><div class="t">the machine</div><div class="d">Gekko · Flipper · DSP · your loop <span style="color:var(--muted)">(08–11)</span></div></div>
+          </div>
+          <p>
+            When Part I of any course in this collection began, the GameCube
+            was a sealed appliance. Somewhere in the middle it became a
+            diagram. If Part IV did its job, it is now something better: a
+            <strong>target</strong>. The 485&nbsp;MHz CPU whose pipelines you
+            studied executes your opcodes. The TEV stages you toggled in a lab
+            combine your textures. The DSP mixes your voices; the vsync you
+            learned to fear and love paces your loop. There is no layer of the
+            machine left that is someone else's business.
+          </p>
+
+          <h4>Where to go from here</h4>
+          <ul>
+            <li><strong>Mine the examples.</strong> <code>$DEVKITPRO/examples/gamecube/</code> has a working sample for nearly every subsystem — the fastest way to learn any API is to build its example and start bending it.</li>
+            <li><strong>Read great homebrew.</strong> Swiss's source is a masterclass in the whole machine; GRRLIB's is the friendliest GX tutorial ever written, disguised as a library.</li>
+            <li><strong>Use Dolphin as a microscope.</strong> Its debugger, logs and graphics tools (the Part IIIs of this collection) are as good at inspecting <em>your</em> game as anyone else's.</li>
+            <li><strong>Join the room.</strong> The devkitPro forums/wiki and the GameCube scene's communities have answered every beginner question twice a year for two decades. Ask well: post code, name your toolchain versions.</li>
+            <li><strong>Revisit the other courses as manuals.</strong> They were written as teardowns — <a href="../cpu/">CPU</a>, <a href="../graphics/">graphics</a>, <a href="../audio/">audio</a>, <a href="../disc/">disc</a> — but every one of them reads differently now that the hardware is yours to command.</li>
+          </ul>
+
+          <p>
+            A good first project, if you want one: a one-screen arcade game —
+            paddle, ball, score, one music track, one sound effect, saves its
+            high score to the memory card. It touches every module in Part IV,
+            fits comfortably in the frame budget, bakes into a single DOL, and
+            it is exactly the kind of thing the scene has cherished for twenty
+            years: proof that the little purple box still says yes to anyone
+            who learns to ask.
+          </p>
+
+          <div class="takeaway">
+            <div class="th">Course complete ✦ — and so is the collection</div>
+            <ul>
+              <li>You can set up a GameCube toolchain on Windows, macOS or Linux, and explain every piece of it.</li>
+              <li>You can read a DOL header byte by byte, and narrate the pipeline that produced it.</li>
+              <li>You can boot code in Dolphin and name every hardware route to running it for real.</li>
+              <li>Input, pixels, sound, storage, and the 16.7 ms loop: the pillars of a real game are in your hands. Parts I–III taught you the machine. Part IV made it yours.</li>
+            </ul>
+          </div>
+
+          <div class="mod-nav">
+            <a href="#ship"><span class="dir">← Prev</span><span class="ttl">12 · From DOL to disc</span></a>
+            <a class="next" href="#what"><span class="dir">↺ Restart</span><span class="ttl">01 · What homebrew is</span></a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <p>
+          Part IV of the <a href="../">Inside the GameCube</a> collection.
+          Every screen, controller and build on this page is a synthetic
+          browser simulation; the page ships <strong>no Nintendo code, tools
+          or assets</strong>, and neither does the toolchain it teaches.
+          Toolchain and library facts follow the devkitPro project's public
+          documentation and the libogc source; installer and product details
+          drift over time, so where this page and
+          <a href="https://devkitpro.org/wiki/Getting_Started">devkitpro.org</a>
+          disagree, trust devkitpro.org. Homebrew described here means running
+          your own software on hardware you own — this page neither contains
+          nor endorses tools for copying games.
+        </p>
+        <p class="src">
+          Source of truth · <code>devkitpro.org</code> ·
+          <code>github.com/devkitPro/libogc</code> ·
+          <code>github.com/dolphin-emu/dolphin</code>
+        </p>
+      </footer>
+
+    </div><!-- /wrap -->
+  </main>
+</div><!-- /app -->
+
+<script src="app.js"></script>
+</body>
+</html>

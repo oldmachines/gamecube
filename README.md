@@ -14,12 +14,15 @@ no framework, no tracking. Open it in a browser and it runs.
 | **Graphics & Flipper** | ✅ Ready — 16-module interactive course | [`graphics/`](graphics/) |
 | **CPU & Gekko** | ✅ Ready — 15-module interactive course | [`cpu/`](cpu/) |
 | **The disc drive** | ✅ Ready — 13-module interactive course | [`disc/`](disc/) |
+| **Homebrew (Part IV)** | ✅ Ready — 13-module interactive course | [`homebrew/`](homebrew/) |
 
 Every course follows the same arc: **Part I** teaches the field's fundamentals
 from absolute zero, **Part II** tears down the GameCube's take on it, and
 **Part III** shows how the [Dolphin emulator](https://github.com/dolphin-emu/dolphin)
-reproduces it. Each module ships **interactive labs** — everything is drawn and
-synthesised live in the browser; no game assets are included.
+reproduces it. A shared **Part IV** caps the collection: once the machine has
+been taken apart, you learn to write your own software for it. Each module
+ships **interactive labs** — everything is drawn and synthesised live in the
+browser; no game assets are included.
 
 ### Audio & the DSP
 
@@ -62,6 +65,22 @@ protection, and how games streamed data and hid loads — and finally disc image
 include a laser-readout scope, a scratch-and-interleaving simulator, a seek
 visualiser and a streaming-buffer playground.
 
+### Write your own homebrew (Part IV)
+
+The collection's capstone: creating your own GameCube software with the free,
+community-built toolchain — no Nintendo code anywhere. It covers what homebrew
+is (and why it isn't piracy), the [devkitPro](https://devkitpro.org) toolchain
+(`powerpc-eabi-gcc`, dkp-pacman, `elf2dol`) and the [libogc](https://github.com/devkitPro/libogc)
+library stack, step-by-step setup on **Windows, macOS and Linux**, the
+hello-world walkthrough, the build pipeline and the **DOL executable format**
+(the same one retail games use), running your code in Dolphin and on real
+hardware (Swiss, SD adapters, savegame exploits, GC Loader, softmodded Wiis),
+then controller input, rendering options, audio/assets/saves, the 16.7 ms game
+loop, and packaging (bare DOL vs. building a disc image). Labs include a
+simulated first-boot screen, an animated build pipeline, a byte-level DOL
+header inspector, a YUY2 pixel encoder, a live controller-bitmask tester and a
+playable frame-budget game.
+
 ## Running locally
 
 It's a plain static site. Open `index.html`, or serve the folder:
@@ -88,7 +107,9 @@ source — chiefly `Source/Core/Core/DSP/`, `Source/Core/Core/HW/DSPHLE/UCodes/`
 and `Source/Core/AudioCommon/` for audio; `Source/Core/VideoCommon/` for
 graphics; `Source/Core/Core/PowerPC/` for the CPU; and
 `Source/Core/Core/HW/DVD/` plus `Source/Core/DiscIO/` for the disc drive.
-These are educational explainers, not authoritative specifications.
+The homebrew course follows the [devkitPro](https://devkitpro.org) project's
+public documentation and the [libogc](https://github.com/devkitPro/libogc)
+source. These are educational explainers, not authoritative specifications.
 
 "Nintendo" and "GameCube" are trademarks of Nintendo. This is an independent,
 non-commercial educational project and is not affiliated with or endorsed by
