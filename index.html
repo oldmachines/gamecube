@@ -26,6 +26,8 @@
   :focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:6px}
   .wrap{max-width:1000px;margin:0 auto;padding:0 28px}
   header.top{display:flex;align-items:center;gap:12px;padding:22px 0}
+  .home-link{display:inline-flex;align-items:center;gap:12px;color:inherit;border-radius:10px}
+  .home-link:hover{text-decoration:none;opacity:.85}
   .logo{width:34px;height:34px;border-radius:8px;
     background:radial-gradient(circle at 30% 30%,var(--violet),var(--violet-d) 55%,#3a2a80);
     box-shadow:0 0 22px -4px rgba(168,132,255,.55),inset 0 0 0 1px rgba(255,255,255,.12);position:relative}
@@ -65,8 +67,10 @@
 <div class="wrap">
 
   <header class="top">
-    <div class="logo" aria-hidden="true"></div>
-    <div class="brandline"><b>oldmachines</b> · the collection</div>
+    <a class="home-link" href="https://oldmachines.github.io/" aria-label="oldmachines — the collection">
+      <div class="logo" aria-hidden="true"></div>
+      <div class="brandline"><b>oldmachines</b> · the collection</div>
+    </a>
   </header>
 
   <section class="hero">
@@ -128,7 +132,7 @@
 
   <footer>
     <p>
-      Part of <a href="https://github.com/oldmachines">oldmachines</a> — interactive
+      Part of <a href="https://oldmachines.github.io/">oldmachines</a> — interactive
       teardowns of the machines we grew up with. Technical content is grounded in
       the <a href="https://github.com/dolphin-emu/dolphin">Dolphin emulator</a>
       source. No copyrighted game assets are shipped here; every sound and

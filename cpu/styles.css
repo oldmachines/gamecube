@@ -1041,3 +1041,11 @@ select, .seg-btns {
   transition: color .2s, border-color .2s, box-shadow .2s;
 }
 .chip.on { color: var(--cyan); border-color: rgba(69,228,209,.55); box-shadow: 0 0 10px -2px rgba(69,228,209,.6); }
+
+/* ---- Back-link to the oldmachines hub site (sidebar) ---- */
+.collection-link{
+  display:inline-flex; align-items:center; gap:7px; margin:0 0 16px;
+  font:600 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted);
+}
+.collection-link:hover{ color:var(--ink); text-decoration:none; }
