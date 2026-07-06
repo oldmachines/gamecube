@@ -1154,3 +1154,11 @@ body::before {
 .route p { font-size: 13px; color: var(--muted); margin: 0; flex: 1; }
 .route .need { margin-top: 12px; font: 600 10.5px/1.5 var(--mono); color: var(--ink-2); }
 .route .need span { color: var(--muted); }
+
+/* ---- Back-link to the oldmachines hub site (sidebar) ---- */
+.collection-link{
+  display:inline-flex; align-items:center; gap:7px; margin:0 0 16px;
+  font:600 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted);
+}
+.collection-link:hover{ color:var(--ink); text-decoration:none; }

@@ -1088,3 +1088,11 @@ select, .seg-btns {
   border: 1px solid rgba(69,228,209,.4); background: rgba(69,228,209,.06);
   font: 600 13.5px/1.55 var(--sans); color: var(--ink);
 }
+
+/* ---- Back-link to the oldmachines hub site (sidebar) ---- */
+.collection-link{
+  display:inline-flex; align-items:center; gap:7px; margin:0 0 16px;
+  font:600 11px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted);
+}
+.collection-link:hover{ color:var(--ink); text-decoration:none; }
